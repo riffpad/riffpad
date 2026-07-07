@@ -74,13 +74,13 @@ export function Hero() {
                     <li>📁 .riffpad/</li>
                   </ul>
                 </div>
-                <div className="min-h-[240px] bg-surface-dark p-4 text-left font-mono text-sm text-white">
+                <div className="min-h-[240px] bg-surface-dark p-4 text-left font-mono text-sm text-on-dark">
                   <span className="text-accent">$ </span>
                   {t.hero.terminal.prompt}
                   <br />
-                  <span className="text-hairline">{t.hero.terminal.status}</span>
+                  <span className="text-muted">{t.hero.terminal.status}</span>
                   <br />
-                  <span className="text-accent-blue-soft">{t.hero.terminal.ready}</span>{" "}
+                  <span className="text-accent-blue">{t.hero.terminal.ready}</span>{" "}
                   <span className="underline decoration-hairline">{t.hero.terminal.url}</span>
                 </div>
               </div>

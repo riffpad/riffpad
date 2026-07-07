@@ -13,7 +13,7 @@ export function LanguageSwitch() {
           onClick={() => setLang(code)}
           className={`rounded-sm px-3 py-1 transition ${
             lang === code
-              ? "bg-foreground text-white"
+              ? "bg-foreground text-background"
               : "text-body hover:text-foreground"
           }`}
           aria-pressed={lang === code}

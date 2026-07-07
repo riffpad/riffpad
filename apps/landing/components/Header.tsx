@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "./Icons";
 import { LanguageSwitch } from "./LanguageSwitch";
+import { ThemeToggle } from "./ThemeToggle";
 import { useLanguage } from "./LanguageProvider";
 import { Hedgehog } from "./Hedgehog";
 
@@ -42,6 +43,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           <LanguageSwitch />
           <a
             href="https://app.riffpad.ai"
@@ -79,7 +81,8 @@ export function Header() {
                   {link.label}
                 </a>
               ))}
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <ThemeToggle />
                 <LanguageSwitch />
               </div>
               <a

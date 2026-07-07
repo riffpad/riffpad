@@ -84,7 +84,7 @@ export function Features() {
                 <span className="inline-block rounded-full bg-surface-soft px-2 py-0.5 text-xs font-bold text-body">
                   {feature.badge}
                 </span>
-                <div className="mt-3 flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-white">
+                <div className="mt-3 flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background">
                   <Icon className="h-4 w-4" />
                 </div>
                 <h3 className="mt-3 text-lg font-bold text-foreground">

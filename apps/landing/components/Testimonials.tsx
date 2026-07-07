@@ -63,7 +63,7 @@ export function Testimonials() {
             >
               <p className="text-base leading-relaxed text-foreground">“{item.quote}”</p>
               <div className="mt-5 flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-sm font-bold text-white">
+                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-sm font-bold text-background">
                   {item.initials}
                 </span>
                 <div>
