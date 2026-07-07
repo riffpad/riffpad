@@ -3,7 +3,6 @@ import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
 import { FAQ } from "@/components/FAQ";
 import { Testimonials } from "@/components/Testimonials";
-import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
 
 const productSchema = {
@@ -13,7 +12,7 @@ const productSchema = {
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Web, iOS, Android",
   description:
-    "AI-Native lightweight code sketchbook. Capture inspiration on mobile, run prototypes in an isolated sandbox, then bridge validated ideas to downstream IDEs.",
+    "AI-Native lightweight workspace. Capture inspiration, run prototypes in an isolated sandbox, then bridge validated ideas to downstream agents.",
   url: "https://riffpad.ai",
   offers: {
     "@type": "Offer",
@@ -40,7 +39,6 @@ export default function Home() {
         <Features />
         <Testimonials />
         <FAQ />
-        <CTA />
       </main>
       <Footer />
     </>
