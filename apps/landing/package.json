@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "serve": "npx serve@14 dist"
+    "serve": "npx serve@14 out"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",
