@@ -43,19 +43,15 @@ export function Pricing() {
 
   return (
     <section id="pricing" className="relative bg-surface px-4 py-24 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute right-0 top-0 h-[500px] w-[500px] rounded-full bg-blue-600/5 blur-[120px]" />
-      </div>
-
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
             {t.pricing.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             {t.pricing.title}
           </h2>
-          <p className="mt-4 text-muted">{t.pricing.subtitle}</p>
+          <p className="mt-4 text-body">{t.pricing.subtitle}</p>
         </div>
 
         <div className="mt-16 grid gap-6 lg:grid-cols-3">
@@ -64,32 +60,32 @@ export function Pricing() {
               key={plan.name}
               whileHover={{ y: -6 }}
               transition={{ duration: 0.2 }}
-              className={`relative rounded-2xl p-6 sm:p-8 ${
+              className={`relative rounded-xl p-6 sm:p-8 ${
                 plan.highlighted
-                  ? "border-2 border-accent bg-background shadow-[0_0_60px_-15px_rgba(200,255,0,0.15)]"
+                  ? "border-2 border-foreground bg-foreground text-background"
                   : "border border-white/10 bg-background"
               }`}
             >
               {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-xs font-bold text-black">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-background px-3 py-1 text-xs font-bold text-foreground">
                   {t.pricing.pro.popular}
                 </span>
               )}
-              <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
-              <p className="mt-1 text-sm text-muted">{plan.description}</p>
+              <h3 className={`text-lg font-semibold ${plan.highlighted ? "text-background" : "text-foreground"}`}>{plan.name}</h3>
+              <p className={`mt-1 text-sm ${plan.highlighted ? "text-background/70" : "text-body"}`}>{plan.description}</p>
               <div className="mt-4 flex items-baseline">
-                <span className="font-display text-4xl font-bold tracking-tight text-foreground">
+                <span className={`font-display text-4xl font-semibold tracking-tight ${plan.highlighted ? "text-background" : "text-foreground"}`}>
                   {plan.price}
                 </span>
-                <span className="ml-1 text-sm text-muted">{plan.period}</span>
+                <span className={`ml-1 text-sm ${plan.highlighted ? "text-background/70" : "text-muted"}`}>{plan.period}</span>
               </div>
 
               <a
                 href={plan.href}
-                className={`mt-6 block rounded-lg px-4 py-3 text-center text-sm font-bold transition ${
+                className={`mt-6 block rounded-full px-4 py-3 text-center text-sm font-medium transition ${
                   plan.highlighted
-                    ? "bg-accent text-black hover:bg-accent-hover"
-                    : "border border-white/10 bg-surface text-foreground hover:border-white/20"
+                    ? "bg-background text-foreground hover:bg-surface-elevated"
+                    : "bg-foreground text-background hover:bg-white"
                 }`}
               >
                 {plan.cta}
@@ -97,8 +93,8 @@ export function Pricing() {
 
               <ul className="mt-6 space-y-3">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 text-sm text-muted">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                  <li key={feature} className={`flex items-start gap-3 text-sm ${plan.highlighted ? "text-background/80" : "text-body"}`}>
+                    <Check className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlighted ? "text-background" : "text-foreground"}`} />
                     {feature}
                   </li>
                 ))}

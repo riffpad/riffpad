@@ -5,12 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "./Icons";
 import { useLanguage } from "./LanguageProvider";
 
-export const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [],
-};
-
 export function FAQ() {
   const { t } = useLanguage();
 
@@ -46,10 +40,10 @@ export function FAQ() {
 
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
             {t.faq.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             {t.faq.title}
           </h2>
         </div>
@@ -60,7 +54,7 @@ export function FAQ() {
             return (
               <div
                 key={faq.q}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-surface transition hover:border-white/15"
+                className="overflow-hidden rounded-xl border border-white/10 bg-surface transition hover:border-white/15"
               >
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : i)}
@@ -83,7 +77,7 @@ export function FAQ() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <p className="px-6 pb-5 text-sm leading-relaxed text-muted">
+                      <p className="px-6 pb-5 text-sm leading-relaxed text-body">
                         {faq.a}
                       </p>
                     </motion.div>

@@ -31,10 +31,10 @@ export function Testimonials() {
     <section className="relative bg-background px-4 py-24 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
             {t.testimonials.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             {t.testimonials.title}
           </h2>
         </div>
@@ -59,7 +59,7 @@ export function Testimonials() {
                 hidden: { opacity: 0, y: 24 },
                 visible: { opacity: 1, y: 0 },
               }}
-              className="relative rounded-2xl border border-white/10 bg-surface p-6 transition hover:border-white/20"
+              className="relative rounded-xl border border-white/10 bg-surface p-6 transition hover:border-white/20"
             >
               <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-accent/5 blur-2xl" />
               <p className="relative text-base leading-relaxed text-foreground/90">“{item.quote}”</p>

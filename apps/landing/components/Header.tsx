@@ -22,15 +22,15 @@ export function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <a
           href="/"
-          className="flex items-center gap-2 font-display text-lg font-bold text-foreground"
+          className="flex items-center gap-2 font-display text-lg font-semibold text-foreground"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-black">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-black">
             R
           </span>
           Riffpad
         </a>
 
-        <nav className="hidden items-center gap-8 text-sm font-medium text-muted md:flex">
+        <nav className="hidden items-center gap-8 text-sm font-medium text-body md:flex">
           {navLinks.map((link) => (
             <a
               key={link.href}
@@ -46,14 +46,14 @@ export function Header() {
           <LanguageSwitch />
           <a
             href="https://app.riffpad.ai"
-            className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:bg-white"
+            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:bg-white"
           >
             {t.nav.cta}
           </a>
         </div>
 
         <button
-          className="rounded-md p-2 text-muted md:hidden"
+          className="rounded-md p-2 text-body md:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -69,7 +69,7 @@ export function Header() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden border-t border-white/5 bg-surface md:hidden"
           >
-            <div className="flex flex-col gap-4 px-4 py-6 text-base font-medium text-muted">
+            <div className="flex flex-col gap-4 px-4 py-6 text-base font-medium text-body">
               {navLinks.map((link) => (
                 <a
                   key={link.href}
@@ -85,7 +85,7 @@ export function Header() {
               </div>
               <a
                 href="https://app.riffpad.ai"
-                className="mt-2 rounded-lg bg-foreground px-4 py-3 text-center text-sm font-medium text-background transition hover:bg-white"
+                className="mt-2 rounded-md bg-foreground px-4 py-3 text-center text-sm font-medium text-background transition hover:bg-white"
               >
                 {t.nav.cta}
               </a>

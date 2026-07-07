@@ -38,24 +38,24 @@ export function Footer() {
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <a href="/" className="flex items-center gap-2 font-display text-lg font-bold text-foreground">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-black">
+            <a href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-black">
                 R
               </span>
               Riffpad
             </a>
-            <p className="mt-4 max-w-xs text-sm text-muted">{t.footer.description}</p>
+            <p className="mt-4 max-w-xs text-sm text-body">{t.footer.description}</p>
           </div>
 
           {footerLinks.map((group) => (
             <div key={group.title}>
-              <h4 className="text-sm font-semibold text-foreground">{group.title}</h4>
+              <h4 className="font-mono text-xs font-medium uppercase tracking-wider text-foreground">{group.title}</h4>
               <ul className="mt-4 space-y-2">
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <a
                       href={link.href}
-                      className="text-sm text-muted transition hover:text-foreground"
+                      className="text-sm text-body transition hover:text-foreground"
                     >
                       {link.label}
                     </a>

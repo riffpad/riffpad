@@ -19,20 +19,20 @@ export function CTA() {
         transition={{ duration: 0.5 }}
         className="relative mx-auto max-w-3xl"
       >
-        <h2 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+        <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
           {t.cta.title}
         </h2>
-        <p className="mt-4 text-lg text-muted">{t.cta.subtitle}</p>
+        <p className="mt-4 text-lg text-body">{t.cta.subtitle}</p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <a
             href="https://app.riffpad.ai"
-            className="rounded-xl bg-accent px-8 py-4 text-base font-semibold text-black shadow-[0_0_40px_-10px_rgba(200,255,0,0.4)] transition hover:bg-accent-hover"
+            className="rounded-full bg-foreground px-8 py-4 text-base font-medium text-background shadow-[0_0_40px_-12px_rgba(255,255,255,0.25)] transition hover:bg-white"
           >
             {t.cta.primary}
           </a>
           <a
             href="/docs"
-            className="rounded-xl border border-white/10 bg-background px-8 py-4 text-base font-medium text-foreground transition hover:border-white/20"
+            className="rounded-full border border-white/10 bg-background px-8 py-4 text-base font-medium text-foreground transition hover:border-white/20"
           >
             {t.cta.secondary}
           </a>

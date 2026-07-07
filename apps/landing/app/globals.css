@@ -3,14 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --background: #050505;
-  --foreground: #e8e8e8;
-  --surface: #0e0e10;
-  --surface-elevated: #141416;
-  --muted: #737373;
-  --accent: #c8ff00;
-  --accent-hover: #b3e600;
-  --border: rgba(255, 255, 255, 0.08);
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: #0a0a0a;
+  --surface-elevated: #171717;
+  --muted: #888888;
+  --body: #a1a1a1;
+  --accent: #0070f3;
+  --accent-hover: #0761d1;
+  --border: rgba(255, 255, 255, 0.1);
+  --hairline: #333333;
+
+  /* Vercel mesh gradient stops */
+  --gradient-develop-start: #007cf0;
+  --gradient-develop-end: #00dfd8;
+  --gradient-preview-start: #7928ca;
+  --gradient-preview-end: #ff0080;
+  --gradient-ship-start: #ff4d4d;
+  --gradient-ship-end: #f9cb28;
 }
 
 html {
@@ -29,13 +39,13 @@ body::before {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: 0.025;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 ::selection {
   background: var(--accent);
-  color: #000;
+  color: #fff;
 }
 
 @layer utilities {
@@ -44,6 +54,6 @@ body::before {
   }
 
   .font-display {
-    font-family: var(--font-syne), var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 }

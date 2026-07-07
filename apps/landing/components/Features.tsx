@@ -49,19 +49,15 @@ export function Features() {
 
   return (
     <section id="features" className="relative bg-surface px-4 py-24 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-0 top-1/2 h-[400px] w-[400px] -translate-y-1/2 rounded-full bg-accent/5 blur-[100px]" />
-      </div>
-
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
             {t.features.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             {t.features.title}
           </h2>
-          <p className="mt-4 text-muted">{t.features.subtitle}</p>
+          <p className="mt-4 text-body">{t.features.subtitle}</p>
         </div>
 
         <motion.div
@@ -77,10 +73,10 @@ export function Features() {
               <motion.div
                 key={feature.title}
                 variants={item}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-background p-6 transition hover:border-accent/30"
+                className="group relative overflow-hidden rounded-xl border border-white/10 bg-background p-6 transition hover:border-white/20"
               >
                 <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/5 blur-2xl transition group-hover:bg-accent/10" />
-                <span className="relative inline-block rounded-full border border-white/10 bg-surface px-2.5 py-1 text-xs font-medium text-accent">
+                <span className="relative inline-block rounded-full border border-white/10 bg-surface px-2.5 py-1 font-mono text-xs font-medium text-accent">
                   {feature.badge}
                 </span>
                 <div className="relative mt-4 flex h-10 w-10 items-center justify-center rounded-lg bg-foreground text-black">
@@ -89,7 +85,7 @@ export function Features() {
                 <h3 className="relative mt-4 text-lg font-semibold text-foreground">
                   {feature.title}
                 </h3>
-                <p className="relative mt-2 text-sm leading-relaxed text-muted">
+                <p className="relative mt-2 text-sm leading-relaxed text-body">
                   {feature.description}
                 </p>
               </motion.div>
