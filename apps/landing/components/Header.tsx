@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X } from "./Icons";
+import { Menu, X, Github } from "./Icons";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLanguage } from "./LanguageProvider";
@@ -13,10 +13,9 @@ export function Header() {
   const { t } = useLanguage();
 
   const navLinks = [
-    { label: t.nav.features, href: "#features" },
-    { label: t.nav.pricing, href: "#pricing" },
-    { label: t.nav.faq, href: "#faq" },
     { label: t.nav.docs, href: "/docs" },
+    { label: t.nav.blog, href: "/blog" },
+    { label: t.nav.pricing, href: "/pricing" },
   ];
 
   return (
@@ -30,7 +29,7 @@ export function Header() {
           Riffpad
         </a>
 
-        <nav className="hidden items-center gap-6 text-sm font-semibold text-body md:flex">
+        <nav className="hidden flex-1 items-center justify-end gap-6 pr-6 text-sm font-semibold text-body md:flex">
           {navLinks.map((link) => (
             <a
               key={link.href}
@@ -46,10 +45,13 @@ export function Header() {
           <ThemeToggle />
           <LanguageSwitch />
           <a
-            href="https://app.riffpad.ai"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-on-accent transition hover:bg-accent-pressed"
+            href="https://github.com/riffpad/riffpad"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md p-2 text-body transition hover:text-foreground"
+            aria-label="GitHub"
           >
-            {t.nav.cta}
+            <Github className="h-5 w-5" />
           </a>
         </div>
 
@@ -84,13 +86,16 @@ export function Header() {
               <div className="flex items-center justify-between gap-3 pt-2">
                 <ThemeToggle />
                 <LanguageSwitch />
+                <a
+                  href="https://github.com/riffpad/riffpad"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md p-2 text-body transition hover:text-foreground"
+                  aria-label="GitHub"
+                >
+                  <Github className="h-5 w-5" />
+                </a>
               </div>
-              <a
-                href="https://app.riffpad.ai"
-                className="mt-2 rounded-md bg-accent px-4 py-3 text-center text-sm font-bold text-on-accent transition hover:bg-accent-pressed"
-              >
-                {t.nav.cta}
-              </a>
             </div>
           </motion.div>
         )}

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useLanguage } from "./LanguageProvider";
 
 export function Testimonials() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const testimonials = [
     {
@@ -40,6 +40,7 @@ export function Testimonials() {
         </div>
 
         <motion.div
+          key={lang}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}

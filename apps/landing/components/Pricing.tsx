@@ -37,7 +37,7 @@ export function Pricing() {
       description: t.pricing.team.description,
       features: t.pricing.teamFeatures,
       cta: t.pricing.team.cta,
-      href: "mailto:hello@riffpad.ai",
+      href: "mailto:hi@riffpad.ai",
       highlighted: false,
     },
   ];

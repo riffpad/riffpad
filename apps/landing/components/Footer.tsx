@@ -1,6 +1,5 @@
 "use client";
 
-import { DeerflowSignature } from "./DeerflowSignature";
 import { useLanguage } from "./LanguageProvider";
 import { Hedgehog } from "./Hedgehog";
 
@@ -11,8 +10,8 @@ export function Footer() {
     {
       title: t.footer.product,
       links: [
-        { label: t.footer.links.features, href: "#features" },
-        { label: t.footer.links.pricing, href: "#pricing" },
+        { label: t.footer.links.features, href: "/" },
+        { label: t.footer.links.pricing, href: "/pricing" },
         { label: t.footer.links.changelog, href: "/changelog" },
       ],
     },
@@ -28,8 +27,9 @@ export function Footer() {
       title: t.footer.company,
       links: [
         { label: t.footer.links.about, href: "/about" },
-        { label: t.footer.links.contact, href: "mailto:hello@riffpad.ai" },
+        { label: t.footer.links.contact, href: "mailto:hi@riffpad.ai" },
         { label: t.footer.links.privacy, href: "/privacy" },
+        { label: t.footer.links.jobs, href: "/jobs" },
       ],
     },
   ];
@@ -81,7 +81,12 @@ export function Footer() {
             >
               X / Twitter
             </a>
-            <DeerflowSignature />
+            <a
+              href="/jobs"
+              className="transition hover:text-foreground"
+            >
+              {t.footer.links.jobs}
+            </a>
           </div>
         </div>
       </div>

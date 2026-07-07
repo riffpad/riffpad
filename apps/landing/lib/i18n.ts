@@ -5,11 +5,9 @@ export const DEFAULT_LANGUAGE: Language = "en";
 export const messages = {
   en: {
     nav: {
-      features: "Features",
-      pricing: "Pricing",
-      faq: "FAQ",
       docs: "Docs",
-      cta: "Start Creating",
+      blog: "Blog",
+      pricing: "Pricing",
     },
     hero: {
       badge: "AI-Native Code Sketchbook",
@@ -17,7 +15,7 @@ export const messages = {
       h1After: "→ a running prototype",
       description:
         "On the subway, in a café, while walking—just describe your idea by voice or text. Riffpad's Agent spins up an isolated sandbox, writes files, installs dependencies, and serves a live preview in under a second.",
-      primaryCta: "Start creating free →",
+      primaryCta: "Get Started →",
       secondaryCta: "See how it works",
       trust: "No credit card · Sandbox ready in 500ms · Phone & tablet friendly",
       terminal: {
@@ -148,12 +146,12 @@ export const messages = {
       a5: "Free gives you 10 Sparks per month—plenty for most throwaway ideas. Upgrade to Pro or Team when you need daily long-running projects, more power, or collaboration.",
     },
     cta: {
-      title: "Don't let another idea slip away today",
-      subtitle:
-        "Start free. Your first sandbox spins up in 500ms. Riffpad is ready when inspiration strikes.",
-      primary: "Start creating free →",
-      secondary: "Read docs",
-      trust: "No credit card · Downgrade anytime",
+      title: "Join the waitlist",
+      subtitle: "Be the first to know when Riffpad is ready.",
+      primary: "Join",
+      placeholder: "you@example.com",
+      success: "Thanks! We'll be in touch.",
+      emailUs: "Or email us →",
     },
     footer: {
       description:
@@ -171,8 +169,8 @@ export const messages = {
         about: "About",
         contact: "Contact",
         privacy: "Privacy",
+        jobs: "Jobs",
       },
-      deerflow: "Created By Deerflow",
     },
     languages: {
       en: "EN",
@@ -181,11 +179,9 @@ export const messages = {
   },
   zh: {
     nav: {
-      features: "功能",
-      pricing: "价格",
-      faq: "FAQ",
       docs: "文档",
-      cta: "开始创作",
+      blog: "博客",
+      pricing: "价格",
     },
     hero: {
       badge: "AI 时代的代码草稿本",
@@ -193,7 +189,7 @@ export const messages = {
       h1After: "→ 能跑的原型",
       description:
         "在地铁上、咖啡馆里、走路时，用语音或文字描述你的想法；Riffpad 的 Agent 会在隔离沙箱里自动写代码、装依赖、跑服务，不到一秒就能看到实时预览。",
-      primaryCta: "免费开始创作 →",
+      primaryCta: "开始使用 →",
       secondaryCta: "看看怎么工作",
       trust: "无需信用卡 · 500ms 启动沙箱 · 支持手机/平板",
       terminal: {
@@ -324,11 +320,12 @@ export const messages = {
       a5: "Free 计划每月 10 个 Spark，足以验证大部分临时想法。如果你每天都有灵感需要长期驻留、更大算力或团队协作，再升级到 Pro / Team。",
     },
     cta: {
-      title: "今天就不让一个灵感溜走",
-      subtitle: "免费开始，500ms 启动你的第一个沙箱。灵感来的时候，Riffpad 已经准备好了。",
-      primary: "免费开始创作 →",
-      secondary: "阅读文档",
-      trust: "无需信用卡 · 随时可降级回 Free",
+      title: "加入等待列表",
+      subtitle: "Riffpad 正式上线时，你会是第一波收到通知的人。",
+      primary: "加入",
+      placeholder: "you@example.com",
+      success: "已收到！我们会尽快联系你。",
+      emailUs: "或直接发邮件给我们 →",
     },
     footer: {
       description:
@@ -346,8 +343,8 @@ export const messages = {
         about: "关于我们",
         contact: "联系我们",
         privacy: "隐私政策",
+        jobs: "招聘",
       },
-      deerflow: "Created By Deerflow",
     },
     languages: {
       en: "EN",

@@ -67,11 +67,10 @@ const themeScript = `
   (function () {
     try {
       const stored = localStorage.getItem('riffpad-theme');
-      const theme = stored === 'light' || stored === 'dark' ? stored : 'system';
-      const resolved = theme === 'system'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : theme;
-      document.documentElement.dataset.theme = resolved;
+      const theme = stored === 'light' || stored === 'dark'
+        ? stored
+        : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = theme;
     } catch (e) {}
   })();
 `;
