@@ -4,7 +4,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "./Icons";
 import { LanguageSwitch } from "./LanguageSwitch";
+import { ThemeToggle } from "./ThemeToggle";
 import { useLanguage } from "./LanguageProvider";
+import { Hedgehog } from "./Hedgehog";
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -18,19 +20,17 @@ export function Header() {
   ];
 
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-white/5 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 border-b border-hairline bg-background">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <a
           href="/"
-          className="flex items-center gap-2 font-display text-lg font-semibold text-foreground"
+          className="flex items-center gap-2 text-lg font-bold text-foreground"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-black">
-            R
-          </span>
+          <Hedgehog className="h-8 w-8" />
           Riffpad
         </a>
 
-        <nav className="hidden items-center gap-8 text-sm font-medium text-body md:flex">
+        <nav className="hidden items-center gap-6 text-sm font-semibold text-body md:flex">
           {navLinks.map((link) => (
             <a
               key={link.href}
@@ -43,10 +43,11 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           <LanguageSwitch />
           <a
             href="https://app.riffpad.ai"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:bg-white"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-on-accent transition hover:bg-accent-pressed"
           >
             {t.nav.cta}
           </a>
@@ -67,7 +68,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-white/5 bg-surface md:hidden"
+            className="overflow-hidden border-t border-hairline bg-surface md:hidden"
           >
             <div className="flex flex-col gap-4 px-4 py-6 text-base font-medium text-body">
               {navLinks.map((link) => (
@@ -80,12 +81,13 @@ export function Header() {
                   {link.label}
                 </a>
               ))}
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <ThemeToggle />
                 <LanguageSwitch />
               </div>
               <a
                 href="https://app.riffpad.ai"
-                className="mt-2 rounded-md bg-foreground px-4 py-3 text-center text-sm font-medium text-background transition hover:bg-white"
+                className="mt-2 rounded-md bg-accent px-4 py-3 text-center text-sm font-bold text-on-accent transition hover:bg-accent-pressed"
               >
                 {t.nav.cta}
               </a>

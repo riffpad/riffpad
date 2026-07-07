@@ -28,13 +28,13 @@ export function Testimonials() {
   ];
 
   return (
-    <section className="relative bg-background px-4 py-24 sm:px-6 lg:px-8">
+    <section className="bg-background px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
+          <p className="text-xs font-bold uppercase tracking-wider text-body">
             {t.testimonials.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
             {t.testimonials.title}
           </h2>
         </div>
@@ -42,7 +42,7 @@ export function Testimonials() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: true, margin: "-80px" }}
           variants={{
             hidden: { opacity: 0 },
             visible: {
@@ -50,25 +50,24 @@ export function Testimonials() {
               transition: { staggerChildren: 0.1 },
             },
           }}
-          className="mt-16 grid gap-6 md:grid-cols-3"
+          className="mt-12 grid gap-4 md:grid-cols-3"
         >
           {testimonials.map((item) => (
             <motion.div
               key={item.name}
               variants={{
-                hidden: { opacity: 0, y: 24 },
+                hidden: { opacity: 0, y: 20 },
                 visible: { opacity: 1, y: 0 },
               }}
-              className="relative rounded-xl border border-white/10 bg-surface p-6 transition hover:border-white/20"
+              className="rounded-md border border-hairline bg-surface p-6"
             >
-              <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-accent/5 blur-2xl" />
-              <p className="relative text-base leading-relaxed text-foreground/90">“{item.quote}”</p>
-              <div className="relative mt-6 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-xs font-bold text-black">
+              <p className="text-base leading-relaxed text-foreground">“{item.quote}”</p>
+              <div className="mt-5 flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-sm font-bold text-background">
                   {item.initials}
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                  <p className="text-sm font-bold text-foreground">{item.name}</p>
                   <p className="text-xs text-muted">{item.role}</p>
                 </div>
               </div>

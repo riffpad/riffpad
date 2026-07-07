@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Sparkles, Zap, Box, Bridge } from "./Icons";
 import { useLanguage } from "./LanguageProvider";
+import { Hedgehog } from "./Hedgehog";
 
 export function Features() {
   const { t } = useLanguage();
@@ -38,54 +39,58 @@ export function Features() {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.12 },
+      transition: { staggerChildren: 0.1 },
     },
   };
 
   const item = {
-    hidden: { opacity: 0, y: 24 },
+    hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 },
   };
 
   return (
-    <section id="features" className="relative bg-surface px-4 py-24 sm:px-6 lg:px-8">
+    <section id="features" className="bg-background px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
+          <p className="text-xs font-bold uppercase tracking-wider text-body">
             {t.features.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
             {t.features.title}
           </h2>
-          <p className="mt-4 text-body">{t.features.subtitle}</p>
+          <p className="mt-3 text-body">{t.features.subtitle}</p>
         </div>
 
         <motion.div
           variants={container}
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, margin: "-100px" }}
-          className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {features.map((feature) => {
+          {features.map((feature, i) => {
             const Icon = feature.icon;
             return (
               <motion.div
                 key={feature.title}
                 variants={item}
-                className="group relative overflow-hidden rounded-xl border border-white/10 bg-background p-6 transition hover:border-white/20"
+                className="relative rounded-md border border-hairline bg-surface p-5 transition hover:border-hairline-strong"
               >
-                <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/5 blur-2xl transition group-hover:bg-accent/10" />
-                <span className="relative inline-block rounded-full border border-white/10 bg-surface px-2.5 py-1 font-mono text-xs font-medium text-accent">
+                {i === 3 && (
+                  <div className="absolute -right-3 -top-3">
+                    <Hedgehog className="h-10 w-10" />
+                  </div>
+                )}
+                <span className="inline-block rounded-full bg-surface-soft px-2 py-0.5 text-xs font-bold text-body">
                   {feature.badge}
                 </span>
-                <div className="relative mt-4 flex h-10 w-10 items-center justify-center rounded-lg bg-foreground text-black">
-                  <Icon className="h-5 w-5" />
+                <div className="mt-3 flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background">
+                  <Icon className="h-4 w-4" />
                 </div>
-                <h3 className="relative mt-4 text-lg font-semibold text-foreground">
+                <h3 className="mt-3 text-lg font-bold text-foreground">
                   {feature.title}
                 </h3>
-                <p className="relative mt-2 text-sm leading-relaxed text-body">
+                <p className="mt-1 text-sm leading-relaxed text-body">
                   {feature.description}
                 </p>
               </motion.div>

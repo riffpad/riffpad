@@ -32,7 +32,7 @@ export function FAQ() {
   };
 
   return (
-    <section id="faq" className="relative bg-background px-4 py-24 sm:px-6 lg:px-8">
+    <section id="faq" className="bg-background px-4 py-20 sm:px-6 lg:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
@@ -40,28 +40,28 @@ export function FAQ() {
 
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
-          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
+          <p className="text-xs font-bold uppercase tracking-wider text-body">
             {t.faq.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
             {t.faq.title}
           </h2>
         </div>
 
-        <div className="mt-12 space-y-4">
+        <div className="mt-10 space-y-3">
           {faqs.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
               <div
                 key={faq.q}
-                className="overflow-hidden rounded-xl border border-white/10 bg-surface transition hover:border-white/15"
+                className="overflow-hidden rounded-md border border-hairline bg-surface"
               >
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : i)}
-                  className="flex w-full items-center justify-between px-6 py-5 text-left"
+                  className="flex w-full items-center justify-between px-5 py-4 text-left"
                   aria-expanded={isOpen}
                 >
-                  <span className="pr-4 text-base font-medium text-foreground">{faq.q}</span>
+                  <span className="pr-4 text-base font-bold text-foreground">{faq.q}</span>
                   <motion.span
                     animate={{ rotate: isOpen ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
@@ -77,7 +77,7 @@ export function FAQ() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <p className="px-6 pb-5 text-sm leading-relaxed text-body">
+                      <p className="px-5 pb-4 text-sm leading-relaxed text-body">
                         {faq.a}
                       </p>
                     </motion.div>

@@ -6,7 +6,7 @@ export function LanguageSwitch() {
   const { lang, setLang, t } = useLanguage();
 
   return (
-    <div className="flex items-center rounded-md border border-white/10 bg-surface p-1 text-xs font-medium">
+    <div className="flex items-center rounded-md border border-hairline bg-surface p-1 text-xs font-semibold">
       {(["en", "zh"] as const).map((code) => (
         <button
           key={code}
