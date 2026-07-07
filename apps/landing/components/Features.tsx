@@ -6,7 +6,7 @@ import { useLanguage } from "./LanguageProvider";
 import { Hedgehog } from "./Hedgehog";
 
 export function Features() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const features = [
     {
@@ -62,6 +62,7 @@ export function Features() {
         </div>
 
         <motion.div
+          key={lang}
           variants={container}
           initial="hidden"
           whileInView="show"

@@ -36,7 +36,7 @@ export function Hero() {
                 {t.hero.primaryCta}
               </a>
               <a
-                href="#features"
+                href="/docs"
                 className="rounded-md bg-surface-soft px-6 py-3 text-base font-semibold text-foreground transition hover:bg-hairline-soft"
               >
                 {t.hero.secondaryCta}
