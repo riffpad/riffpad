@@ -3,24 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
-  --surface: #0a0a0a;
-  --surface-elevated: #171717;
-  --muted: #888888;
-  --body: #a1a1a1;
-  --accent: #0070f3;
-  --accent-hover: #0761d1;
-  --border: rgba(255, 255, 255, 0.1);
-  --hairline: #333333;
+  --background: #eeefe9;
+  --foreground: #23251d;
+  --body: #4d4f46;
+  --muted: #6c6e63;
+  --ash: #9b9c92;
+  --hairline: #bfc1b7;
+  --hairline-soft: #dcdfd2;
 
-  /* Vercel mesh gradient stops */
-  --gradient-develop-start: #007cf0;
-  --gradient-develop-end: #00dfd8;
-  --gradient-preview-start: #7928ca;
-  --gradient-preview-end: #ff0080;
-  --gradient-ship-start: #ff4d4d;
-  --gradient-ship-end: #f9cb28;
+  --surface: #ffffff;
+  --surface-soft: #e5e7e0;
+  --surface-doc: #fcfcfa;
+  --surface-dark: #23251d;
+
+  --accent: #f7a501;
+  --accent-pressed: #dd9001;
+  --accent-active: #b17816;
+  --on-accent: #23251d;
+
+  --link-blue: #1d4ed8;
+  --link-teal: #1078a3;
+  --accent-blue: #2c84e0;
+  --accent-blue-soft: #dceaf6;
+  --accent-green: #2c8c66;
+  --accent-green-soft: #d9eddf;
+  --accent-red: #cd4239;
+  --accent-red-soft: #f7d6d3;
+  --accent-purple: #7c44a6;
+  --accent-purple-soft: #e7d8ee;
 }
 
 html {
@@ -30,30 +40,16 @@ html {
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  font-family: var(--font-ibm-plex-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 ::selection {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
-  }
-
-  .font-display {
-    font-family: var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 }

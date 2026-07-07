@@ -2,6 +2,7 @@
 
 import { DeerflowSignature } from "./DeerflowSignature";
 import { useLanguage } from "./LanguageProvider";
+import { Hedgehog } from "./Hedgehog";
 
 export function Footer() {
   const { t } = useLanguage();
@@ -34,23 +35,21 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-white/5 bg-background px-4 py-12 sm:px-6 lg:px-8">
+    <footer className="border-t border-hairline bg-background px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <a href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-black">
-                R
-              </span>
+            <a href="/" className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <Hedgehog className="h-8 w-8" />
               Riffpad
             </a>
-            <p className="mt-4 max-w-xs text-sm text-body">{t.footer.description}</p>
+            <p className="mt-3 max-w-xs text-sm text-body">{t.footer.description}</p>
           </div>
 
           {footerLinks.map((group) => (
             <div key={group.title}>
-              <h4 className="font-mono text-xs font-medium uppercase tracking-wider text-foreground">{group.title}</h4>
-              <ul className="mt-4 space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">{group.title}</h4>
+              <ul className="mt-3 space-y-2">
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <a
@@ -66,10 +65,10 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 text-sm text-muted sm:flex-row"
+        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-hairline-soft pt-6 text-sm text-muted sm:flex-row"
         >
           <p>© {new Date().getFullYear()} Riffpad. All rights reserved.</p>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <a
               href="https://github.com/riffpad/riffpad"
               className="transition hover:text-foreground"

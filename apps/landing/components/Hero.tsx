@@ -2,97 +2,96 @@
 
 import { motion } from "framer-motion";
 import { useLanguage } from "./LanguageProvider";
-import { MeshGradient } from "./MeshGradient";
+import { Hedgehog } from "./Hedgehog";
 
 export function Hero() {
   const { t } = useLanguage();
 
   return (
-    <section className="relative overflow-hidden bg-background px-4 pb-24 pt-32 text-center sm:px-6 sm:pt-40 lg:px-8">
-      <MeshGradient className="pointer-events-none absolute inset-0 -z-10 h-full w-full" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-background/60 to-background" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: "easeOut" }}
-        className="relative mx-auto max-w-4xl"
-      >
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface/80 px-4 py-1.5 text-sm font-medium text-foreground backdrop-blur-sm">
-          <span className="font-mono text-xs text-accent">{"//"}</span>
-          {t.hero.badge}
-        </div>
-
-        <h1 className="font-display text-5xl font-semibold tracking-tight text-foreground sm:text-7xl lg:text-8xl">
-          {t.hero.h1Before}
-          <br />
-          <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-pink-500 bg-clip-text text-transparent">
-            {t.hero.h1After}
-          </span>
-        </h1>
-
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-body sm:text-xl">
-          {t.hero.description}
-        </p>
-
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <a
-            href="https://app.riffpad.ai"
-            className="rounded-full bg-foreground px-8 py-4 text-base font-medium text-background shadow-[0_0_40px_-12px_rgba(255,255,255,0.25)] transition hover:bg-white"
+    <section className="bg-background px-4 pb-20 pt-16 sm:px-6 sm:pt-20 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            {t.hero.primaryCta}
-          </a>
-          <a
-            href="#features"
-            className="rounded-full border border-white/10 bg-surface px-8 py-4 text-base font-medium text-foreground transition hover:border-white/20 hover:bg-surface-elevated"
+            <div className="mb-4 inline-flex items-center gap-2 rounded-md bg-surface px-3 py-1.5 text-sm font-bold text-body shadow-sm">
+              🦔 {t.hero.badge}
+            </div>
+
+            <h1 className="text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-[42px]">
+              {t.hero.h1Before}
+              <br />
+              <span className="text-accent">{t.hero.h1After}</span>
+            </h1>
+
+            <p className="mt-5 text-lg text-body">{t.hero.description}</p>
+
+            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row">
+              <a
+                href="https://app.riffpad.ai"
+                className="rounded-md bg-accent px-6 py-3 text-base font-bold text-on-accent transition hover:bg-accent-pressed"
+              >
+                {t.hero.primaryCta}
+              </a>
+              <a
+                href="#features"
+                className="rounded-md bg-surface-soft px-6 py-3 text-base font-semibold text-foreground transition hover:bg-hairline-soft"
+              >
+                {t.hero.secondaryCta}
+              </a>
+            </div>
+
+            <p className="mt-3 text-sm text-muted">{t.hero.trust}</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15 }}
+            className="relative"
           >
-            {t.hero.secondaryCta}
-          </a>
-        </div>
-
-        <p className="mt-4 text-sm text-muted">{t.hero.trust}</p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 48 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-        className="relative mx-auto mt-20 max-w-5xl"
-      >
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-surface shadow-2xl">
-          <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
-            <span className="h-3 w-3 rounded-full bg-red-500/80" />
-            <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-            <span className="h-3 w-3 rounded-full bg-green-500/80" />
-            <span className="ml-3 font-mono text-xs text-muted">
-              amber-spark-9 — {t.hero.terminal.title}
-            </span>
-          </div>
-          <div className="grid gap-px bg-white/5 sm:grid-cols-[240px_1fr]">
-            <div className="hidden bg-background p-4 text-left sm:block">
-              <p className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-muted">
-                Files
-              </p>
-              <ul className="space-y-1.5 font-mono text-sm text-muted">
-                <li>📁 workspace/</li>
-                <li className="pl-4">index.html</li>
-                <li className="pl-4">main.py</li>
-                <li className="pl-4">style.css</li>
-                <li>📁 .riffpad/</li>
-              </ul>
+            <div className="overflow-hidden rounded-md border border-hairline bg-surface shadow-sm">
+              <div className="flex items-center gap-2 border-b border-hairline-soft px-4 py-3">
+                <span className="h-3 w-3 rounded-full bg-accent-red" />
+                <span className="h-3 w-3 rounded-full bg-accent" />
+                <span className="h-3 w-3 rounded-full bg-accent-green" />
+                <span className="ml-3 font-mono text-xs text-muted">
+                  amber-spark-9 — {t.hero.terminal.title}
+                </span>
+              </div>
+              <div className="grid gap-px bg-hairline-soft sm:grid-cols-[220px_1fr]">
+                <div className="hidden bg-surface-doc p-4 text-left sm:block">
+                  <p className="mb-2 font-mono text-xs font-bold uppercase text-muted">
+                    Files
+                  </p>
+                  <ul className="space-y-1.5 font-mono text-sm text-body">
+                    <li>📁 workspace/</li>
+                    <li className="pl-4">index.html</li>
+                    <li className="pl-4">main.py</li>
+                    <li className="pl-4">style.css</li>
+                    <li>📁 .riffpad/</li>
+                  </ul>
+                </div>
+                <div className="min-h-[240px] bg-surface-dark p-4 text-left font-mono text-sm text-white">
+                  <span className="text-accent">$ </span>
+                  {t.hero.terminal.prompt}
+                  <br />
+                  <span className="text-hairline">{t.hero.terminal.status}</span>
+                  <br />
+                  <span className="text-accent-blue-soft">{t.hero.terminal.ready}</span>{" "}
+                  <span className="underline decoration-hairline">{t.hero.terminal.url}</span>
+                </div>
+              </div>
             </div>
-            <div className="min-h-[260px] bg-black p-4 text-left font-mono text-sm text-foreground">
-              <span className="text-accent">$ </span>
-              {t.hero.terminal.prompt}
-              <br />
-              <span className="text-muted">{t.hero.terminal.status}</span>
-              <br />
-              <span className="text-cyan-400">{t.hero.terminal.ready}</span>{" "}
-              <span className="underline decoration-white/20">{t.hero.terminal.url}</span>
+
+            <div className="absolute -bottom-4 -right-4 hidden lg:block">
+              <Hedgehog className="h-20 w-20" />
             </div>
-          </div>
+          </motion.div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

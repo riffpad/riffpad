@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Check } from "./Icons";
 import { useLanguage } from "./LanguageProvider";
+import { Hedgehog } from "./Hedgehog";
 
 export function Pricing() {
   const { t, lang } = useLanguage();
@@ -42,59 +43,60 @@ export function Pricing() {
   ];
 
   return (
-    <section id="pricing" className="relative bg-surface px-4 py-24 sm:px-6 lg:px-8">
+    <section id="pricing" className="bg-background px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-sm font-medium uppercase tracking-wider text-muted">
+          <p className="text-xs font-bold uppercase tracking-wider text-body">
             {t.pricing.eyebrow}
           </p>
-          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
             {t.pricing.title}
           </h2>
-          <p className="mt-4 text-body">{t.pricing.subtitle}</p>
+          <p className="mt-3 text-body">{t.pricing.subtitle}</p>
         </div>
 
-        <div className="mt-16 grid gap-6 lg:grid-cols-3">
+        <div className="mt-12 grid gap-4 lg:grid-cols-3">
           {plans.map((plan) => (
             <motion.div
               key={plan.name}
-              whileHover={{ y: -6 }}
+              whileHover={{ y: -4 }}
               transition={{ duration: 0.2 }}
-              className={`relative rounded-xl p-6 sm:p-8 ${
-                plan.highlighted
-                  ? "border-2 border-foreground bg-foreground text-background"
-                  : "border border-white/10 bg-background"
-              }`}
+              className="relative rounded-md border border-hairline bg-surface p-6 sm:p-8"
             >
               {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-background px-3 py-1 text-xs font-bold text-foreground">
-                  {t.pricing.pro.popular}
-                </span>
+                <>
+                  <span className="absolute -top-3 left-6 rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-on-accent">
+                    {t.pricing.pro.popular}
+                  </span>
+                  <div className="absolute -right-3 -top-4 hidden lg:block">
+                    <Hedgehog className="h-10 w-10" />
+                  </div>
+                </>
               )}
-              <h3 className={`text-lg font-semibold ${plan.highlighted ? "text-background" : "text-foreground"}`}>{plan.name}</h3>
-              <p className={`mt-1 text-sm ${plan.highlighted ? "text-background/70" : "text-body"}`}>{plan.description}</p>
-              <div className="mt-4 flex items-baseline">
-                <span className={`font-display text-4xl font-semibold tracking-tight ${plan.highlighted ? "text-background" : "text-foreground"}`}>
+              <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+              <p className="mt-1 text-sm text-body">{plan.description}</p>
+              <div className="mt-3 flex items-baseline">
+                <span className="text-3xl font-extrabold text-foreground">
                   {plan.price}
                 </span>
-                <span className={`ml-1 text-sm ${plan.highlighted ? "text-background/70" : "text-muted"}`}>{plan.period}</span>
+                <span className="ml-1 text-sm text-muted">{plan.period}</span>
               </div>
 
               <a
                 href={plan.href}
-                className={`mt-6 block rounded-full px-4 py-3 text-center text-sm font-medium transition ${
+                className={`mt-5 block rounded-md px-4 py-2.5 text-center text-sm font-bold transition ${
                   plan.highlighted
-                    ? "bg-background text-foreground hover:bg-surface-elevated"
-                    : "bg-foreground text-background hover:bg-white"
+                    ? "bg-accent text-on-accent hover:bg-accent-pressed"
+                    : "bg-surface-soft text-foreground hover:bg-hairline-soft"
                 }`}
               >
                 {plan.cta}
               </a>
 
-              <ul className="mt-6 space-y-3">
+              <ul className="mt-5 space-y-2">
                 {plan.features.map((feature) => (
-                  <li key={feature} className={`flex items-start gap-3 text-sm ${plan.highlighted ? "text-background/80" : "text-body"}`}>
-                    <Check className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlighted ? "text-background" : "text-foreground"}`} />
+                  <li key={feature} className="flex items-start gap-2 text-sm text-body">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-green" />
                     {feature}
                   </li>
                 ))}
