@@ -1,28 +1,54 @@
+import { Header } from "@/components/Header";
+import { Hero } from "@/components/Hero";
+import { Features } from "@/components/Features";
+import { Pricing } from "@/components/Pricing";
+import { FAQ, faqSchema } from "@/components/FAQ";
+import { Testimonials } from "@/components/Testimonials";
+import { CTA } from "@/components/CTA";
+import { Footer } from "@/components/Footer";
+
+const productSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Riffpad",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Web, iOS, Android",
+  description:
+    "AI-Native lightweight code sketchbook. Capture inspiration on mobile, run prototypes in an isolated sandbox, then bridge validated ideas to downstream IDEs.",
+  url: "https://riffpad.ai",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "CNY",
+  },
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "4.8",
+    ratingCount: "128",
+  },
+};
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-neutral-950 px-6 text-center">
-      <h1 className="text-5xl font-bold tracking-tight text-white sm:text-7xl">
-        Riffpad
-      </h1>
-      <p className="mt-6 max-w-xl text-lg text-neutral-400">
-        AI-Native code sketchbook. Capture inspiration on your phone, run
-        prototypes in seconds, and bridge validated ideas to Cursor / Claude
-        Code.
-      </p>
-      <div className="mt-10 flex gap-4">
-        <a
-          href="https://app.riffpad.ai"
-          className="rounded-full bg-white px-6 py-3 font-medium text-neutral-950 transition hover:bg-neutral-200"
-        >
-          Get Started
-        </a>
-        <a
-          href="/docs"
-          className="rounded-full border border-neutral-700 px-6 py-3 font-medium text-white transition hover:border-neutral-500"
-        >
-          Read Docs
-        </a>
-      </div>
-    </main>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <Header />
+      <main>
+        <Hero />
+        <Features />
+        <Testimonials />
+        <Pricing />
+        <FAQ />
+        <CTA />
+      </main>
+      <Footer />
+    </>
   );
 }
