@@ -30,6 +30,7 @@ AI-Native lightweight code sketchbook. Capture inspiration on mobile, run protot
 5. **Test & verify** — run/build/test what you change; never commit secrets.
 6. **Prefer serverless** — use managed services for non-core infra.
 7. **Keep docs in sync** — update TSD/AGENTS/README when architecture changes.
+8. **Use `gh` CLI** — for GitHub issues, branches, PRs, projects, and releases when appropriate.
 
 ## Dev Workflow
 
