@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "serve": "npx serve@14 dist"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",
