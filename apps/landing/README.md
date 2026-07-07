@@ -27,6 +27,18 @@ pnpm build
 
 The site is exported to `dist/` for static hosting.
 
+## Preview the static export
+
+Because Next.js uses absolute asset paths (`/_next/...`), you must serve `dist/` over HTTP instead of opening `dist/index.html` directly with the browser.
+
+```bash
+pnpm serve
+# or
+python3 -m http.server 3000 --directory dist
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
+
 ## Structure
 
 ```
