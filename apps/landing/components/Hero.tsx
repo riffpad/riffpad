@@ -1,72 +1,78 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useLanguage } from "./LanguageProvider";
 
 export function Hero() {
+  const { t } = useLanguage();
+
   return (
-    <section className="relative overflow-hidden bg-white px-4 pb-20 pt-16 text-center sm:px-6 sm:pt-24 lg:px-8">
+    <section className="relative overflow-hidden bg-background px-4 pb-24 pt-32 text-center sm:px-6 sm:pt-40 lg:px-8">
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-100/50 blur-3xl" />
+        <div className="absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.7, ease: "easeOut" }}
         className="mx-auto max-w-4xl"
       >
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700">
-          <span className="h-2 w-2 rounded-full bg-blue-600" />
-          AI 时代的代码草稿本
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface px-4 py-1.5 text-sm font-medium text-accent">
+          <span className="h-2 w-2 rounded-full bg-accent" />
+          {t.hero.badge}
         </div>
 
-        <h1 className="text-4xl font-bold tracking-tight text-gray-950 sm:text-6xl lg:text-7xl">
-          一闪而过的灵感
+        <h1 className="font-display text-5xl font-bold tracking-tight text-foreground sm:text-7xl lg:text-8xl">
+          {t.hero.h1Before}
           <br />
-          <span className="text-blue-600">→ 能跑的原型</span>
+          <span className="text-accent">{t.hero.h1After}</span>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 sm:text-xl">
-          在地铁上、咖啡馆里、散步时，随口说出想法；Riffpad 的 Agent 会在隔离沙箱里自动写代码、装依赖、跑服务，最终打包成 Cursor / Claude Code 直接可用的项目骨架。
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted sm:text-xl">
+          {t.hero.description}
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <a
             href="https://app.riffpad.ai"
-            className="rounded-xl bg-blue-600 px-8 py-4 text-base font-medium text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+            className="rounded-xl bg-accent px-8 py-4 text-base font-semibold text-black shadow-[0_0_40px_-10px_rgba(200,255,0,0.4)] transition hover:bg-accent-hover"
           >
-            免费开始创作 →
+            {t.hero.primaryCta}
           </a>
           <a
             href="#features"
-            className="rounded-xl border border-gray-300 bg-white px-8 py-4 text-base font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+            className="rounded-xl border border-white/10 bg-surface px-8 py-4 text-base font-medium text-foreground transition hover:border-white/20 hover:bg-surface-elevated"
           >
-            看看怎么工作
+            {t.hero.secondaryCta}
           </a>
         </div>
 
-        <p className="mt-4 text-sm text-gray-500">
-          无需信用卡 · 500ms 启动沙箱 · 支持手机/平板
-        </p>
+        <p className="mt-4 text-sm text-muted">{t.hero.trust}</p>
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: 48 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
-        className="mx-auto mt-16 max-w-5xl"
+        transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+        className="mx-auto mt-20 max-w-5xl"
       >
-        <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-900 shadow-2xl">
-          <div className="flex items-center gap-2 border-b border-gray-800 px-4 py-3">
-            <span className="h-3 w-3 rounded-full bg-red-500" />
-            <span className="h-3 w-3 rounded-full bg-yellow-500" />
-            <span className="h-3 w-3 rounded-full bg-green-500" />
-            <span className="ml-3 text-xs text-gray-500">amber-spark-9 — workspace preview</span>
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+          <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
+            <span className="h-3 w-3 rounded-full bg-red-500/80" />
+            <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
+            <span className="h-3 w-3 rounded-full bg-green-500/80" />
+            <span className="ml-3 font-mono text-xs text-muted">
+              amber-spark-9 — {t.hero.terminal.title}
+            </span>
           </div>
-          <div className="grid gap-px bg-gray-800 sm:grid-cols-[240px_1fr]">
-            <div className="hidden bg-gray-900 p-4 text-left sm:block">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Files</p>
-              <ul className="space-y-1.5 text-sm text-gray-400">
+          <div className="grid gap-px bg-white/5 sm:grid-cols-[240px_1fr]">
+            <div className="hidden bg-background/50 p-4 text-left sm:block">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
+                Files
+              </p>
+              <ul className="space-y-1.5 font-mono text-sm text-muted">
                 <li>📁 workspace/</li>
                 <li className="pl-4">index.html</li>
                 <li className="pl-4">main.py</li>
@@ -74,14 +80,14 @@ export function Hero() {
                 <li>📁 .riffpad/</li>
               </ul>
             </div>
-            <div className="min-h-[260px] bg-gray-950 p-4 text-left font-mono text-sm text-gray-300">
-              <span className="text-green-400">$ </span>
-              帮我做一个倒计时网页，语音输入即可
+            <div className="min-h-[260px] bg-background p-4 text-left font-mono text-sm text-foreground">
+              <span className="text-accent">$ </span>
+              {t.hero.terminal.prompt}
               <br />
-              <span className="text-gray-500">Agent 正在创建文件、安装依赖、启动预览...</span>
+              <span className="text-muted">{t.hero.terminal.status}</span>
               <br />
-              <span className="text-blue-400">→ 预览已就绪：</span>{" "}
-              <span className="underline">https://preview.riffpad.app/p/abc123</span>
+              <span className="text-blue-400">{t.hero.terminal.ready}</span>{" "}
+              <span className="underline decoration-white/20">{t.hero.terminal.url}</span>
             </div>
           </div>
         </div>

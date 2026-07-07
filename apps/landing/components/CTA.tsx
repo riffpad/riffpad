@@ -1,40 +1,43 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useLanguage } from "./LanguageProvider";
 
 export function CTA() {
+  const { t } = useLanguage();
+
   return (
-    <section className="bg-gray-950 px-4 py-24 text-center sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden bg-surface px-4 py-24 text-center sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/10 blur-[120px]" />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="mx-auto max-w-3xl"
+        className="relative mx-auto max-w-3xl"
       >
-        <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          今天就不让一个灵感溜走
+        <h2 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          {t.cta.title}
         </h2>
-        <p className="mt-4 text-lg text-gray-400">
-          免费开始，500ms 启动你的第一个沙箱。灵感来的时候，Riffpad 已经准备好了。
-        </p>
+        <p className="mt-4 text-lg text-muted">{t.cta.subtitle}</p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <a
             href="https://app.riffpad.ai"
-            className="rounded-xl bg-blue-600 px-8 py-4 text-base font-medium text-white transition hover:bg-blue-700"
+            className="rounded-xl bg-accent px-8 py-4 text-base font-semibold text-black shadow-[0_0_40px_-10px_rgba(200,255,0,0.4)] transition hover:bg-accent-hover"
           >
-            免费开始创作 →
+            {t.cta.primary}
           </a>
           <a
             href="/docs"
-            className="rounded-xl border border-gray-700 px-8 py-4 text-base font-medium text-white transition hover:border-gray-500"
+            className="rounded-xl border border-white/10 bg-background px-8 py-4 text-base font-medium text-foreground transition hover:border-white/20"
           >
-            阅读文档
+            {t.cta.secondary}
           </a>
         </div>
-        <p className="mt-4 text-sm text-gray-500">
-          无需信用卡 · 随时可降级回 Free
-        </p>
+        <p className="mt-4 text-sm text-muted">{t.cta.trust}</p>
       </motion.div>
     </section>
   );

@@ -2,7 +2,7 @@ import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
 import { Pricing } from "@/components/Pricing";
-import { FAQ, faqSchema } from "@/components/FAQ";
+import { FAQ } from "@/components/FAQ";
 import { Testimonials } from "@/components/Testimonials";
 import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
@@ -19,7 +19,7 @@ const productSchema = {
   offers: {
     "@type": "Offer",
     price: "0",
-    priceCurrency: "CNY",
+    priceCurrency: "USD",
   },
   aggregateRating: {
     "@type": "AggregateRating",
@@ -33,14 +33,10 @@ export default function Home() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
-      <script
-        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
       <Header />
-      <main>
+      <main className="bg-background">
         <Hero />
         <Features />
         <Testimonials />
