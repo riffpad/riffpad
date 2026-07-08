@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 300 300">
+  <defs>
+    <mask id="grid-cutout">
+      <rect x="50" y="50" width="200" height="200" rx="20" ry="20" fill="white"/>
+      <rect x="70" y="70" width="40" height="40" fill="black"/>
+      <rect x="130" y="70" width="40" height="40" fill="black"/>
+      <rect x="190" y="70" width="40" height="40" fill="black"/>
+      <rect x="70" y="130" width="100" height="40" fill="black"/>
+      <rect x="190" y="130" width="40" height="40" fill="black"/>
+      <rect x="70" y="190" width="160" height="40" fill="black"/>
+    </mask>
+  </defs>
+  <g transform="rotate(-90, 150, 150)">
+    <rect x="50" y="50" width="200" height="200" rx="20" ry="20" fill="#F7A501" mask="url(#grid-cutout)"/>
+  </g>
+</svg>

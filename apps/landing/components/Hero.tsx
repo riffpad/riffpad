@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useLanguage } from "./LanguageProvider";
-import { Hedgehog } from "./Hedgehog";
 import { WaitlistForm } from "./WaitlistForm";
 
 export function Hero() {
@@ -36,10 +35,6 @@ export function Hero() {
             className="relative"
           >
             <ChatMockup />
-
-            <div className="absolute -bottom-4 -right-4 hidden lg:block">
-              <Hedgehog className="h-20 w-20" />
-            </div>
           </motion.div>
         </div>
       </div>

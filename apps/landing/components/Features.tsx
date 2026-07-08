@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useLanguage } from "./LanguageProvider";
-import { Hedgehog } from "./Hedgehog";
 import { Check, X } from "./Icons";
 
 export function Features() {
@@ -126,10 +125,6 @@ function IdeasToFilesMockup() {
             <span className="text-accent">const</span> target =
             <span className="text-accent-green"> new</span> Date(<span className="text-accent-blue">&quot;2026-08-01&quot;</span>);
           </motion.div>
-
-          <div className="absolute -right-2 -top-2">
-            <Hedgehog className="h-10 w-10" />
-          </div>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import { Menu, X, Github } from "./Icons";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLanguage } from "./LanguageProvider";
-import { Hedgehog } from "./Hedgehog";
+import { Logo } from "./Logo";
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -25,7 +25,7 @@ export function Header() {
           href="/"
           className="flex items-center gap-2 text-lg font-bold text-foreground"
         >
-          <Hedgehog className="h-8 w-8" />
+          <Logo className="h-8 w-8" />
           Riffpad
         </a>
 
