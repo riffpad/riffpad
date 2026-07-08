@@ -72,25 +72,25 @@ export function Header() {
             exit={{ opacity: 0, height: 0 }}
             className="border-t border-hairline bg-surface md:hidden"
           >
-            <div className="flex flex-col gap-4 px-4 py-6 text-base font-medium text-body">
+            <div className="flex flex-col gap-2 px-4 py-6 text-base font-medium text-body">
               {navLinks.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="transition hover:text-foreground"
+                  className="flex min-h-[44px] items-center py-2 transition hover:text-foreground"
                 >
                   {link.label}
                 </a>
               ))}
-              <div className="flex items-center justify-between gap-3 pt-2">
+              <div className="flex items-center justify-between gap-3 pt-4">
                 <ThemeToggle />
-                <LanguageSwitch />
+                <LanguageSwitch variant="inline" />
                 <a
                   href="https://github.com/riffpad/riffpad"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-md p-2 text-body transition hover:text-foreground"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md p-2 text-body transition hover:text-foreground"
                   aria-label="GitHub"
                 >
                   <Github className="h-5 w-5" />
