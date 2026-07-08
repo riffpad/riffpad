@@ -6,9 +6,15 @@ import { useLanguage } from "./LanguageProvider";
 
 interface LanguageSwitchProps {
   variant?: "dropdown" | "inline";
+  className?: string;
+  buttonClassName?: string;
 }
 
-export function LanguageSwitch({ variant = "dropdown" }: LanguageSwitchProps) {
+export function LanguageSwitch({
+  variant = "dropdown",
+  className,
+  buttonClassName,
+}: LanguageSwitchProps) {
   const { lang, setLang, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -47,10 +53,12 @@ export function LanguageSwitch({ variant = "dropdown" }: LanguageSwitchProps) {
   ));
 
   return (
-    <div ref={ref} className={inline ? "relative" : "relative"}>
+    <div ref={ref} className={className ? `${className} relative` : "relative"}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-[44px] items-center gap-1 rounded-md border border-hairline bg-surface px-3 py-2 text-sm font-semibold text-body transition hover:text-foreground"
+        className={`flex min-h-[44px] items-center gap-1 rounded-md border border-hairline bg-surface px-3 py-2 text-sm font-semibold text-body transition hover:text-foreground ${
+          buttonClassName || ""
+        }`}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
