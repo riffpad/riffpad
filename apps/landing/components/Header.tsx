@@ -70,7 +70,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-hairline bg-surface md:hidden"
+            className="border-t border-hairline bg-surface md:hidden"
           >
             <div className="flex flex-col gap-4 px-4 py-6 text-base font-medium text-body">
               {navLinks.map((link) => (
