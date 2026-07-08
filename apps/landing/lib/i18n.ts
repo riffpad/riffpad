@@ -14,6 +14,10 @@ export const messages = {
       description:
         "Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.",
       trust: "Join the waitlist · No spam · Early access",
+      contact: {
+        email: "Email us",
+        discord: "Join Discord",
+      },
       chat: {
         title: "Riffpad",
         userMessage: "Build me a countdown page for my product launch.",
@@ -178,6 +182,10 @@ export const messages = {
       description:
         "无论在手机、平板还是电脑上，随时随地头脑风暴、记录灵感、搭建轻量原型。只需一句话，Riffpad 就能把它变成一个可运行的工作空间。",
       trust: "加入等待列表 · 不滥发邮件 · 抢先体验",
+      contact: {
+        email: "发邮件",
+        discord: "加入 Discord",
+      },
       chat: {
         title: "Riffpad",
         userMessage: "帮我做一个产品发布倒计时页面。",

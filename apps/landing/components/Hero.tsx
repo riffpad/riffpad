@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useLanguage } from "./LanguageProvider";
 import { WaitlistForm } from "./WaitlistForm";
+import { Mail, Discord } from "./Icons";
 
 export function Hero() {
   const { t } = useLanguage();
@@ -24,6 +25,24 @@ export function Hero() {
 
             <div className="mt-8 max-w-md">
               <WaitlistForm />
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <a
+                  href="mailto:hi@riffpad.ai"
+                  className="inline-flex items-center gap-2 rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-semibold text-body transition hover:border-ash hover:text-foreground"
+                >
+                  <Mail className="h-4 w-4" />
+                  {t.hero.contact.email}
+                </a>
+                <a
+                  href="https://discord.gg/CDNFTg2QyM"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-semibold text-body transition hover:border-ash hover:text-foreground"
+                >
+                  <Discord className="h-4 w-4" />
+                  {t.hero.contact.discord}
+                </a>
+              </div>
               <p className="mt-3 text-sm text-muted">{t.hero.trust}</p>
             </div>
           </motion.div>
