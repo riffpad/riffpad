@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { Check } from "./Icons";
 import { useLanguage } from "./LanguageProvider";
-import { Hedgehog } from "./Hedgehog";
 
 export function Pricing() {
   const { t, lang } = useLanguage();
@@ -68,9 +67,6 @@ export function Pricing() {
                   <span className="absolute -top-3 left-6 rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-on-accent">
                     {t.pricing.pro.popular}
                   </span>
-                  <div className="absolute -right-3 -top-4 hidden lg:block">
-                    <Hedgehog className="h-10 w-10" />
-                  </div>
                 </>
               )}
               <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>

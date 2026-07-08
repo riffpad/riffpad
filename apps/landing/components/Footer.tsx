@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "./LanguageProvider";
-import { Hedgehog } from "./Hedgehog";
+import { Logo } from "./Logo";
 
 export function Footer() {
   const { t } = useLanguage();
@@ -40,7 +40,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <a href="/" className="flex items-center gap-2 text-lg font-bold text-foreground">
-              <Hedgehog className="h-8 w-8" />
+              <Logo className="h-8 w-8" />
               Riffpad
             </a>
             <p className="mt-3 max-w-xs text-sm text-body">{t.footer.description}</p>

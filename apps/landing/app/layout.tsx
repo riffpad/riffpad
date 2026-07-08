@@ -20,9 +20,9 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://riffpad.ai"),
-  title: "Riffpad - AI-Native Code Sketchbook",
+  title: "Riffpad - The AI-native workspace in seconds.",
   description:
-    "Capture code inspiration anywhere, run prototypes in an isolated sandbox in under a second, and bridge validated ideas to Cursor / Claude Code.",
+    "Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.",
   keywords: [
     "AI coding",
     "code sketchbook",
@@ -34,9 +34,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "Riffpad - AI-Native Code Sketchbook",
+    title: "Riffpad - The AI-native workspace in seconds.",
     description:
-      "Capture code inspiration anywhere, run prototypes in an isolated sandbox in under a second, and bridge validated ideas to Cursor / Claude Code.",
+      "Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.",
     url: "https://riffpad.ai",
     siteName: "Riffpad",
     locale: "en_US",
@@ -46,15 +46,15 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "Riffpad - AI-Native Code Sketchbook",
+        alt: "Riffpad - The AI-native workspace in seconds.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Riffpad - AI-Native Code Sketchbook",
+    title: "Riffpad - The AI-native workspace in seconds.",
     description:
-      "Capture code inspiration anywhere, run prototypes in an isolated sandbox in under a second, and bridge validated ideas to Cursor / Claude Code.",
+      "Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.",
     images: ["/og.png"],
   },
   robots: {
