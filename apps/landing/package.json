@@ -10,6 +10,7 @@
     "serve": "npx serve@14 out"
   },
   "dependencies": {
+    "@formspree/react": "^3.0.0",
     "framer-motion": "^12.42.2",
     "next": "14.2.35",
     "react": "^18",
