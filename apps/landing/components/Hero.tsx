@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "./LanguageProvider";
 import { WaitlistForm } from "./WaitlistForm";
@@ -7,6 +8,17 @@ import { Mail, Discord } from "./Icons";
 
 export function Hero() {
   const { t } = useLanguage();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText("hi@riffpad.ai");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback is silent; user can still see the address visually
+    }
+  };
 
   return (
     <section className="bg-background px-4 pb-20 pt-16 sm:px-6 sm:pt-20 lg:px-8">
@@ -26,13 +38,14 @@ export function Hero() {
             <div className="mt-8 max-w-md">
               <WaitlistForm />
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <a
-                  href="mailto:hi@riffpad.ai"
+                <button
+                  type="button"
+                  onClick={handleCopyEmail}
                   className="inline-flex items-center gap-2 rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-semibold text-body transition hover:border-ash hover:text-foreground"
                 >
                   <Mail className="h-4 w-4" />
-                  {t.hero.contact.email}
-                </a>
+                  {copied ? t.hero.contact.copied : t.hero.contact.email}
+                </button>
                 <a
                   href="https://discord.gg/CDNFTg2QyM"
                   target="_blank"
