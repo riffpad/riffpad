@@ -16,7 +16,7 @@ export function ThemeToggle({ className, showLabel }: ThemeToggleProps = {}) {
   return (
     <button
       onClick={() => setTheme(next)}
-      className={`flex items-center gap-2 rounded-md border border-hairline bg-surface px-3 py-2 text-sm font-semibold text-body transition hover:text-foreground${
+      className={`flex h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-body transition hover:text-foreground${
         className ? ` ${className}` : ""
       }`}
       aria-label={`Current theme: ${label}. Click to switch to ${next} mode.`}

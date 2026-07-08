@@ -56,7 +56,7 @@ export function LanguageSwitch({
     <div ref={ref} className={className ? `${className} relative` : "relative"}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex min-h-[44px] items-center gap-1 rounded-md border border-hairline bg-surface px-3 py-2 text-sm font-semibold text-body transition hover:text-foreground ${
+        className={`flex h-11 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold text-body transition hover:text-foreground ${
           buttonClassName || ""
         }`}
         aria-expanded={open}
