@@ -6,8 +6,6 @@
   </picture>
 </p>
 
-<h1 align="center">Riffpad</h1>
-
 <p align="center">
   <strong>The AI-native workspace in seconds.</strong><br />
 </p>
