@@ -1,21 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useForm, ValidationError } from "@formspree/react";
 import { useLanguage } from "./LanguageProvider";
 
 export function WaitlistForm({ center = false }: { center?: boolean }) {
   const { t } = useLanguage();
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [state, handleSubmit] = useForm("xjgqddar");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) {
-      setSubmitted(true);
-    }
-  };
-
-  if (submitted) {
+  if (state.succeeded) {
     return (
       <p className={`text-base font-semibold text-accent ${center ? "text-center" : ""}`}>
         {t.waitlist.success}
@@ -28,19 +20,28 @@ export function WaitlistForm({ center = false }: { center?: boolean }) {
       onSubmit={handleSubmit}
       className={`flex flex-col gap-3 sm:flex-row ${center ? "justify-center" : ""}`}
     >
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder={t.waitlist.placeholder}
-        className="flex-1 rounded-md border border-hairline bg-surface px-4 py-3 text-base text-foreground outline-none transition placeholder:text-muted focus:border-accent"
-      />
+      <div className="flex-1">
+        <input
+          type="email"
+          name="email"
+          id="email"
+          required
+          placeholder={t.waitlist.placeholder}
+          className="w-full rounded-md border border-hairline bg-surface px-4 py-3 text-base text-foreground outline-none transition placeholder:text-muted focus:border-accent"
+        />
+        <ValidationError
+          prefix="Email"
+          field="email"
+          errors={state.errors}
+          className="mt-1 text-sm text-accent-red"
+        />
+      </div>
       <button
         type="submit"
-        className="rounded-md bg-accent px-6 py-3 text-base font-bold text-on-accent transition hover:bg-accent-pressed"
+        disabled={state.submitting}
+        className="rounded-md bg-accent px-6 py-3 text-base font-bold text-on-accent transition hover:bg-accent-pressed disabled:opacity-60"
       >
-        {t.waitlist.cta}
+        {state.submitting ? "..." : t.waitlist.cta}
       </button>
     </form>
   );
