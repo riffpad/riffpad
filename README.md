@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <strong>The AI-native workspace in seconds.</strong><br />
+  <strong>Riffpad: The AI-native workspace in seconds.</strong><br />
 </p>
 
 <p align="center">
