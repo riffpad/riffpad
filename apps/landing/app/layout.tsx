@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og.png",
+        url: "/og.png?v=1",
         width: 1200,
         height: 630,
         alt: "Riffpad - The AI-native workspace in seconds.",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     title: "Riffpad - The AI-native workspace in seconds.",
     description:
       "Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.",
-    images: ["/og.png"],
+    images: ["/og.png?v=1"],
   },
   robots: {
     index: true,
