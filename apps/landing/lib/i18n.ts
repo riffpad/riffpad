@@ -171,6 +171,75 @@ export const messages = {
       en: "EN",
       zh: "中文",
     },
+    pages: {
+      docs: {
+        title: "Docs",
+        description: "Get started with Riffpad.",
+        intro: "Riffpad turns a sentence into a running workspace.",
+        quickStart: "Quick start",
+        quickStartText:
+          "Join the waitlist to get early access. Once invited, describe your idea and Riffpad will spin up a sandbox with files, a live preview, and an agent.",
+        help: "Need help?",
+        helpText: "Email us at hi@riffpad.ai or join our Discord community.",
+      },
+      changelog: {
+        title: "Changelog",
+        description: "Updates and improvements to Riffpad.",
+        items: [
+          {
+            version: "v0.2.0",
+            date: "2026-07-08",
+            content: "Refreshed landing page, added waitlist, Discord/email contact, and mobile menu redesign.",
+          },
+          {
+            version: "v0.1.0",
+            date: "2026-06-01",
+            content: "Initial landing page and waitlist signup.",
+          },
+        ],
+      },
+      about: {
+        title: "About",
+        description: "The AI-native workspace in seconds.",
+        mission:
+          "We believe the best ideas appear in fragmented moments — on the subway, during a walk, between meetings. Riffpad exists to capture those ideas before they fade, and turn them into something real.",
+        team: "Team",
+        teamText: "We are a small team building Riffpad in public. Want to join us? Check out our jobs page.",
+      },
+      privacy: {
+        title: "Privacy Policy",
+        description: "How Riffpad handles your data.",
+        lastUpdated: "Last updated: July 8, 2026",
+        sections: [
+          {
+            title: "Information we collect",
+            content:
+              "We collect your email address when you join the waitlist. We may also collect basic usage data and cookies for theme preferences.",
+          },
+          {
+            title: "How we use information",
+            content:
+              "We use your email to send waitlist updates and product announcements. We do not sell your personal information.",
+          },
+          {
+            title: "Third-party services",
+            content:
+              "We use Formspree for waitlist submissions and Supabase for authentication and data storage when the app is live.",
+          },
+          {
+            title: "Contact us",
+            content: "If you have questions about this policy, email hi@riffpad.ai.",
+          },
+        ],
+      },
+      jobs: {
+        title: "Join us",
+        description: "Help build the AI-native workspace.",
+        noRoles: "No open roles right now.",
+        contact:
+          "We are always curious about exceptional people. Send a note to hi@riffpad.ai and tell us what you would build.",
+      },
+    },
   },
   zh: {
     nav: {
@@ -339,6 +408,75 @@ export const messages = {
     languages: {
       en: "EN",
       zh: "中文",
+    },
+    pages: {
+      docs: {
+        title: "文档",
+        description: "开始使用 Riffpad。",
+        intro: "Riffpad 把一句话变成一个可运行的工作空间。",
+        quickStart: "快速开始",
+        quickStartText:
+          "加入等待列表以获得抢先体验。获得邀请后，描述你的想法，Riffpad 会为你启动一个包含文件、实时预览和 Agent 的沙箱。",
+        help: "需要帮助？",
+        helpText: "发送邮件至 hi@riffpad.ai，或加入我们的 Discord 社区。",
+      },
+      changelog: {
+        title: "更新日志",
+        description: "Riffpad 的更新与改进。",
+        items: [
+          {
+            version: "v0.2.0",
+            date: "2026-07-08",
+            content: "刷新 landing page、接入等待列表、Discord/邮箱联系、以及移动端菜单重设计。",
+          },
+          {
+            version: "v0.1.0",
+            date: "2026-06-01",
+            content: "初始 landing page 和等待列表注册。",
+          },
+        ],
+      },
+      about: {
+        title: "关于",
+        description: "几秒钟内，拥有 AI 原生工作空间。",
+        mission:
+          "我们相信最好的灵感诞生于碎片化的时刻——在地铁上、散步时、会议间隙。Riffpad 的存在，就是在这些灵感消失之前捕捉它们，并把它们变成真实的东西。",
+        team: "团队",
+        teamText: "我们是一支公开构建 Riffpad 的小团队。想加入我们？看看招聘页面。",
+      },
+      privacy: {
+        title: "隐私政策",
+        description: "Riffpad 如何处理你的数据。",
+        lastUpdated: "最后更新：2026 年 7 月 8 日",
+        sections: [
+          {
+            title: "我们收集的信息",
+            content:
+              "当你加入等待列表时，我们会收集你的电子邮箱地址。我们也可能收集基础使用数据和主题偏好 Cookie。",
+          },
+          {
+            title: "我们如何使用信息",
+            content:
+              "我们使用你的邮箱发送等待列表更新和产品公告。我们不会出售你的个人信息。",
+          },
+          {
+            title: "第三方服务",
+            content:
+              "我们使用 Formspree 处理等待列表提交，应用上线后将使用 Supabase 进行认证和数据存储。",
+          },
+          {
+            title: "联系我们",
+            content: "如果你对本政策有疑问，请发送邮件至 hi@riffpad.ai。",
+          },
+        ],
+      },
+      jobs: {
+        title: "加入我们",
+        description: "一起构建 AI 原生工作空间。",
+        noRoles: "目前没有开放职位。",
+        contact:
+          "我们始终对优秀的人充满好奇。发送邮件至 hi@riffpad.ai，告诉我们你想构建什么。",
+      },
     },
   },
 } as const;
