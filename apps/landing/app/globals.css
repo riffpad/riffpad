@@ -88,4 +88,25 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes exportFlow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+.export-flow-line {
+  animation: exportFlow 2.5s linear infinite;
+}
+
+.riffpad-logo-white {
+  filter: brightness(0) saturate(100%) invert(100%);
 }

@@ -33,6 +33,105 @@ export const messages = {
       placeholder: "you@example.com",
       success: "Thanks! You're on the list.",
     },
+    saasWorkspace: {
+      files: "Files",
+      docs: "docs",
+      editor: "Editor",
+      preview: "Preview",
+      empty: "Select a file",
+      chat: "Chat",
+      userMessage: "Do a competitive analysis for cloud AI Agent products.",
+      stepThinking: "Thinking...",
+      stepSearch: "Web search: AI coding tools 2026",
+      stepWrite: "Write file: docs/competitive-analysis.md",
+      assistantReply: "Written",
+      assistantReplySuffix: "with 11 competitor profiles, market data, and strategic recommendations.",
+      inputPlaceholder: "Describe your idea...",
+      filesContent: {
+        prd: {
+          name: "prd.md",
+          content: `# Riffpad PRD
+
+## Positioning
+AI-native code sketchbook. Capture inspiration anywhere and turn a sentence into a running workspace.
+
+## Core Flow
+1. Describe an idea in plain language.
+2. Agent builds files and starts a sandbox preview.
+3. Validate, then bridge to Cursor / Claude Code.
+`,
+        },
+        analysis: {
+          name: "competitive-analysis.md",
+          content: `# Competitive Analysis
+
+## Market
+- 84% of developers use or plan to use AI tools.
+- 62% cite context window as the biggest pain point.
+
+## Competitors
+1. ChatGPT / Gemini — chat-first, no running workspace.
+2. Cursor / Claude Code — heavy, local-first IDE agents.
+3. v0 / Bolt / Lovable — prompt-to-app builders with platform lock-in.
+
+## Riffpad's gap
+Upstream incubator: lighter than an IDE, more structured than chat, more open than app builders.
+`,
+        },
+      },
+    },
+    skillsMockup: {
+      chat: "Chat",
+      you: "You",
+      agent: "Agent",
+      userMessageShort: "install this agent skill for me",
+      showMore: "show more",
+      userMessage: `Install this Agent Skill for me.
+
+Skill page: https://skillsmp.com/creators/anthropics/skills/skills-frontend-design
+Source URL: https://github.com/anthropics/skills/tree/main/skills/frontend-design
+Skill name: frontend-design
+Creator: anthropics
+Preferred install command: npx skills add https://github.com/anthropics/skills --skill frontend-design
+
+Please open the skill page and source, review SKILL.md plus any companion files, and explain anything risky before installing.
+
+If shell commands are available, prefer the install command above. If you install manually, copy the complete skill directory that contains SKILL.md, including scripts, references, assets, agents, and any other files shown on the skill page. Preserve the relative folder structure. Do not install SKILL.md alone. After installing, verify the target skills folder contains SKILL.md and all companion files needed by this skill.`,
+      agentStep: "Running command: npx skills add https://github.com/anthropics/skills --skill frontend-design",
+      thinking: "Thinking...",
+      runCommandLabel: "Run command",
+      runCommand: "npx skills add https://github.com/anthropics/skills --skill frontend-design",
+      assistantReply: "Skill",
+      assistantReplyName: "frontend-design",
+      assistantReplySuffix: "has been installed successfully.",
+      inputPlaceholder: "Describe your idea...",
+    },
+    mobileWorkspace: {
+      workspaceName: "amber-spark-9",
+      workspaceLabel: "workspace",
+      userMessage: "Add a comparison between Cursor and Claude Code.",
+      stepRead: "Reading docs/competitive-analysis.md",
+      stepSearch: "Web search: Cursor vs Claude Code 2026",
+      stepWrite: "Write file: docs/competitive-analysis.md",
+      filesTitle: "Files",
+      prdFile: "prd.md",
+      analysisFile: "competitive-analysis.md",
+      assistantReply: "Updated",
+      assistantReplyName: "competitive-analysis.md",
+      assistantReplySuffix:
+        "with a new comparison of Cursor and Claude Code across local-first setup, cloud sync, and engineering scenarios.",
+      previewTitle: "Preview",
+      previewType: "Markdown",
+      previewHeading: "Cursor / Claude Code",
+      previewPoints: [
+        "Local-first IDE agent",
+        "Requires repo & environment setup",
+        "Best for heavy engineering",
+      ],
+      voiceText: "Add a comparison between Cursor and Claude Code",
+      listening: "Listening...",
+      holdToSpeak: "Hold to speak",
+    },
     features: {
       eyebrow: "What Riffpad does",
       title: "A cloud AI Agent in your pocket",
@@ -40,14 +139,9 @@ export const messages = {
         "No installs, no setup, no scattered chat threads. Describe what you want and get a running workspace with files, preview, and an agent.",
       blocks: [
         {
-          title: "Lightweight AI Agent, instant start",
+          title: "Skills + MCP, extend on demand",
           description:
-            "Spin up a sandbox in seconds. Chat on the left, code and preview in the middle, file tree on the right — a focused, agent-first workspace.",
-        },
-        {
-          title: "Install Skills in one sentence",
-          description:
-            "Extend the agent with Skills. Ask to add a capability, watch the command run, then toggle Skills on or off from the settings panel.",
+            "Install Skills and connect MCP servers to give the agent real capabilities — from generating polished frontends and documents to syncing with GitHub, Linear, and Notion.",
         },
         {
           title: "Use Riffpad anywhere",
@@ -315,6 +409,95 @@ export const messages = {
       placeholder: "you@example.com",
       success: "已收到！你在列表里了。",
     },
+    saasWorkspace: {
+      files: "文件",
+      docs: "docs",
+      editor: "编辑",
+      preview: "预览",
+      empty: "选择文件以查看",
+      chat: "对话",
+      userMessage: "帮我做一个云端 AI Agent 产品的调研分析",
+      stepThinking: "思考中...",
+      stepSearch: "网页搜索：AI 编程工具 2026",
+      stepWrite: "写入文件：docs/competitive-analysis.md",
+      assistantReply: "已写入",
+      assistantReplySuffix: "，包含 11 个竞品画像、市场数据和策略建议。",
+      inputPlaceholder: "描述你的想法...",
+      filesContent: {
+        prd: {
+          name: "prd.md",
+          content: `# Riffpad 产品需求文档
+
+## 定位
+AI 原生代码速写本。随时随地捕捉灵感，把一句话变成可运行的工作空间。
+
+## 核心流程
+1. 用自然语言描述想法。
+2. Agent 生成文件并启动沙箱预览。
+3. 验证后桥接到 Cursor / Claude Code。
+`,
+        },
+        analysis: {
+          name: "competitive-analysis.md",
+          content: `# 竞品调研分析
+
+## 市场
+- 84% 的开发者正在使用或计划使用 AI 工具。
+- 62% 的开发者认为上下文窗口是最大的痛点。
+
+## 竞品
+1. ChatGPT / Gemini —— 以聊天为主，没有可运行工作空间。
+2. Cursor / Claude Code —— 重型、本地优先的 IDE Agent。
+3. v0 / Bolt / Lovable —— 一句话生成应用，但平台锁定严重。
+
+## Riffpad 的差异化
+上游孵化器：比 IDE 更轻，比聊天更有结构，比应用生成器更开放。
+`,
+        },
+      },
+    },
+    skillsMockup: {
+      chat: "对话",
+      you: "用户",
+      agent: "Agent",
+      userMessageShort: "帮我安装这个 agent skill",
+      showMore: "显示更多",
+      userMessage: `帮我安装这个 Agent Skill。\n\nSkill page: https://skillsmp.com/creators/anthropics/skills/skills-frontend-design\nSource URL: https://github.com/anthropics/skills/tree/main/skills/frontend-design\nSkill name: frontend-design\nCreator: anthropics\nPreferred install command: npx skills add https://github.com/anthropics/skills --skill frontend-design\n\nPlease open the skill page and source, review SKILL.md plus any companion files, and explain anything risky before installing.\n\nIf shell commands are available, prefer the install command above. If you install manually, copy the complete skill directory that contains SKILL.md, including scripts, references, assets, agents, and any other files shown on the skill page. Preserve the relative folder structure. Do not install SKILL.md alone. After installing, verify the target skills folder contains SKILL.md and all companion files needed by this skill.`,
+      agentStep: "运行命令：npx skills add https://github.com/anthropics/skills --skill frontend-design",
+      thinking: "思考中...",
+      runCommandLabel: "运行命令",
+      runCommand: "npx skills add https://github.com/anthropics/skills --skill frontend-design",
+      assistantReply: "Skill",
+      assistantReplyName: "frontend-design",
+      assistantReplySuffix: "已安装完毕",
+      inputPlaceholder: "描述你的想法...",
+    },
+    mobileWorkspace: {
+      workspaceName: "amber-spark-9",
+      workspaceLabel: "workspace",
+      userMessage: "再补充一下 Cursor 和 Claude Code 的对比。",
+      stepRead: "读取 docs/competitive-analysis.md",
+      stepSearch: "网页搜索：Cursor vs Claude Code 2026",
+      stepWrite: "写入文件：docs/competitive-analysis.md",
+      filesTitle: "文件",
+      prdFile: "prd.md",
+      analysisFile: "competitive-analysis.md",
+      assistantReply: "已更新",
+      assistantReplyName: "competitive-analysis.md",
+      assistantReplySuffix:
+        "，新增了 Cursor 与 Claude Code 在本地优先、云端同步和工程场景上的对比。",
+      previewTitle: "预览",
+      previewType: "Markdown",
+      previewHeading: "Cursor / Claude Code",
+      previewPoints: [
+        "本地优先的 IDE Agent",
+        "需要仓库和环境配置",
+        "适合重型工程",
+      ],
+      voiceText: "再补充一下 Cursor 和 Claude Code 的对比",
+      listening: "聆听中...",
+      holdToSpeak: "按住说话",
+    },
     features: {
       eyebrow: "Riffpad 能做什么",
       title: "随身可用的云端 AI Agent",
@@ -322,14 +505,9 @@ export const messages = {
         "无需安装，无需配置，没有散落在聊天里的片段。描述你想要什么，就能得到一个带文件、预览和 Agent 的可运行工作空间。",
       blocks: [
         {
-          title: "轻量 AI Agent，秒级启动",
+          title: "Skill + MCP，按需扩展 Agent",
           description:
-            "几秒内启动沙箱。左侧 Chat，中间代码与实时预览，右侧文件树——一个以 Agent 为核心的沉浸式工作空间。",
-        },
-        {
-          title: "一句话安装 Skill",
-          description:
-            "按需扩展 Agent 能力。用自然语言要求安装某个 Skill，看命令执行，然后在设置面板里随时开关。",
+            "安装 Skill、接入 MCP 服务器，让 Agent 真正拥有能力——从生成精美前端和文档，到同步 GitHub、Linear、Notion，一切按需启用。",
         },
         {
           title: "在任何地方使用 Riffpad",

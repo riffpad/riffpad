@@ -1,5 +1,6 @@
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
+import { SaasWorkspaceMockup } from "@/components/mockups";
 import { Features } from "@/components/Features";
 import { Comparison } from "@/components/Comparison";
 import { FAQ } from "@/components/FAQ";
@@ -37,6 +38,9 @@ export default function Home() {
       <Header />
       <main className="bg-background">
         <Hero />
+        <section className="px-4 pb-16 pt-4 sm:px-6 sm:pb-20 lg:px-8">
+          <SaasWorkspaceMockup />
+        </section>
         <Features />
         <Comparison />
         <Testimonials />
