@@ -96,3 +96,17 @@ body {
     display: none;
   }
 }
+
+@keyframes exportFlow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+.export-flow-line {
+  animation: exportFlow 2.5s linear infinite;
+}
+
+.riffpad-logo-white {
+  filter: brightness(0) saturate(100%) invert(100%);
+}

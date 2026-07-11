@@ -36,7 +36,7 @@ export function Features() {
         <div className="mt-20 space-y-32">
           {order.map((originalIndex, i) => {
             const block = blocks[originalIndex];
-            const isFullWidth = originalIndex === 0 || originalIndex === 1;
+            const isFullWidth = true;
             return (
               <motion.div
                 key={`${lang}-${i}`}
@@ -50,13 +50,9 @@ export function Features() {
               >
                 <div
                   className={
-                    isFullWidth
-                      ? originalIndex === 1
-                        ? "ml-auto max-w-2xl text-right"
-                        : "max-w-2xl"
-                      : i % 2 === 1
-                        ? "lg:order-2"
-                        : ""
+                    originalIndex === 2
+                      ? "ml-auto max-w-2xl text-right"
+                      : "max-w-2xl"
                   }
                 >
                   <span className="text-xs font-bold uppercase tracking-wider text-accent">
