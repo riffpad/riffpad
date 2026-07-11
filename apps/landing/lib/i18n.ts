@@ -10,9 +10,9 @@ export const messages = {
       pricing: "Pricing",
     },
     hero: {
-      h1: "The AI-native workspace in seconds.",
+      h1: "A real cloud AI Agent, ready to use.",
       description:
-        "Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.",
+        "On your phone, tablet, or desktop — describe an idea and Riffpad turns it into a running workspace. Capture ideas, handle files, validate prototypes, then hand off to Cursor / Claude Code with one click.",
       trust: "Join the waitlist · No spam · Early access",
       contact: {
         email: "Copy email",
@@ -34,30 +34,74 @@ export const messages = {
       success: "Thanks! You're on the list.",
     },
     features: {
-      eyebrow: "From idea to delivery in three steps",
-      title: "Treat ideas as code, not chat history",
+      eyebrow: "What Riffpad does",
+      title: "A cloud AI Agent in your pocket",
       subtitle:
-        "Stop scrolling through LLM threads for snippets. Stop losing sparks in scattered chats.",
+        "No installs, no setup, no scattered chat threads. Describe what you want and get a running workspace with files, preview, and an agent.",
       blocks: [
         {
-          title: "Ideas become files, not forgotten threads",
+          title: "Lightweight AI Agent, instant start",
           description:
-            "Every idea is saved to a workspace with a file tree, version history, and a live preview. No more digging through chat history to find what the AI generated.",
+            "Spin up a sandbox in seconds. Chat on the left, code and preview in the middle, file tree on the right — a focused, agent-first workspace.",
         },
         {
-          title: "Run in seconds, on any device",
+          title: "Install Skills in one sentence",
           description:
-            "No local setup, no dependency hell, no terminal. Cloud-synced across phone, tablet, and desktop. Describe what you want and watch it run.",
+            "Extend the agent with Skills. Ask to add a capability, watch the command run, then toggle Skills on or off from the settings panel.",
         },
         {
-          title: "AI power without the engineering overhead",
+          title: "Use Riffpad anywhere",
           description:
-            "Get the execution ability of Claude Code or Codex without managing repos, environments, or local machines.",
+            "Built for fragmented time. Capture ideas on your phone with voice input while walking, commuting, or between meetings.",
         },
         {
-          title: "Hand off to any downstream agent",
+          title: "Hand off to Cursor / Claude Code",
           description:
-            "Export your workspace context as an Agent Skill, MCP server, or Zip—ready for Cursor, Claude Code, or your own pipeline.",
+            "When the prototype is validated, export the full context as a prompt package or a clean .zip skeleton — ready for serious engineering.",
+        },
+      ],
+    },
+    comparison: {
+      eyebrow: "How Riffpad compares",
+      title: "The upstream workspace for AI-native ideas",
+      subtitle:
+        "Riffpad sits between chat and production IDE — lighter than a coding agent, more structured than a chatbot.",
+      tables: [
+        {
+          title: "vs. ChatGPT / Gemini",
+          headers: ["Riffpad", "ChatGPT / Gemini"],
+          rows: [
+            {
+              riffpad: "Agent loop that keeps running and using tools until the problem is solved",
+              other: "Single or few LLM calls; user manually pushes the conversation forward",
+            },
+            {
+              riffpad: "Install Skills to extend capabilities on demand",
+              other: "Limited to the platform's built-in ecosystem",
+            },
+            {
+              riffpad: "Real file system; knowledge persists in an exportable workspace",
+              other: "Content is scattered across a chat scroll",
+            },
+          ],
+        },
+        {
+          title: "vs. Codex / Claude Code",
+          headers: ["Riffpad", "Codex / Claude Code"],
+          rows: [
+            {
+              riffpad: "Start with one sentence; no install, repo, or environment setup",
+              other: "Requires local install, directory creation, and environment configuration",
+            },
+            {
+              riffpad: "Runs in the cloud and syncs across phone, tablet, and desktop",
+              other: "Primarily runs on your local machine",
+            },
+            {
+              riffpad: "Built for fast, lightweight, creative validation",
+              other: "Built for heavy engineering on existing codebases",
+            },
+          ],
         },
       ],
     },
@@ -248,9 +292,9 @@ export const messages = {
       pricing: "价格",
     },
     hero: {
-      h1: "几秒钟内，拥有 AI 原生工作空间。",
+      h1: "真正的云端 AI Agent，开箱即用。",
       description:
-        "无论在手机、平板还是电脑上，随时随地头脑风暴、记录灵感、搭建轻量原型。只需一句话，Riffpad 就能把它变成一个可运行的工作空间。",
+        "无论在电脑、手机还是平板，一句话就能启动一个可运行的工作空间——记录灵感、处理文件、验证原型，然后一键交给 Cursor / Claude Code 继续开发。",
       trust: "加入等待列表 · 不滥发邮件 · 抢先体验",
       contact: {
         email: "复制邮箱",
@@ -272,30 +316,74 @@ export const messages = {
       success: "已收到！你在列表里了。",
     },
     features: {
-      eyebrow: "从想法到交付，只需三步",
-      title: "把灵感当成代码，而不是聊天记录",
+      eyebrow: "Riffpad 能做什么",
+      title: "随身可用的云端 AI Agent",
       subtitle:
-        "告别在 LLM 对话里翻找片段，也告别让灵感散落在各种聊天窗口中。",
+        "无需安装，无需配置，没有散落在聊天里的片段。描述你想要什么，就能得到一个带文件、预览和 Agent 的可运行工作空间。",
       blocks: [
         {
-          title: "灵感变成文件，而不是被遗忘的对话",
+          title: "轻量 AI Agent，秒级启动",
           description:
-            "每个想法都会保存到带有文件树、版本历史和实时预览的工作区。再也不用去聊天记录里翻找 AI 生成的内容。",
+            "几秒内启动沙箱。左侧 Chat，中间代码与实时预览，右侧文件树——一个以 Agent 为核心的沉浸式工作空间。",
         },
         {
-          title: "几秒运行，任何设备可用",
+          title: "一句话安装 Skill",
           description:
-            "无需本地配置、无需依赖地狱、无需终端。手机、平板、桌面多端云同步。说出你想要什么，看它直接跑起来。",
+            "按需扩展 Agent 能力。用自然语言要求安装某个 Skill，看命令执行，然后在设置面板里随时开关。",
         },
         {
-          title: "AI 能力，无需工程负担",
+          title: "在任何地方使用 Riffpad",
           description:
-            "拥有 Claude Code 或 Codex 的执行能力，却不需要管理仓库、环境或本地机器。",
+            "为碎片时间而生。走路、通勤、会议间隙，用手机语音输入就能创建原型。",
         },
         {
-          title: "一键交给任意下游 Agent",
+          title: "一键交给 Cursor / Claude Code",
           description:
-            "将工作区上下文导出为 Agent Skill、MCP 服务器或 Zip，直接交给 Cursor、Claude Code 或你自己的工作流。",
+            "原型验证完成后，导出完整上下文：Prompt 包或干净的 .zip 项目骨架，直接交给工程师继续开发。",
+        },
+      ],
+    },
+    comparison: {
+      eyebrow: "Riffpad 有什么不同",
+      title: "AI 原生想法的上游工作空间",
+      subtitle:
+        "Riffpad 位于聊天工具和生产 IDE 之间——比 Coding Agent 更轻，比聊天机器人更有结构。",
+      tables: [
+        {
+          title: "vs. ChatGPT / Gemini",
+          headers: ["Riffpad", "ChatGPT / Gemini"],
+          rows: [
+            {
+              riffpad: "Agent loop，持续运行并调用工具直到问题解决",
+              other: "单次或少量 LLM 调用，需要用户手动推进",
+            },
+            {
+              riffpad: "可安装 Skill，按需扩展能力",
+              other: "能力受限于平台自带生态",
+            },
+            {
+              riffpad: "真实的文件系统，知识沉淀在可导出的工作区",
+              other: "内容散落在对话流中",
+            },
+          ],
+        },
+        {
+          title: "vs. Codex / Claude Code",
+          headers: ["Riffpad", "Codex / Claude Code"],
+          rows: [
+            {
+              riffpad: "一句话启动，无需安装、建仓库、配环境",
+              other: "需要本地安装、新建目录、配置环境",
+            },
+            {
+              riffpad: "云端运行，手机 / 平板 / 电脑多端同步",
+              other: "主要运行在本地机器",
+            },
+            {
+              riffpad: "适合快速、轻度、创意型验证",
+              other: "适合已有代码库的重型工程",
+            },
+          ],
         },
       ],
     },
