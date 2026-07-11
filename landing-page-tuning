@@ -1,0 +1,30 @@
+Brainstorm, capture ideas, and build light prototypes anywhere—on your phone, tablet, or desktop. Riffpad turns a sentence into a running workspace, no setup required.
+改为
+运行在云端的完整的AI agent能力，开箱即用，触手可及。在任何地方，电脑、手机、平板。记录灵感，处理文件，原型验证，它无所不能
+
+然后，下面是三大feature,注意 ui mockup全部独占一行:
+1. 轻量的ai agent，极速启动，无需任何安装或配置
+   对应的ui mockup:类似IDE的三栏布局，最左侧是chat interface，中间是打开的文件，最右侧是file tree
+2. 一句话安装skill，按需启用，扩展能力
+    对应的ui mockup:chat interface，用户说“帮我安装agent skill:Skill page:... Source URL: ...Skill name: ..."，riffpad显示run a command"npx skills add ...",回复“已为您装好”
+    右边还有一个管理各个agent skill是否启用的设置页面
+3. 在任何地方使用riffpad, 充分利用碎片时间，使用先进的语音识别
+    ui mockup:移动端app，交互页面，语音识别ing
+4. 想给 codex/claude code使用？一键导出上下文
+    ui mockup:可以看到分发形式有prompt, .zip
+
+接下来是对比环节：
+1. vs. chatGPT/gemini 等网页版chat
+ | riffpad | chatGPT/gemini
+本质 Agent loop，持续运行直到问题解决 | 单次LLM call
+扩展 安装各种skill | 局限于自家生态
+知识沉淀 真实的文件系统 | 散落在对话里
+
+2. vs. codex/claude code等coding agent
+ | riffpad | codex/claude code
+启动 一键启动，无需配置 | 安装，新建目录
+运行在 云端，多端同步 | 本地
+适合 快速，轻度，创意 | 重型开发
+
+后面的 user voices和faq都保持原样
+   

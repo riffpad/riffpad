@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
+import { Comparison } from "@/components/Comparison";
 import { FAQ } from "@/components/FAQ";
 import { Testimonials } from "@/components/Testimonials";
 import { Footer } from "@/components/Footer";
@@ -37,6 +38,7 @@ export default function Home() {
       <main className="bg-background">
         <Hero />
         <Features />
+        <Comparison />
         <Testimonials />
         <FAQ />
       </main>
