@@ -60,9 +60,9 @@ export function Testimonials() {
                 hidden: { opacity: 0, y: 20 },
                 visible: { opacity: 1, y: 0 },
               }}
-              className="rounded-md border border-hairline bg-surface p-6"
+              className="flex flex-col rounded-md border border-hairline bg-surface p-6"
             >
-              <p className="text-base leading-relaxed text-foreground">“{item.quote}”</p>
+              <p className="flex-1 text-base leading-relaxed text-foreground">“{item.quote}”</p>
               <div className="mt-5 flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-sm font-bold text-background">
                   {item.initials}

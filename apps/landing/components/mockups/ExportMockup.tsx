@@ -161,7 +161,7 @@ function RiffpadIcon() {
         width="6"
         height="6"
         preserveAspectRatio="xMidYMid meet"
-        className="riffpad-logo-white"
+        className="riffpad-logo"
       />
     </svg>
   );

@@ -107,6 +107,10 @@ body {
   animation: exportFlow 2.5s linear infinite;
 }
 
-.riffpad-logo-white {
-  filter: brightness(0) saturate(100%) invert(100%);
+.riffpad-logo {
+  filter: brightness(0);
+}
+
+[data-theme="dark"] .riffpad-logo {
+  filter: brightness(0) invert(1);
 }
