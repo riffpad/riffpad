@@ -114,7 +114,7 @@ export function ExportMockup() {
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
-              className="text-muted export-flow-line"
+              className="text-muted"
             />
           ))}
 
