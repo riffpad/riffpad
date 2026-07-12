@@ -114,7 +114,7 @@ export function ExportMockup() {
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
-              className="text-muted export-flow-line"
+              className="text-muted"
             />
           ))}
 
@@ -161,7 +161,7 @@ function RiffpadIcon() {
         width="6"
         height="6"
         preserveAspectRatio="xMidYMid meet"
-        className="riffpad-logo-white"
+        className="riffpad-logo"
       />
     </svg>
   );

@@ -36,7 +36,6 @@ export function Features() {
         <div className="mt-20 space-y-32">
           {order.map((originalIndex, i) => {
             const block = blocks[originalIndex];
-            const isFullWidth = true;
             return (
               <motion.div
                 key={`${lang}-${i}`}
@@ -44,17 +43,9 @@ export function Features() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-100px" }}
                 transition={{ duration: 0.7, ease: "easeOut" }}
-                className={`grid items-center gap-12 ${
-                  isFullWidth ? "" : "lg:grid-cols-2"
-                }`}
+                className="grid items-center gap-12"
               >
-                <div
-                  className={
-                    originalIndex === 2
-                      ? "ml-auto max-w-2xl text-right"
-                      : "max-w-2xl"
-                  }
-                >
+                <div className="max-w-2xl">
                   <span className="text-xs font-bold uppercase tracking-wider text-accent">
                     0{i + 1}
                   </span>
@@ -65,13 +56,7 @@ export function Features() {
                     {block.description}
                   </p>
                 </div>
-                <div
-                  className={
-                    isFullWidth ? "" : i % 2 === 1 ? "lg:order-1" : ""
-                  }
-                >
-                  {mockups[originalIndex]}
-                </div>
+                <div>{mockups[originalIndex]}</div>
               </motion.div>
             );
           })}

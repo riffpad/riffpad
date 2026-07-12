@@ -97,16 +97,10 @@ body {
   }
 }
 
-@keyframes exportFlow {
-  to {
-    stroke-dashoffset: -12;
-  }
+.riffpad-logo {
+  filter: brightness(0);
 }
 
-.export-flow-line {
-  animation: exportFlow 2.5s linear infinite;
-}
-
-.riffpad-logo-white {
-  filter: brightness(0) saturate(100%) invert(100%);
+[data-theme="dark"] .riffpad-logo {
+  filter: brightness(0) invert(1);
 }
