@@ -1,0 +1,22 @@
+{
+  "name": "riffpad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-native sketchbook for code",
+  "scripts": {
+    "install:all": "pnpm install && make install-go",
+    "dev:app": "pnpm --filter app dev",
+    "dev:landing": "pnpm --filter landing dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.17.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

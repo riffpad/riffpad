@@ -50,6 +50,63 @@ Most AI coding tools sit at one of two extremes: a chat window that thinks but d
 | Workflow position | Downstream production IDE         | Upstream idea incubator         |
 | Handoff           | —                                 | Zip, MCP server, or Agent Skill |
 
+## Local Development
+
+This repo is a pnpm monorepo. You need:
+
+- Node.js >= 18.17
+- pnpm >= 9.0
+- Go >= 1.22
+- Docker & Docker Compose (for local Postgres / Redis / MinIO)
+
+### Quick start
+
+```bash
+# 1. Install dependencies
+cp .env.example .env
+make install
+
+# 2. Start the full local stack
+make dev-local
+```
+
+Services will be available at:
+
+| Service | URL |
+| ------- | --- |
+| App (app.riffpad.ai) | http://localhost:3000 |
+| Landing (riffpad.ai) | http://localhost:3001 |
+| API (api.riffpad.ai) | http://localhost:8080 |
+| API health check | http://localhost:8080/healthz |
+| MinIO console | http://localhost:9001 |
+
+### Useful commands
+
+```bash
+make build     # Build all apps
+make test      # Run all tests
+make lint      # Run all linters
+make down      # Stop Docker Compose services
+make clean     # Remove build artifacts and node_modules
+```
+
+### Project structure
+
+```
+riffpad/
+├── apps/
+│   ├── app/       # app.riffpad.ai (Next.js 14 + shadcn/ui)
+│   ├── landing/   # riffpad.ai marketing site
+│   └── api/       # Go backend (Echo + GORM)
+├── packages/
+│   └── shared-types/  # OpenAPI definitions
+├── infra/
+│   └── docker-compose.yml  # Local dev infrastructure
+└── docs/
+    ├── prd.md     # Product requirements
+    └── tsd.md     # Technical specification
+```
+
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
