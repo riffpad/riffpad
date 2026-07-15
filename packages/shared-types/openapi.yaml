@@ -1,0 +1,252 @@
+openapi: 3.0.3
+info:
+  title: Riffpad API
+  description: AI-native sketchbook for code
+  version: 0.1.0
+  contact:
+    name: Riffpad
+    url: https://riffpad.ai
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.riffpad.ai
+    description: Production
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Same as Supabase auth.users.id
+        email:
+          type: string
+          nullable: true
+        anonymousId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    WorkspaceStatus:
+      type: string
+      enum:
+        - WARM
+        - HIBERNATING
+        - ARCHIVED
+
+    Workspace:
+      type: object
+      required:
+        - id
+        - slug
+        - ownerId
+        - status
+        - baseImage
+        - lastActiveAt
+        - createdAt
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+          description: Unique random codename, e.g. amber-spark-9
+          example: amber-spark-9
+        name:
+          type: string
+          nullable: true
+        ownerId:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkspaceStatus"
+        sandboxId:
+          type: string
+          nullable: true
+        baseImage:
+          type: string
+          default: riffpad-node-python
+        lastActiveAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        resourceQuota:
+          type: object
+          properties:
+            cpu:
+              type: number
+            memory:
+              type: number
+            disk:
+              type: number
+        isPinned:
+          type: boolean
+          default: false
+
+    File:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - path
+        - content
+        - updatedAt
+      properties:
+        id:
+          type: string
+        workspaceId:
+          type: string
+        path:
+          type: string
+          example: src/index.html
+        content:
+          type: string
+        language:
+          type: string
+          nullable: true
+        isGenerated:
+          type: boolean
+          default: false
+        updatedAt:
+          type: string
+          format: date-time
+
+    MessageRole:
+      type: string
+      enum:
+        - system
+        - user
+        - assistant
+        - tool
+
+    Message:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - role
+        - content
+        - createdAt
+      properties:
+        id:
+          type: string
+        workspaceId:
+          type: string
+        role:
+          $ref: "#/components/schemas/MessageRole"
+        content:
+          type: string
+        modelId:
+          type: string
+          nullable: true
+        toolCalls:
+          type: object
+          nullable: true
+        toolResults:
+          type: object
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Snapshot:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - version
+        - fileSnapshot
+        - storageKey
+        - createdAt
+      properties:
+        id:
+          type: string
+        workspaceId:
+          type: string
+        version:
+          type: string
+        fileSnapshot:
+          type: object
+        storageKey:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AgentEvent:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - thinking
+            - tool_call
+            - tool_result
+            - file_change
+            - preview_update
+            - message
+            - error
+        content:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        args:
+          type: object
+          nullable: true
+        result:
+          type: object
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+
+    CreateWorkspaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          nullable: true
