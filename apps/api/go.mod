@@ -3,8 +3,10 @@ module github.com/riffpad/riffpad/apps/api
 go 1.22
 
 require (
+	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/sashabaranov/go-openai v1.41.2
 	gorm.io/gorm v1.25.12
 )
 
