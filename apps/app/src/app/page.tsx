@@ -402,16 +402,6 @@ export default function Home() {
           </Button>
         </div>
       )}
-
-      {/* Deerflow signature */}
-      <a
-        href="https://deerflow.tech"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="deerflow-signature"
-      >
-        Created By Deerflow
-      </a>
     </div>
   );
 }
