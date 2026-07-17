@@ -131,9 +131,3 @@
   background: hsl(var(--ash));
 }
 
-/* Deerflow signature */
-.deerflow-signature {
-  @apply fixed bottom-4 right-4 z-50 text-[10px] font-medium tracking-wide uppercase text-body/60;
-  @apply px-2 py-1 rounded-full border border-hairline bg-card/80 backdrop-blur-sm;
-  @apply transition-all duration-200 hover:text-ink hover:border-body/40 hover:scale-105;
-}
