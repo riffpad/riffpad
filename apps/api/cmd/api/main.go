@@ -37,6 +37,8 @@ func main() {
 	wh := handler.NewWorkspaceHandler(workspaceManager)
 	e.POST("/api/v1/workspaces", wh.Create)
 	e.GET("/api/v1/workspaces/:id", wh.Get)
+	e.GET("/api/v1/workspaces/:id/files", wh.ListFiles)
+	e.GET("/api/v1/workspaces/:id/file", wh.ReadFile)
 
 	ah := handler.NewAgentHandler(workspaceManager, cfg)
 	e.GET("/ws/workspaces/:id", ah.Handle)

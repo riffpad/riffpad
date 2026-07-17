@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -32,4 +33,30 @@ func (h *WorkspaceHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "workspace not found"})
 	}
 	return c.JSON(http.StatusOK, ws)
+}
+
+func (h *WorkspaceHandler) ListFiles(c echo.Context) error {
+	id := c.Param("id")
+	dir := c.QueryParam("dir")
+	if dir == "" {
+		dir = "."
+	}
+	files, err := h.manager.ListFiles(context.Background(), id, dir)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, files)
+}
+
+func (h *WorkspaceHandler) ReadFile(c echo.Context) error {
+	id := c.Param("id")
+	path := c.QueryParam("path")
+	if path == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "path is required"})
+	}
+	content, err := h.manager.ReadFile(context.Background(), id, path)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"content": content})
 }

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 
@@ -45,6 +46,22 @@ func (m *WorkspaceManager) Get(id string) (*domain.Workspace, bool) {
 func (m *WorkspaceManager) Sandbox(id string) (sandbox.Sandbox, bool) {
 	box, ok := m.sandboxes[id]
 	return box, ok
+}
+
+func (m *WorkspaceManager) ListFiles(ctx context.Context, id string, dir string) ([]sandbox.FileInfo, error) {
+	box, ok := m.sandboxes[id]
+	if !ok {
+		return nil, fmt.Errorf("sandbox not found")
+	}
+	return box.ListFiles(ctx, dir)
+}
+
+func (m *WorkspaceManager) ReadFile(ctx context.Context, id string, path string) (string, error) {
+	box, ok := m.sandboxes[id]
+	if !ok {
+		return "", fmt.Errorf("sandbox not found")
+	}
+	return box.ReadFile(ctx, path)
 }
 
 func generateID() string {
