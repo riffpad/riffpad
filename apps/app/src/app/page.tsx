@@ -3,7 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { FileCode, Folder, Moon, Send, Sun, Terminal } from "lucide-react";
+import {
+  ChevronDown,
+  FileCode,
+  Folder,
+  Languages,
+  Moon,
+  PanelLeft,
+  Send,
+  Sun,
+  Terminal,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +47,7 @@ interface FileInfo {
 
 export default function Home() {
   const { t, locale, setLocale } = useI18n();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   const [prompt, setPrompt] = useState("");
@@ -47,20 +58,44 @@ export default function Home() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (filesOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [filesOpen]);
 
   const fetchFiles = useCallback(async (id: string) => {
     try {
       const res = await fetch(`${API_URL}/api/v1/workspaces/${id}/files`);
       if (res.ok) {
         const data = await res.json();
-        setFiles(data);
+        setFiles(data ?? []);
       }
     } catch (err) {
       console.error("Failed to fetch files:", err);
@@ -147,34 +182,98 @@ export default function Home() {
     if (!workspaceId || file.isDir) return;
     setSelectedFile(file.path);
     void fetchFile(workspaceId, file.path);
-  };
-
-  const toggleLocale = () => {
-    setLocale(locale === "zh" ? "en" : "zh");
+    setFilesOpen(false);
   };
 
   const toggleTheme = () => {
-    if (!theme) return;
-    if (theme === "system") {
-      setTheme(resolvedTheme === "dark" ? "light" : "dark");
-    } else {
-      setTheme(theme === "dark" ? "light" : "dark");
-    }
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   const isDark = resolvedTheme === "dark";
 
+  const eventBadge = (event: AgentEvent) => {
+    if (event.isError)
+      return "bg-accent-red-soft text-accent-red border-accent-red/20";
+    if (event.type === "tool_execution_end")
+      return "bg-accent-green-soft text-accent-green border-accent-green/20";
+    if (event.type === "message_end")
+      return "bg-accent-blue-soft text-accent-blue border-accent-blue/20";
+    return "bg-card-soft text-mute border-hairline-soft";
+  };
+
+  const fileTree = (
+    <>
+      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+        <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+          <Folder className="h-4 w-4" />
+          {t("files.title")}
+        </CardTitle>
+        <button
+          onClick={() => setFilesOpen(false)}
+          className="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-md text-mute hover:text-ink hover:bg-card-soft"
+          aria-label={t("files.close")}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </CardHeader>
+      <ScrollArea className="flex-1 px-2">
+        {files.length === 0 && (
+          <p className="text-xs text-mute px-2 py-1">{t("files.empty")}</p>
+        )}
+        <ul className="space-y-0.5 pb-4">
+          {files.map((file) => (
+            <li key={file.path}>
+              <button
+                onClick={() => handleFileClick(file)}
+                className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                  selectedFile === file.path
+                    ? "bg-canvas text-ink shadow-sm"
+                    : "hover:bg-card-soft text-body"
+                }`}
+              >
+                {file.isDir ? (
+                  <Folder className="h-4 w-4 text-mute shrink-0" />
+                ) : (
+                  <FileCode className="h-4 w-4 text-mute shrink-0" />
+                )}
+                <span className="truncate">{file.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </ScrollArea>
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-canvas text-body flex flex-col">
+    <div className="min-h-screen bg-canvas text-body flex flex-col relative overflow-hidden">
+      {/* Ambient background */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full opacity-30 blur-3xl animate-drift"
+          style={{ background: "hsl(var(--primary) / 0.12)" }}
+        />
+        <div
+          className="absolute top-[40%] -right-[10%] w-[50%] h-[50%] rounded-full opacity-20 blur-3xl animate-drift-slow"
+          style={{ background: "hsl(var(--accent-blue) / 0.10)" }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          }}
+        />
+      </div>
+
       {/* Header */}
-      <header className="border-b border-hairline bg-card px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
+      <header className="relative border-b border-hairline bg-card/80 backdrop-blur px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <Image
             src="/logo.png"
             alt="Riffpad"
             width={32}
             height={32}
-            className="rounded-md"
+            className="riffpad-logo rounded-md"
           />
           <div>
             <h1 className="text-[15px] font-bold text-ink leading-tight">
@@ -186,7 +285,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {workspaceId ? (
             <div className="hidden sm:flex items-center gap-2 text-xs text-mute mr-2">
               <span className="font-medium text-ink">
@@ -196,18 +295,69 @@ export default function Home() {
                 className={`inline-block h-2 w-2 rounded-full ${
                   connected ? "bg-accent-green" : "bg-accent-red"
                 }`}
+                title={connected ? t("workspace.connected") : t("workspace.disconnected")}
               />
             </div>
           ) : null}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleLocale}
-            className="text-xs font-semibold uppercase tracking-wide h-8 px-2"
-          >
-            {locale === "zh" ? "EN" : "中"}
-          </Button>
+          {workspaceId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilesOpen(true)}
+              className="lg:hidden h-8 px-2 text-xs font-semibold"
+            >
+              <PanelLeft className="h-4 w-4 mr-1.5" />
+              {t("files.title")}
+            </Button>
+          )}
+
+          <div ref={langRef} className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLangOpen((v) => !v)}
+              className="text-xs font-semibold h-8 px-2 gap-1"
+              aria-expanded={langOpen}
+              aria-haspopup="listbox"
+            >
+              <Languages className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t(`lang.${locale}`)}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${
+                  langOpen ? "rotate-180" : ""
+                }`}
+              />
+            </Button>
+            {langOpen && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1 min-w-[120px] overflow-hidden rounded-md border border-hairline bg-card shadow-lg"
+                role="listbox"
+              >
+                {(["zh", "en"] as const).map((code) => (
+                  <button
+                    key={code}
+                    onClick={() => {
+                      setLocale(code);
+                      setLangOpen(false);
+                    }}
+                    className={`flex min-h-[36px] w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
+                      locale === code
+                        ? "bg-card-soft font-semibold text-ink"
+                        : "text-body hover:bg-card-soft hover:text-ink"
+                    }`}
+                    role="option"
+                    aria-selected={locale === code}
+                  >
+                    {t(`lang.${code}`)}
+                    {locale === code && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <Button
             variant="ghost"
@@ -217,9 +367,9 @@ export default function Home() {
             aria-label="toggle theme"
           >
             {mounted && isDark ? (
-              <Sun className="h-4 w-4" />
-            ) : (
               <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4" />
             )}
           </Button>
 
@@ -237,54 +387,34 @@ export default function Home() {
 
       {/* Workspace layout */}
       {workspaceId ? (
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] overflow-hidden">
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] overflow-hidden">
           {/* File tree */}
-          <aside className="border-r border-hairline bg-card hidden lg:flex flex-col">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-                <Folder className="h-4 w-4" />
-                {t("files.title")}
-              </CardTitle>
-            </CardHeader>
-            <ScrollArea className="flex-1 px-2">
-              {files.length === 0 && (
-                <p className="text-xs text-mute px-2 py-1">
-                  {t("files.empty")}
-                </p>
-              )}
-              <ul className="space-y-0.5 pb-4">
-                {files.map((file) => (
-                  <li key={file.path}>
-                    <button
-                      onClick={() => handleFileClick(file)}
-                      className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left transition-colors ${
-                        selectedFile === file.path
-                          ? "bg-canvas text-ink"
-                          : "hover:bg-card-soft text-body"
-                      }`}
-                    >
-                      {file.isDir ? (
-                        <Folder className="h-4 w-4 text-mute" />
-                      ) : (
-                        <FileCode className="h-4 w-4 text-mute" />
-                      )}
-                      <span className="truncate">{file.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
+          <aside className="border-r border-hairline bg-card/70 backdrop-blur hidden lg:flex flex-col">
+            {fileTree}
           </aside>
+
+          {/* Mobile file drawer */}
+          {filesOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-sm lg:hidden"
+                onClick={() => setFilesOpen(false)}
+              />
+              <aside className="fixed left-0 top-14 bottom-0 z-50 w-[260px] border-r border-hairline bg-card shadow-2xl lg:hidden flex flex-col animate-fade-in-up">
+                {fileTree}
+              </aside>
+            </>
+          )}
 
           {/* Center */}
           <section className="flex flex-col min-w-0 border-r border-hairline">
-            <div className="p-4 border-b border-hairline bg-card">
+            <div className="p-4 border-b border-hairline bg-card/70 backdrop-blur">
               <form onSubmit={handleSubmit} className="flex gap-3">
                 <Textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder={t("prompt.placeholder")}
-                  className="min-h-[72px] resize-none bg-card border-hairline text-ink placeholder:text-ash"
+                  className="min-h-[72px] resize-none bg-card border-hairline text-ink placeholder:text-ash focus-visible:ring-primary/50"
                 />
                 <Button
                   type="submit"
@@ -297,9 +427,9 @@ export default function Home() {
               </form>
             </div>
 
-            <div className="flex-1 p-4 min-h-0 overflow-hidden bg-canvas">
+            <div className="flex-1 p-4 min-h-0 overflow-hidden bg-canvas/50">
               {selectedFile ? (
-                <Card className="h-full flex flex-col border-hairline bg-card">
+                <Card className="h-full flex flex-col border-hairline bg-card/80 backdrop-blur">
                   <CardHeader className="py-3 px-4 border-b border-hairline-soft">
                     <CardTitle className="text-sm font-semibold text-ink flex items-center gap-2">
                       <FileCode className="h-4 w-4 text-mute" />
@@ -323,7 +453,7 @@ export default function Home() {
           </section>
 
           {/* Events */}
-          <aside className="flex flex-col bg-card min-w-0">
+          <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0">
             <CardHeader className="py-3 px-4 border-b border-hairline-soft">
               <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
                 <Terminal className="h-4 w-4" />
@@ -338,23 +468,17 @@ export default function Home() {
                 {events.map((event, idx) => (
                   <div
                     key={idx}
-                    className="rounded-md border border-hairline bg-card-doc p-2.5 text-xs"
+                    className="rounded-md border border-hairline bg-card-doc/80 p-2.5 text-xs transition hover:border-hairline-strong"
                   >
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1.5">
                       <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded-xs text-[10px] font-bold uppercase tracking-wide ${
-                          event.isError
-                            ? "bg-accent-red-soft text-accent-red"
-                            : event.type === "tool_execution_end"
-                            ? "bg-accent-green-soft text-accent-green"
-                            : event.type === "message_end"
-                            ? "bg-accent-blue-soft text-accent-blue"
-                            : "bg-card-soft text-mute"
-                        }`}
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wide ${eventBadge(
+                          event
+                        )}`}
                       >
                         {event.type}
                       </span>
-                      <span className="text-[10px] text-ash">
+                      <span className="text-[10px] text-ash tabular-nums">
                         {new Date(event.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
@@ -378,28 +502,40 @@ export default function Home() {
         </div>
       ) : (
         /* Empty state */
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-20 h-20 mb-6 bg-primary/10 rounded-2xl flex items-center justify-center">
-            <Image
-              src="/logo.png"
-              alt="Riffpad"
-              width={56}
-              height={56}
-              className="rounded-md"
+        <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="relative mb-8">
+            <div
+              className="absolute inset-0 blur-2xl opacity-40 rounded-full"
+              style={{ background: "hsl(var(--primary) / 0.35)" }}
             />
+            <div className="relative w-24 h-24 bg-card border border-hairline rounded-3xl shadow-xl flex items-center justify-center">
+              <Image
+                src="/logo.png"
+                alt="Riffpad"
+                width={64}
+                height={64}
+                className="riffpad-logo rounded-lg"
+              />
+            </div>
           </div>
-          <h2 className="text-2xl font-extrabold text-ink mb-2">
+
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-ink mb-3 tracking-tight">
             {t("app.name")}
           </h2>
-          <p className="text-body max-w-md mb-8 leading-relaxed">
+          <p className="text-body max-w-md mb-8 leading-relaxed text-base sm:text-lg">
             {t("app.tagline")}
           </p>
+
           <Button
             onClick={() => void createWorkspace()}
-            className="bg-primary text-primary-foreground hover:bg-primary-pressed font-bold h-10 px-6 rounded-md"
+            className="bg-primary text-primary-foreground hover:bg-primary-pressed font-bold h-11 px-8 rounded-lg shadow-lg shadow-primary/20 transition hover:shadow-primary/30 hover:-translate-y-0.5"
           >
             {t("workspace.new")}
           </Button>
+
+          <p className="mt-4 text-xs text-mute">
+            {t("workspace.hint")}
+          </p>
         </div>
       )}
     </div>
