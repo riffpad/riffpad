@@ -26,7 +26,7 @@ func Load() Config {
 		SupabaseURL: getEnv("SUPABASE_URL", ""),
 		SupabaseKey: getEnv("SUPABASE_ANON_KEY", ""),
 		LLM: LLMConfig{
-			Provider: getEnv("LLM_PROVIDER", "volcengine"),
+			Provider: getEnv("LLM_PROVIDER", ""), // optional, informational only
 			BaseURL:  getEnv("LLM_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
 			APIKey:   getEnv("LLM_API_KEY", ""),
 			Model:    getEnv("LLM_MODEL", "doubao-pro-32k"),
