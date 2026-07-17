@@ -4,56 +4,136 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    /* Riffpad / PostHog-inspired warm cream palette */
+    --canvas: 75 14% 93%; /* #eeefe9 */
+    --background: 75 14% 93%;
+    --foreground: 72 12% 13%; /* #23251d */
+    --ink: 72 12% 13%;
+    --body: 68 5% 30%; /* #4d4f46 */
+    --mute: 70 5% 41%; /* #6c6e63 */
+    --ash: 72 4% 59%; /* #9b9c92 */
+    --stone: 75 4% 71%; /* #b6b7af */
+    --hairline: 75 7% 74%; /* #bfc1b7 */
+    --hairline-soft: 78 13% 87%; /* #dcdfd2 */
+
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 72 12% 13%;
+    --card-soft: 75 10% 90%; /* #e5e7e0 */
+    --card-doc: 60 14% 98%; /* #fcfcfa */
+    --card-dark: 72 12% 13%;
+
+    --primary: 39 96% 49%; /* #f7a501 */
+    --primary-foreground: 72 12% 13%;
+    --primary-pressed: 38 91% 44%; /* #dd9001 */
+
+    --secondary: 75 10% 90%;
+    --secondary-foreground: 72 12% 13%;
+
+    --muted: 75 10% 90%;
+    --muted-foreground: 70 5% 41%;
+
+    --accent: 75 10% 90%;
+    --accent-foreground: 72 12% 13%;
+
+    --accent-blue: 212 72% 52%;
+    --accent-blue-soft: 207 67% 92%;
+    --accent-green: 152 54% 36%;
+    --accent-green-soft: 145 41% 90%;
+    --accent-red: 4 62% 52%;
+    --accent-red-soft: 4 67% 90%;
+    --accent-purple: 277 42% 46%;
+    --accent-purple-soft: 282 40% 92%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --popover-foreground: 72 12% 13%;
+
+    --border: 75 7% 74%;
+    --input: 0 0% 100%;
+    --ring: 217 91% 60%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --canvas: 72 12% 13%;
+    --background: 72 12% 13%;
+    --foreground: 60 14% 98%;
+    --ink: 60 14% 98%;
+    --body: 75 10% 80%;
+    --mute: 75 7% 74%;
+    --ash: 70 5% 50%;
+    --stone: 70 5% 41%;
+    --hairline: 70 5% 30%;
+    --hairline-soft: 72 10% 22%;
+
+    --card: 72 10% 18%;
+    --card-foreground: 60 14% 98%;
+    --card-soft: 72 10% 22%;
+    --card-doc: 72 10% 16%;
+    --card-dark: 60 14% 98%;
+
+    --primary: 39 96% 49%;
+    --primary-foreground: 72 12% 13%;
+    --primary-pressed: 38 91% 44%;
+
+    --secondary: 72 10% 22%;
+    --secondary-foreground: 60 14% 98%;
+
+    --muted: 72 10% 22%;
+    --muted-foreground: 75 7% 74%;
+
+    --accent: 72 10% 22%;
+    --accent-foreground: 60 14% 98%;
+
+    --accent-blue: 212 72% 60%;
+    --accent-blue-soft: 207 67% 20%;
+    --accent-green: 152 54% 46%;
+    --accent-green-soft: 145 41% 18%;
+    --accent-red: 4 62% 62%;
+    --accent-red-soft: 4 67% 18%;
+    --accent-purple: 277 42% 56%;
+    --accent-purple-soft: 282 40% 18%;
+
+    --popover: 72 10% 18%;
+    --popover-foreground: 60 14% 98%;
+
+    --border: 70 5% 30%;
+    --input: 72 10% 18%;
+    --ring: 217 91% 60%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-hairline;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas text-body antialiased;
+    font-feature-settings: "liga" 1, "calt" 1;
   }
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-ink;
+  }
+}
+
+/* Custom scrollbar that matches the cream/olive palette */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--hairline));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--ash));
+}
+
+/* Deerflow signature */
+.deerflow-signature {
+  @apply fixed bottom-4 right-4 z-50 text-[10px] font-medium tracking-wide uppercase text-body/60;
+  @apply px-2 py-1 rounded-full border border-hairline bg-card/80 backdrop-blur-sm;
+  @apply transition-all duration-200 hover:text-ink hover:border-body/40 hover:scale-105;
 }
