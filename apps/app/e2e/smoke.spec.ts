@@ -27,7 +27,7 @@ test("creates a workspace", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
   await expect(page.getByPlaceholder(/describe your idea|描述你的想法/i)).toBeVisible();
-  await expect(page.getByRole("heading", { name: /agent events|agent 事件/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /chat|聊天/i })).toBeVisible();
 });
 
 test("opens mobile file drawer", async ({ page }) => {
