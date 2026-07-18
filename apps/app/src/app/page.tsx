@@ -22,9 +22,18 @@ import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import type { ChatItem } from "@/components/chat/types";
 import { useI18n } from "@/lib/i18n";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+interface AgentMessage {
+  role: "user" | "assistant" | "tool";
+  content?: string;
+  tool_calls?: { id: string; function: { name: string; arguments: string } }[];
+  timestamp: number;
+}
 
 interface AgentEvent {
   type: string;
@@ -36,7 +45,7 @@ interface AgentEvent {
   toolCallId?: string;
   toolName?: string;
   isError?: boolean;
-  message?: Record<string, unknown>;
+  message?: AgentMessage;
   timestamp: number;
 }
 
@@ -47,14 +56,6 @@ interface FileInfo {
   size: number;
 }
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "agent";
-  content: string;
-  timestamp: number;
-  meta?: AgentEvent;
-}
-
 export default function Home() {
   const { t, locale, setLocale } = useI18n();
   const { setTheme, resolvedTheme } = useTheme();
@@ -63,8 +64,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
-  const [events, setEvents] = useState<AgentEvent[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [connected, setConnected] = useState(false);
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -76,6 +76,8 @@ export default function Home() {
   const wsRef = useRef<WebSocket | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
+  const chatIdRef = useRef(0);
+  const assistantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -140,24 +142,96 @@ export default function Home() {
       ws.onmessage = (msg) => {
         try {
           const event: AgentEvent = JSON.parse(msg.data);
-          setEvents((prev) => [...prev, event]);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `${event.type}-${event.timestamp}-${prev.length}`,
-              role: "agent",
-              content:
-                event.content ||
-                (event.toolName ? `${event.toolName}${event.path ? ` · ${event.path}` : ""}` : event.type),
-              timestamp: event.timestamp,
-              meta: event,
-            },
-          ]);
-          if (
-            event.type === "file_change" ||
-            event.type === "tool_execution_end"
-          ) {
-            void fetchFiles(id);
+          const makeId = () => `${++chatIdRef.current}`;
+
+          switch (event.type) {
+            case "agent_start": {
+              assistantIdRef.current = makeId();
+              setChatItems((prev) => [
+                ...prev,
+                {
+                  type: "assistant",
+                  id: assistantIdRef.current!,
+                  content: "",
+                  isStreaming: true,
+                  timestamp: event.timestamp,
+                },
+              ]);
+              break;
+            }
+            case "message_end": {
+              if (event.message?.role === "assistant" && assistantIdRef.current) {
+                setChatItems((prev) =>
+                  prev.map((item) =>
+                    item.id === assistantIdRef.current && item.type === "assistant"
+                      ? { ...item, content: event.message?.content ?? "", isStreaming: false }
+                      : item
+                  )
+                );
+              }
+              break;
+            }
+            case "tool_execution_start": {
+              setChatItems((prev) => [
+                ...prev,
+                {
+                  type: "tool",
+                  id: `tool-${event.toolCallId ?? makeId()}`,
+                  toolName: event.toolName ?? "tool",
+                  args: event.args,
+                  isPartial: true,
+                  timestamp: event.timestamp,
+                },
+              ]);
+              break;
+            }
+            case "tool_execution_end": {
+              setChatItems((prev) =>
+                prev.map((item) =>
+                  item.type === "tool" && item.id === `tool-${event.toolCallId}`
+                    ? {
+                        ...item,
+                        isPartial: false,
+                        result: event.result,
+                        isError: event.isError,
+                      }
+                    : item
+                )
+              );
+              void fetchFiles(id);
+              break;
+            }
+            case "file_change": {
+              if (event.path) {
+                setChatItems((prev) => [
+                  ...prev,
+                  {
+                    type: "file",
+                    id: makeId(),
+                    path: event.path!,
+                    timestamp: event.timestamp,
+                  },
+                ]);
+              }
+              void fetchFiles(id);
+              break;
+            }
+            case "agent_end": {
+              assistantIdRef.current = null;
+              break;
+            }
+            case "error": {
+              setChatItems((prev) => [
+                ...prev,
+                {
+                  type: "assistant",
+                  id: makeId(),
+                  content: event.content ?? "Agent error",
+                  timestamp: event.timestamp,
+                },
+              ]);
+              break;
+            }
           }
         } catch {
           console.error("Failed to parse event:", msg.data);
@@ -188,11 +262,11 @@ export default function Home() {
       id = ws.id;
     }
 
-    setMessages((prev) => [
+    setChatItems((prev) => [
       ...prev,
       {
-        id: `user-${Date.now()}`,
-        role: "user",
+        id: `${++chatIdRef.current}`,
+        type: "user",
         content: prompt,
         timestamp: Date.now(),
       },
@@ -204,7 +278,7 @@ export default function Home() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [chatItems]);
 
   useEffect(() => {
     return () => {
@@ -224,16 +298,6 @@ export default function Home() {
   };
 
   const isDark = resolvedTheme === "dark";
-
-  const eventBadge = (event: AgentEvent) => {
-    if (event.isError)
-      return "bg-accent-red-soft text-accent-red border-accent-red/20";
-    if (event.type === "tool_execution_end")
-      return "bg-accent-green-soft text-accent-green border-accent-green/20";
-    if (event.type === "message_end")
-      return "bg-accent-blue-soft text-accent-blue border-accent-blue/20";
-    return "bg-card-soft text-mute border-hairline-soft";
-  };
 
   const fileTree = (
     <>
@@ -512,43 +576,7 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
 
-            <ScrollArea className="flex-1 px-3">
-              <div className="space-y-3 py-3">
-                {messages.length === 0 && events.length === 0 && (
-                  <p className="text-xs text-mute">{t("chat.empty")}</p>
-                )}
-                {messages.map((msg) =>
-                  msg.role === "user" ? (
-                    <div key={msg.id} className="flex justify-end">
-                      <div className="max-w-[90%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3 py-2 text-sm">
-                        {msg.content}
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={msg.id} className="rounded-md border border-hairline bg-card-doc/80 p-2.5 text-xs">
-                      {msg.meta && (
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wide ${eventBadge(
-                              msg.meta
-                            )}`}
-                          >
-                            {msg.meta.type}
-                          </span>
-                          <span className="text-[10px] text-ash tabular-nums">
-                            {new Date(msg.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-body whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </p>
-                    </div>
-                  )
-                )}
-                <div ref={chatEndRef} />
-              </div>
-            </ScrollArea>
+            <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
 
             <div className="p-3 border-t border-hairline bg-card/80 backdrop-blur">
               <form onSubmit={handleSubmit} className="flex gap-2">
