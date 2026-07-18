@@ -3,7 +3,10 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/riffpad/riffpad/apps/api/internal/sandbox"
@@ -13,10 +16,11 @@ import (
 type EventEmitter func(event AgentEvent) error
 
 type LoopConfig struct {
-	Client      *openai.Client
-	Model       string
+	Client       *openai.Client
+	Model        string
 	SystemPrompt string
-	Sandbox     sandbox.Sandbox
+	Sandbox      sandbox.Sandbox
+	Lang         string
 	BeforeToolCall func(ctx context.Context, toolCall ToolCall, args json.RawMessage) (bool, string)
 	AfterToolCall  func(ctx context.Context, toolCall ToolCall, result string, isError bool)
 }
@@ -41,7 +45,8 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 	currentMessages := make([]Message, len(messages))
 	copy(currentMessages, messages)
 
-	maxTurns := 15
+	maxTurns := 8
+	finished := false
 	for turn := 0; turn < maxTurns; turn++ {
 		if err := l.emit(AgentEvent{Type: "turn_start"}); err != nil {
 			return err
@@ -50,14 +55,6 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 		assistantMsg, err := l.callLLM(ctx, currentMessages)
 		if err != nil {
 			return l.emitError(err)
-		}
-
-		if err := l.emit(AgentEvent{
-			Type:      "message_start",
-			Message:   &assistantMsg,
-			Timestamp: assistantMsg.Timestamp,
-		}); err != nil {
-			return err
 		}
 
 		if err := l.emit(AgentEvent{
@@ -78,6 +75,7 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 			}); err != nil {
 				return err
 			}
+			finished = true
 			break
 		}
 
@@ -106,6 +104,18 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 		}
 	}
 
+	// If we exhausted the turn budget without breaking, tell the user instead of
+	// silently ending.
+	if !finished {
+		if err := l.emit(AgentEvent{
+			Type:      "error",
+			Content:   "Agent reached the maximum number of turns. Please simplify your request.",
+			Timestamp: now(),
+		}); err != nil {
+			return err
+		}
+	}
+
 	return l.emit(AgentEvent{
 		Type:      "agent_end",
 		Timestamp: now(),
@@ -123,45 +133,203 @@ func (l *Loop) callLLM(ctx context.Context, messages []Message) (Message, error)
 		openaiMessages = append(openaiMessages, toOpenAIMessage(m))
 	}
 
-	resp, err := l.config.Client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:       l.config.Model,
-		Messages:    openaiMessages,
-		Tools:       ToolDefinitions(),
-		ToolChoice:  "auto",
+	// Two-layer timeout:
+	// - 15s to first token: the provider must start emitting content, reasoning, or
+	//   tool calls quickly. This prevents long "Working..." hangs.
+	// - 60s overall stream: once tokens start flowing, the whole turn must finish
+	//   within one minute.
+	llmCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	stream, err := l.config.Client.CreateChatCompletionStream(llmCtx, openai.ChatCompletionRequest{
+		Model:      l.config.Model,
+		Messages:   openaiMessages,
+		Tools:      ToolDefinitions(l.config.Lang),
+		ToolChoice: "auto",
 	})
 	if err != nil {
 		return Message{}, fmt.Errorf("llm request: %w", err)
 	}
+	defer stream.Close()
 
-	if len(resp.Choices) == 0 {
-		return Message{}, fmt.Errorf("no choices in llm response")
-	}
-
-	choice := resp.Choices[0]
 	msg := Message{
 		Role:      RoleAssistant,
-		Content:   choice.Message.Content,
 		Timestamp: now(),
-		Metadata: map[string]any{
-			"finishReason": choice.FinishReason,
-		},
+		Metadata:  map[string]any{},
 	}
 
-	for _, tc := range choice.Message.ToolCalls {
-		msg.ToolCalls = append(msg.ToolCalls, ToolCall{
-			ID:   tc.ID,
-			Type: "function",
-			Function: struct {
-				Name      string `json:"name"`
-				Arguments string `json:"arguments"`
-			}{
-				Name:      tc.Function.Name,
-				Arguments: tc.Function.Arguments,
-			},
-		})
+	if err := l.emit(AgentEvent{
+		Type:      "message_start",
+		Message:   &msg,
+		Timestamp: msg.Timestamp,
+	}); err != nil {
+		return Message{}, err
 	}
 
+	// Accumulate text and tool calls across streaming chunks.
+	var content strings.Builder
+	pendingToolCalls := make(map[int]*ToolCall)
+
+	var sawContent bool
+
+	type recvResult struct {
+		response openai.ChatCompletionStreamResponse
+		err      error
+	}
+
+	// recvWithTimeout reads one chunk with a per-call deadline. Once meaningful
+	// content has started flowing, we rely on the overall llmCtx (60s) instead.
+	recvWithTimeout := func(timeout time.Duration) (openai.ChatCompletionStreamResponse, error) {
+		ch := make(chan recvResult, 1)
+		go func() {
+			resp, err := stream.Recv()
+			ch <- recvResult{resp, err}
+		}()
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		select {
+		case <-llmCtx.Done():
+			return openai.ChatCompletionStreamResponse{}, llmCtx.Err()
+		case <-timer.C:
+			return openai.ChatCompletionStreamResponse{}, context.DeadlineExceeded
+		case r := <-ch:
+			return r.response, r.err
+		}
+	}
+
+	// Keep reading until we see meaningful content (text, reasoning, or tool call).
+	// Each read before that is capped at 15s so a hung provider cannot leave the
+	// user on "Working..." for minutes.
+	for !sawContent {
+		response, err := recvWithTimeout(15 * time.Second)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				msg.Content = content.String()
+				return msg, nil
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return Message{}, fmt.Errorf("llm first token timeout after 15s")
+			}
+			return Message{}, fmt.Errorf("llm stream: %w", err)
+		}
+		if err := l.processDelta(&response, &content, pendingToolCalls, &sawContent, &msg); err != nil {
+			return Message{}, err
+		}
+	}
+
+	// Meaningful content has started; consume the rest under the overall 60s deadline.
+	for {
+		response, err := recvWithTimeout(60 * time.Second)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return Message{}, fmt.Errorf("llm stream timeout after 60s")
+			}
+			return Message{}, fmt.Errorf("llm stream: %w", err)
+		}
+
+		if err := l.processDelta(&response, &content, pendingToolCalls, &sawContent, &msg); err != nil {
+			return Message{}, err
+		}
+
+		select {
+		case <-ctx.Done():
+			return Message{}, ctx.Err()
+		default:
+		}
+	}
+
+	msg.Content = content.String()
+
+	for i := 0; i < len(pendingToolCalls); i++ {
+		if tc, ok := pendingToolCalls[i]; ok {
+			msg.ToolCalls = append(msg.ToolCalls, *tc)
+		}
+	}
+
+	msg.Content = content.String()
 	return msg, nil
+}
+
+func (l *Loop) processDelta(
+	response *openai.ChatCompletionStreamResponse,
+	content *strings.Builder,
+	pendingToolCalls map[int]*ToolCall,
+	sawContent *bool,
+	msg *Message,
+) error {
+	if len(response.Choices) == 0 {
+		return nil
+	}
+
+	choice := response.Choices[0]
+	delta := choice.Delta
+
+	if delta.Content != "" {
+		*sawContent = true
+		content.WriteString(delta.Content)
+		if err := l.emit(AgentEvent{
+			Type:      "message_delta",
+			Delta:     delta.Content,
+			Timestamp: now(),
+		}); err != nil {
+			return err
+		}
+	}
+
+	if delta.ReasoningContent != "" {
+		*sawContent = true
+		if err := l.emit(AgentEvent{
+			Type:      "reasoning_delta",
+			Delta:     delta.ReasoningContent,
+			Timestamp: now(),
+		}); err != nil {
+			return err
+		}
+	}
+
+	for _, tc := range delta.ToolCalls {
+		idx := 0
+		if tc.Index != nil {
+			idx = *tc.Index
+		}
+		if _, ok := pendingToolCalls[idx]; !ok {
+			pendingToolCalls[idx] = &ToolCall{Type: "function"}
+			// As soon as we know a tool is being chosen, give the user feedback
+			// instead of leaving them on "Working..." while the model finishes the
+			// tool-call JSON.
+			if !*sawContent {
+				if err := l.emit(AgentEvent{
+					Type:      "message_delta",
+					Delta:     "I will use a tool to help with that.\n\n",
+					Timestamp: now(),
+				}); err != nil {
+					return err
+				}
+				*sawContent = true
+				content.WriteString("I will use a tool to help with that.\n\n")
+			}
+		}
+		existing := pendingToolCalls[idx]
+		if tc.ID != "" {
+			existing.ID = tc.ID
+		}
+		if tc.Type != "" {
+			existing.Type = string(tc.Type)
+		}
+		if tc.Function.Name != "" {
+			existing.Function.Name = tc.Function.Name
+		}
+		existing.Function.Arguments += tc.Function.Arguments
+	}
+
+	if choice.FinishReason != "" {
+		msg.Metadata["finishReason"] = choice.FinishReason
+	}
+
+	return nil
 }
 
 func (l *Loop) executeToolCalls(ctx context.Context, toolCalls []ToolCall) ([]ToolResult, error) {

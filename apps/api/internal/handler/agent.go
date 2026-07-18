@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/riffpad/riffpad/apps/api/internal/agent"
+	"github.com/riffpad/riffpad/apps/api/internal/client"
 	"github.com/riffpad/riffpad/apps/api/internal/config"
 	"github.com/riffpad/riffpad/apps/api/internal/service"
 	"github.com/sashabaranov/go-openai"
@@ -36,6 +37,7 @@ func NewAgentHandler(manager *service.WorkspaceManager, cfg config.Config) *Agen
 	}
 	oc := openai.DefaultConfig(apiKey)
 	oc.BaseURL = cfg.LLM.BaseURL
+	oc.HTTPClient = client.NewLLMHTTPClient(cfg.LLM)
 	return &AgentHandler{
 		manager: manager,
 		cfg:     cfg,
@@ -95,13 +97,11 @@ func (h *AgentHandler) Handle(c echo.Context) error {
 			}
 			if msg.Type == "prompt" {
 				go func(content string) {
-					if err := orch.Run(ctx, box, content, emitter); err != nil {
-						_ = emitter(agent.AgentEvent{
-							Type:      "error",
-							Content:   err.Error(),
-							Timestamp: time.Now().UnixMilli(),
-						})
-					}
+					// Cap a single prompt session so a stuck loop/provider cannot hang forever.
+					runCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+					defer cancel()
+					// Errors are already emitted as events by the loop; no need to duplicate.
+					_ = orch.Run(runCtx, box, content, emitter)
 				}(msg.Content)
 			}
 		}

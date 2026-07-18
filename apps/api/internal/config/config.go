@@ -1,12 +1,17 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 type LLMConfig struct {
-	Provider string
-	BaseURL  string
-	APIKey   string
-	Model    string
+	Provider       string
+	BaseURL        string
+	APIKey         string
+	Model          string
+	EnableThinking *bool
+	ThinkingBudget *int
 }
 
 type Config struct {
@@ -19,7 +24,7 @@ type Config struct {
 }
 
 func Load() Config {
-	return Config{
+	cfg := Config{
 		Port:        getEnv("PORT", "8080"),
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/riffpad?sslmode=disable"),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
@@ -32,6 +37,16 @@ func Load() Config {
 			Model:    getEnv("LLM_MODEL", "doubao-pro-32k"),
 		},
 	}
+	if v := os.Getenv("LLM_ENABLE_THINKING"); v != "" {
+		b := v == "true" || v == "1"
+		cfg.LLM.EnableThinking = &b
+	}
+	if v := os.Getenv("LLM_THINKING_BUDGET"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.LLM.ThinkingBudget = &n
+		}
+	}
+	return cfg
 }
 
 func getEnv(key, fallback string) string {

@@ -11,6 +11,12 @@ dist/
 build/
 *.tsbuildinfo
 
+# PWA generated assets (do not commit; regenerated per-build)
+apps/*/public/sw.js
+apps/*/public/sw.js.map
+apps/*/public/workbox-*.js
+apps/*/public/workbox-*.js.map
+
 # Go
 bin/
 *.exe

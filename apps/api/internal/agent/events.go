@@ -55,6 +55,7 @@ type ToolResult struct {
 type AgentEvent struct {
 	Type        string      `json:"type"`
 	Content     string      `json:"content,omitempty"`
+	Delta       string      `json:"delta,omitempty"`
 	Name        string      `json:"name,omitempty"`
 	Args        any         `json:"args,omitempty"`
 	Result      any         `json:"result,omitempty"`

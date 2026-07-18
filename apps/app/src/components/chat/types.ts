@@ -9,6 +9,7 @@ export interface ChatAssistantItem {
   type: "assistant";
   id: string;
   content: string;
+  reasoning?: string;
   isStreaming?: boolean;
   timestamp: number;
 }

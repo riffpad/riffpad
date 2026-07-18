@@ -38,6 +38,7 @@ interface AgentMessage {
 interface AgentEvent {
   type: string;
   content?: string;
+  delta?: string;
   name?: string;
   args?: unknown;
   result?: unknown;
@@ -157,6 +158,46 @@ export default function Home() {
                   timestamp: event.timestamp,
                 },
               ]);
+              break;
+            }
+            case "message_start": {
+              if (!assistantIdRef.current) {
+                assistantIdRef.current = makeId();
+                setChatItems((prev) => [
+                  ...prev,
+                  {
+                    type: "assistant",
+                    id: assistantIdRef.current!,
+                    content: "",
+                    isStreaming: true,
+                    timestamp: event.timestamp,
+                  },
+                ]);
+              }
+              break;
+            }
+            case "message_delta": {
+              if (event.delta && assistantIdRef.current) {
+                setChatItems((prev) =>
+                  prev.map((item) =>
+                    item.id === assistantIdRef.current && item.type === "assistant"
+                      ? { ...item, content: item.content + event.delta! }
+                      : item
+                  )
+                );
+              }
+              break;
+            }
+            case "reasoning_delta": {
+              if (event.delta && assistantIdRef.current) {
+                setChatItems((prev) =>
+                  prev.map((item) =>
+                    item.id === assistantIdRef.current && item.type === "assistant"
+                      ? { ...item, reasoning: (item.reasoning ?? "") + event.delta! }
+                      : item
+                  )
+                );
+              }
               break;
             }
             case "message_end": {

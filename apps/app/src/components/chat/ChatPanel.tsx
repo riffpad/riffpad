@@ -27,6 +27,7 @@ export function ChatPanel({ items, emptyHint, scrollRef }: ChatPanelProps) {
                 <AssistantMessage
                   key={item.id}
                   content={item.content}
+                  reasoning={item.reasoning}
                   isStreaming={item.isStreaming}
                 />
               );

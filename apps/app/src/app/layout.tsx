@@ -3,6 +3,7 @@ import { IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/lib/i18n";
+import { PWAUnregister } from "@/components/pwa-unregister";
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -41,7 +42,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <I18nProvider>{children}</I18nProvider>
+          <I18nProvider>
+            <PWAUnregister />
+            {children}
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>
