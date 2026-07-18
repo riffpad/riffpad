@@ -5,19 +5,21 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import {
   ChevronDown,
+  Code,
+  Eye,
   FileCode,
   Folder,
   Languages,
+  MessageSquare,
   Moon,
   PanelLeft,
   Send,
   Sun,
-  Terminal,
   X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
@@ -45,6 +47,14 @@ interface FileInfo {
   size: number;
 }
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "agent";
+  content: string;
+  timestamp: number;
+  meta?: AgentEvent;
+}
+
 export default function Home() {
   const { t, locale, setLocale } = useI18n();
   const { setTheme, resolvedTheme } = useTheme();
@@ -54,15 +64,17 @@ export default function Home() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
   const [events, setEvents] = useState<AgentEvent[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
   const [filesOpen, setFilesOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const eventsEndRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,6 +141,18 @@ export default function Home() {
         try {
           const event: AgentEvent = JSON.parse(msg.data);
           setEvents((prev) => [...prev, event]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `${event.type}-${event.timestamp}-${prev.length}`,
+              role: "agent",
+              content:
+                event.content ||
+                (event.toolName ? `${event.toolName}${event.path ? ` · ${event.path}` : ""}` : event.type),
+              timestamp: event.timestamp,
+              meta: event,
+            },
+          ]);
           if (
             event.type === "file_change" ||
             event.type === "tool_execution_end"
@@ -164,13 +188,23 @@ export default function Home() {
       id = ws.id;
     }
 
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: prompt,
+        timestamp: Date.now(),
+      },
+    ]);
+
     wsRef.current?.send(JSON.stringify({ type: "prompt", content: prompt }));
     setPrompt("");
   };
 
   useEffect(() => {
-    eventsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [events]);
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
     return () => {
@@ -181,8 +215,8 @@ export default function Home() {
   const handleFileClick = (file: FileInfo) => {
     if (!workspaceId || file.isDir) return;
     setSelectedFile(file.path);
+    setActiveTab("code");
     void fetchFile(workspaceId, file.path);
-    setFilesOpen(false);
   };
 
   const toggleTheme = () => {
@@ -243,6 +277,63 @@ export default function Home() {
         </ul>
       </ScrollArea>
     </>
+  );
+
+  const centerTabs = (
+    <div className="flex items-center gap-1 border-b border-hairline bg-card/70 backdrop-blur px-2">
+      <button
+        onClick={() => setActiveTab("preview")}
+        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition ${
+          activeTab === "preview"
+            ? "text-ink border-b-2 border-primary"
+            : "text-mute hover:text-ink"
+        }`}
+      >
+        <Eye className="h-3.5 w-3.5" />
+        {t("preview.title")}
+      </button>
+      <button
+        onClick={() => setActiveTab("code")}
+        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition ${
+          activeTab === "code"
+            ? "text-ink border-b-2 border-primary"
+            : "text-mute hover:text-ink"
+        }`}
+      >
+        <Code className="h-3.5 w-3.5" />
+        {t("code.title")}
+      </button>
+    </div>
+  );
+
+  const previewPane = (
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center min-h-0">
+      <div className="w-16 h-16 mb-4 bg-primary/10 rounded-2xl flex items-center justify-center">
+        <Eye className="h-8 w-8 text-primary" />
+      </div>
+      <h3 className="text-sm font-semibold text-ink mb-1">
+        {t("preview.empty")}
+      </h3>
+      <p className="text-xs text-mute max-w-xs">
+        {t("preview.hint")}
+      </p>
+    </div>
+  );
+
+  const codePane = (
+    <div className="flex-1 min-h-0 overflow-hidden bg-card-doc/50">
+      {selectedFile ? (
+        <ScrollArea className="h-full">
+          <pre className="p-4 text-sm font-mono text-body whitespace-pre-wrap">
+            {fileContent}
+          </pre>
+        </ScrollArea>
+      ) : (
+        <div className="h-full flex items-center justify-center text-mute text-sm">
+          {t("code.empty")}
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -312,6 +403,16 @@ export default function Home() {
             </Button>
           )}
 
+          {!workspaceId && (
+            <Button
+              onClick={() => void createWorkspace()}
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary-pressed h-8 text-xs font-bold rounded-md"
+            >
+              {t("workspace.new")}
+            </Button>
+          )}
+
           <div ref={langRef} className="relative">
             <Button
               variant="ghost"
@@ -372,20 +473,10 @@ export default function Home() {
               <Sun className="h-4 w-4" />
             )}
           </Button>
-
-          {!workspaceId && (
-            <Button
-              onClick={() => void createWorkspace()}
-              size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary-pressed h-8 text-xs font-bold rounded-md"
-            >
-              {t("workspace.new")}
-            </Button>
-          )}
         </div>
       </header>
 
-      {/* Workspace layout */}
+      {/* IDE layout */}
       {workspaceId ? (
         <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] overflow-hidden">
           {/* File tree */}
@@ -406,98 +497,77 @@ export default function Home() {
             </>
           )}
 
-          {/* Center */}
-          <section className="flex flex-col min-w-0 border-r border-hairline">
-            <div className="p-4 border-b border-hairline bg-card/70 backdrop-blur">
-              <form onSubmit={handleSubmit} className="flex gap-3">
+          {/* Center: Preview / Code */}
+          <section className="flex flex-col min-w-0 border-r border-hairline bg-card/30">
+            {centerTabs}
+            {activeTab === "preview" ? previewPane : codePane}
+          </section>
+
+          {/* Right: Chat */}
+          <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0">
+            <CardHeader className="py-3 px-4 border-b border-hairline-soft">
+              <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                {t("chat.title")}
+              </CardTitle>
+            </CardHeader>
+
+            <ScrollArea className="flex-1 px-3">
+              <div className="space-y-3 py-3">
+                {messages.length === 0 && events.length === 0 && (
+                  <p className="text-xs text-mute">{t("chat.empty")}</p>
+                )}
+                {messages.map((msg) =>
+                  msg.role === "user" ? (
+                    <div key={msg.id} className="flex justify-end">
+                      <div className="max-w-[90%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3 py-2 text-sm">
+                        {msg.content}
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={msg.id} className="rounded-md border border-hairline bg-card-doc/80 p-2.5 text-xs">
+                      {msg.meta && (
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wide ${eventBadge(
+                              msg.meta
+                            )}`}
+                          >
+                            {msg.meta.type}
+                          </span>
+                          <span className="text-[10px] text-ash tabular-nums">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-body whitespace-pre-wrap leading-relaxed">
+                        {msg.content}
+                      </p>
+                    </div>
+                  )
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            </ScrollArea>
+
+            <div className="p-3 border-t border-hairline bg-card/80 backdrop-blur">
+              <form onSubmit={handleSubmit} className="flex gap-2">
                 <Textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={t("prompt.placeholder")}
-                  className="min-h-[72px] resize-none bg-card border-hairline text-ink placeholder:text-ash focus-visible:ring-primary/50"
+                  placeholder={t("chat.placeholder")}
+                  className="min-h-[64px] resize-none bg-card border-hairline text-ink placeholder:text-ash focus-visible:ring-primary/50"
                 />
                 <Button
                   type="submit"
                   disabled={!prompt.trim()}
-                  className="self-end h-10 bg-primary text-primary-foreground hover:bg-primary-pressed font-bold rounded-md disabled:opacity-50"
+                  aria-label={t("prompt.send")}
+                  className="self-end h-10 bg-primary text-primary-foreground hover:bg-primary-pressed font-bold rounded-md disabled:opacity-50 px-3"
                 >
-                  <Send className="h-4 w-4 mr-1.5" />
-                  {t("prompt.send")}
+                  <Send className="h-4 w-4" />
                 </Button>
               </form>
             </div>
-
-            <div className="flex-1 p-4 min-h-0 overflow-hidden bg-canvas/50">
-              {selectedFile ? (
-                <Card className="h-full flex flex-col border-hairline bg-card/80 backdrop-blur">
-                  <CardHeader className="py-3 px-4 border-b border-hairline-soft">
-                    <CardTitle className="text-sm font-semibold text-ink flex items-center gap-2">
-                      <FileCode className="h-4 w-4 text-mute" />
-                      {selectedFile}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1 min-h-0 p-0">
-                    <ScrollArea className="h-full">
-                      <pre className="p-4 text-sm font-mono text-body whitespace-pre-wrap">
-                        {fileContent}
-                      </pre>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="h-full flex items-center justify-center text-mute text-sm">
-                  {t("viewer.empty")}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Events */}
-          <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0">
-            <CardHeader className="py-3 px-4 border-b border-hairline-soft">
-              <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-                <Terminal className="h-4 w-4" />
-                {t("events.title")}
-              </CardTitle>
-            </CardHeader>
-            <ScrollArea className="flex-1 px-3">
-              <div className="space-y-2 py-3">
-                {events.length === 0 && (
-                  <p className="text-xs text-mute">{t("events.empty")}</p>
-                )}
-                {events.map((event, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-md border border-hairline bg-card-doc/80 p-2.5 text-xs transition hover:border-hairline-strong"
-                  >
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wide ${eventBadge(
-                          event
-                        )}`}
-                      >
-                        {event.type}
-                      </span>
-                      <span className="text-[10px] text-ash tabular-nums">
-                        {new Date(event.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    {event.content && (
-                      <p className="text-body whitespace-pre-wrap leading-relaxed">
-                        {event.content}
-                      </p>
-                    )}
-                    {event.toolName && (
-                      <p className="text-ash mt-1">tool: {event.toolName}</p>
-                    )}
-                    {event.path && (
-                      <p className="text-ash">path: {event.path}</p>
-                    )}
-                  </div>
-                ))}
-                <div ref={eventsEndRef} />
-              </div>
-            </ScrollArea>
           </aside>
         </div>
       ) : (
@@ -533,9 +603,7 @@ export default function Home() {
             {t("workspace.new")}
           </Button>
 
-          <p className="mt-4 text-xs text-mute">
-            {t("workspace.hint")}
-          </p>
+          <p className="mt-4 text-xs text-mute">{t("workspace.hint")}</p>
         </div>
       )}
     </div>
