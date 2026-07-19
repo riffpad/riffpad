@@ -24,6 +24,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { ChatItem, ChatToolItem } from "@/components/chat/types";
 import { useI18n } from "@/lib/i18n";
+import { DockLayout } from "@/components/layout/DockLayout";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -72,6 +73,14 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
   const [filesOpen, setFilesOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -418,7 +427,7 @@ export default function Home() {
   const isDark = resolvedTheme === "dark";
 
   const fileTree = (
-    <>
+    <div data-testid="file-tree-panel" className="flex flex-col h-full min-h-0">
       <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
         <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
           <Folder className="h-4 w-4" />
@@ -458,7 +467,7 @@ export default function Home() {
           ))}
         </ul>
       </ScrollArea>
-    </>
+    </div>
   );
 
   const centerTabs = (
@@ -642,12 +651,7 @@ export default function Home() {
 
       {/* IDE layout */}
       {workspaceId ? (
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,320px)] overflow-hidden h-full min-h-0">
-          {/* File tree */}
-          <aside className="border-r border-hairline bg-card/70 backdrop-blur hidden lg:flex flex-col h-full min-h-0">
-            {fileTree}
-          </aside>
-
+        <div className="relative flex-1 overflow-hidden h-full min-h-0">
           {/* Mobile file drawer */}
           {filesOpen && (
             <>
@@ -661,25 +665,49 @@ export default function Home() {
             </>
           )}
 
-          {/* Center: Preview / Code */}
-          <section className="flex flex-col min-w-0 border-r border-hairline bg-card/30 h-full min-h-0">
-            {centerTabs}
-            {activeTab === "preview" ? previewPane : codePane}
-          </section>
+          {isDesktop ? (
+            <DockLayout
+              left={fileTree}
+              center={
+                <>
+                  {centerTabs}
+                  {activeTab === "preview" ? previewPane : codePane}
+                </>
+              }
+              right={
+                <>
+                  <CardHeader className="py-3 px-4 border-b border-hairline-soft">
+                    <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      {t("chat.title")}
+                    </CardTitle>
+                  </CardHeader>
+                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
+                  <ChatInput onSend={handleSend} disabled={!connected} />
+                </>
+              }
+            />
+          ) : (
+            <div className="flex flex-col h-full min-h-0">
+              {/* Center: Preview / Code */}
+              <section className="flex-1 flex flex-col min-w-0 border-b border-hairline bg-card/30 min-h-0">
+                {centerTabs}
+                {activeTab === "preview" ? previewPane : codePane}
+              </section>
 
-          {/* Right: Chat */}
-          <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0 h-full min-h-0">
-            <CardHeader className="py-3 px-4 border-b border-hairline-soft">
-              <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                {t("chat.title")}
-              </CardTitle>
-            </CardHeader>
-
-            <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
-
-            <ChatInput onSend={handleSend} disabled={!connected} />
-          </aside>
+              {/* Right: Chat */}
+              <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0 h-[45%] min-h-0">
+                <CardHeader className="py-3 px-4 border-b border-hairline-soft">
+                  <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    {t("chat.title")}
+                  </CardTitle>
+                </CardHeader>
+                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
+                <ChatInput onSend={handleSend} disabled={!connected} />
+              </aside>
+            </div>
+          )}
         </div>
       ) : (
         /* Empty state */

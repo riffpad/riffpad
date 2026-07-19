@@ -18,8 +18,7 @@ test("agent writes a file from a prompt", async ({ page }) => {
 
   // Wait for an HTML file to appear in the file tree
   const htmlFile = page
-    .locator("aside")
-    .first()
+    .getByTestId("file-tree-panel")
     .locator("button")
     .filter({ hasText: /\.html$/ });
   await expect(htmlFile).toBeVisible({ timeout: 90_000 });

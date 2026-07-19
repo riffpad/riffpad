@@ -3,7 +3,7 @@
 import { memo, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { AutoResizeTextarea } from "./AutoResizeTextarea";
 import { useI18n } from "@/lib/i18n";
 
 interface ChatInputProps {
@@ -23,9 +23,9 @@ function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="p-3">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-hairline bg-card px-3 py-2">
-        <Textarea
+    <div className="px-3 pt-2 pb-3">
+      <form onSubmit={handleSubmit} className="flex items-end gap-2 rounded-full border border-hairline bg-card px-3 py-2">
+        <AutoResizeTextarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
@@ -37,9 +37,10 @@ function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
             }
           }}
           placeholder={t("chat.placeholder")}
-          rows={1}
           disabled={disabled}
-          className="flex-1 resize-none bg-transparent border-0 text-ink placeholder:text-ash focus-visible:ring-0 focus-visible:ring-offset-0 min-h-0 py-1 px-0 max-h-32"
+          minRows={1}
+          maxRows={10}
+          className="py-1.5"
         />
         <Button
           type="submit"
