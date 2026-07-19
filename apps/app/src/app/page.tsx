@@ -442,7 +442,7 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-canvas text-body flex flex-col relative overflow-hidden">
+    <div className="h-dvh bg-canvas text-body flex flex-col relative overflow-hidden">
       {/* Header */}
       <header className="relative border-b border-hairline bg-card/80 backdrop-blur px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
