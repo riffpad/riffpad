@@ -20,6 +20,34 @@ function safeStringify(value: unknown): string {
   }
 }
 
+function toolTarget(args: unknown): string | undefined {
+  if (!args || typeof args !== "object") return undefined;
+  const a = args as Record<string, unknown>;
+  if (typeof a.path === "string") return a.path;
+  if (typeof a.directory === "string") return a.directory;
+  if (typeof a.command === "string") return a.command;
+  if (typeof a.query === "string") return a.query;
+  return undefined;
+}
+
+function toolVerb(toolName: string, isPartial: boolean): string {
+  if (!isPartial) return "Done";
+  switch (toolName) {
+    case "file_read":
+      return "Reading";
+    case "file_write":
+      return "Writing";
+    case "file_list":
+      return "Listing";
+    case "bash_exec":
+      return "Running";
+    case "web_search":
+      return "Searching";
+    default:
+      return "Running";
+  }
+}
+
 export function ToolExecution({
   toolName,
   args,
@@ -35,7 +63,9 @@ export function ToolExecution({
     ? "bg-accent-blue-soft border-accent-blue/20"
     : "bg-accent-green-soft border-accent-green/20";
 
-  const statusText = isError ? "Error" : isPartial ? "Running" : "Done";
+  const target = toolTarget(args);
+  const verb = toolVerb(toolName, !!isPartial);
+  const statusText = isError ? "Error" : target ? `${verb} ${target}` : verb;
 
   return (
     <div className={`ml-7 rounded-md border ${statusClass} overflow-hidden`}>

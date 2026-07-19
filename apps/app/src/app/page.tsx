@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import {
@@ -209,21 +210,24 @@ export default function Home() {
                       : item
                   )
                 );
+                assistantIdRef.current = null;
               }
               break;
             }
             case "tool_execution_start": {
-              setChatItems((prev) => [
-                ...prev,
-                {
-                  type: "tool",
-                  id: `tool-${event.toolCallId ?? makeId()}`,
-                  toolName: event.toolName ?? "tool",
-                  args: event.args,
-                  isPartial: true,
-                  timestamp: event.timestamp,
-                },
-              ]);
+              flushSync(() => {
+                setChatItems((prev) => [
+                  ...prev,
+                  {
+                    type: "tool",
+                    id: `tool-${event.toolCallId ?? makeId()}`,
+                    toolName: event.toolName ?? "tool",
+                    args: event.args,
+                    isPartial: true,
+                    timestamp: event.timestamp,
+                  },
+                ]);
+              });
               break;
             }
             case "tool_execution_end": {
