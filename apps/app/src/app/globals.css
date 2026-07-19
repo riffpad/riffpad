@@ -147,6 +147,16 @@
   filter: brightness(0) invert(1);
 }
 
+/* Radix ScrollArea renders its content wrapper as display:table with
+   min-width:100%, which expands to max-content and breaks wrapping in narrow
+   panels (e.g. the chat sidebar). Force it to stay at the viewport width so
+   children can wrap correctly. */
+[data-radix-scroll-area-viewport] > div {
+  min-width: 100% !important;
+  width: 100% !important;
+  display: block !important;
+}
+
 @keyframes drift {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(2%, -2%) scale(1.05); }

@@ -186,17 +186,22 @@ function Code({
         <SyntaxHighlighter
           language={language || "text"}
           style={theme}
+          wrapLines={false}
           customStyle={{
             margin: 0,
             padding: "0.75rem",
             fontSize: "0.75rem",
             lineHeight: "1.6",
             background: "transparent",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
           }}
           codeTagProps={{
             style: {
               fontFamily:
                 'ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono", monospace',
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
             },
           }}
         >
