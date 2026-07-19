@@ -53,6 +53,8 @@ const config: Config = {
           "green-soft": "hsl(var(--accent-green-soft))",
           red: "hsl(var(--accent-red))",
           "red-soft": "hsl(var(--accent-red-soft))",
+          yellow: "hsl(var(--accent-yellow))",
+          "yellow-soft": "hsl(var(--accent-yellow-soft))",
           purple: "hsl(var(--accent-purple))",
           "purple-soft": "hsl(var(--accent-purple-soft))",
         },

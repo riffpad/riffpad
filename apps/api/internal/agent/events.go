@@ -53,18 +53,19 @@ type ToolResult struct {
 }
 
 type AgentEvent struct {
-	Type        string      `json:"type"`
-	Content     string      `json:"content,omitempty"`
-	Delta       string      `json:"delta,omitempty"`
-	Name        string      `json:"name,omitempty"`
-	Args        any         `json:"args,omitempty"`
-	Result      any         `json:"result,omitempty"`
-	Path        string      `json:"path,omitempty"`
-	ToolCallID  string      `json:"toolCallId,omitempty"`
-	ToolName    string      `json:"toolName,omitempty"`
-	IsError     bool        `json:"isError,omitempty"`
-	Message     *Message    `json:"message,omitempty"`
-	Timestamp   int64       `json:"timestamp"`
+	Type          string      `json:"type"`
+	Content       string      `json:"content,omitempty"`
+	Delta         string      `json:"delta,omitempty"`
+	Name          string      `json:"name,omitempty"`
+	Args          any         `json:"args,omitempty"`
+	Result        any         `json:"result,omitempty"`
+	Path          string      `json:"path,omitempty"`
+	ToolCallID    string      `json:"toolCallId,omitempty"`
+	ToolCallIndex int         `json:"toolCallIndex,omitempty"`
+	ToolName      string      `json:"toolName,omitempty"`
+	IsError       bool        `json:"isError,omitempty"`
+	Message       *Message    `json:"message,omitempty"`
+	Timestamp     int64       `json:"timestamp"`
 }
 
 func NewUserMessage(content string) Message {

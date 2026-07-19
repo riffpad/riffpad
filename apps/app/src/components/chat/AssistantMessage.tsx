@@ -12,7 +12,7 @@ export function AssistantMessage({ content, reasoning, isStreaming }: AssistantM
       <div className="mt-1 h-5 w-5 shrink-0 rounded-full bg-accent-blue/10 flex items-center justify-center">
         <Bot className="h-3 w-3 text-accent-blue" />
       </div>
-      <div className="max-w-[90%] min-w-0 space-y-2">
+      <div className="flex-1 min-w-0 space-y-2">
         {reasoning ? (
           <div className="text-xs italic text-mute leading-relaxed whitespace-pre-wrap border-l-2 border-hairline pl-2">
             {reasoning}

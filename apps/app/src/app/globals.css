@@ -41,6 +41,8 @@
     --accent-green-soft: 145 41% 90%;
     --accent-red: 4 62% 52%;
     --accent-red-soft: 4 67% 90%;
+    --accent-yellow: 43 96% 50%;
+    --accent-yellow-soft: 43 100% 90%;
     --accent-purple: 277 42% 46%;
     --accent-purple-soft: 282 40% 92%;
 
@@ -90,6 +92,8 @@
     --accent-green-soft: 145 41% 18%;
     --accent-red: 4 62% 62%;
     --accent-red-soft: 4 67% 18%;
+    --accent-yellow: 43 96% 55%;
+    --accent-yellow-soft: 43 80% 20%;
     --accent-purple: 277 42% 56%;
     --accent-purple-soft: 282 40% 18%;
 

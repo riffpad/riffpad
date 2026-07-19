@@ -303,8 +303,8 @@ func (l *Loop) processDelta(
 		}
 		if _, ok := pendingToolCalls[idx]; !ok {
 			pendingToolCalls[idx] = &ToolCall{Type: "function"}
-			// As soon as we know a tool is being chosen, give the user feedback
-			// instead of leaving them on "Working..." while the model finishes the
+			// As soon as we know a tool is being chosen, surface a pending tool
+			// card so the user sees feedback while the model finishes emitting the
 			// tool-call JSON.
 			if !*sawContent {
 				if err := l.emit(AgentEvent{
@@ -329,6 +329,19 @@ func (l *Loop) processDelta(
 			existing.Function.Name = tc.Function.Name
 		}
 		existing.Function.Arguments += tc.Function.Arguments
+
+		// Stream the tool-call construction to the UI so the user sees a pending
+		// indicator while the arguments JSON is still being generated.
+		if err := l.emit(AgentEvent{
+			Type:          "tool_call_delta",
+			ToolCallID:    existing.ID,
+			ToolCallIndex: idx,
+			ToolName:      existing.Function.Name,
+			Args:          jsonAny([]byte(existing.Function.Arguments)),
+			Timestamp:     now(),
+		}); err != nil {
+			return err
+		}
 	}
 
 	if choice.FinishReason != "" {
@@ -341,7 +354,7 @@ func (l *Loop) processDelta(
 func (l *Loop) executeToolCalls(ctx context.Context, toolCalls []ToolCall) ([]ToolResult, error) {
 	results := make([]ToolResult, 0, len(toolCalls))
 
-	for _, tc := range toolCalls {
+	for i, tc := range toolCalls {
 		tool := FindTool(tc.Function.Name)
 		if tool == nil {
 			results = append(results, ToolResult{
@@ -369,11 +382,12 @@ func (l *Loop) executeToolCalls(ctx context.Context, toolCalls []ToolCall) ([]To
 		}
 
 		if err := l.emit(AgentEvent{
-			Type:       "tool_execution_start",
-			ToolCallID: tc.ID,
-			ToolName:   tc.Function.Name,
-			Args:       jsonAny(args),
-			Timestamp:  now(),
+			Type:          "tool_execution_start",
+			ToolCallID:    tc.ID,
+			ToolCallIndex: i,
+			ToolName:      tc.Function.Name,
+			Args:          jsonAny(args),
+			Timestamp:     now(),
 		}); err != nil {
 			return nil, err
 		}
@@ -389,21 +403,23 @@ func (l *Loop) executeToolCalls(ctx context.Context, toolCalls []ToolCall) ([]To
 		}
 
 		if err := l.emit(AgentEvent{
-			Type:       "tool_execution_end",
-			ToolCallID: tc.ID,
-			ToolName:   tc.Function.Name,
-			Result:     output,
-			IsError:    isError,
-			Timestamp:  now(),
+			Type:          "tool_execution_end",
+			ToolCallID:    tc.ID,
+			ToolCallIndex: i,
+			ToolName:      tc.Function.Name,
+			Result:        output,
+			IsError:       isError,
+			Timestamp:     now(),
 		}); err != nil {
 			return nil, err
 		}
 
 		if err := l.emit(AgentEvent{
-			Type:       "file_change",
-			ToolName:   tc.Function.Name,
-			Path:       pathFromArgs(tc.Function.Name, args),
-			Timestamp:  now(),
+			Type:          "file_change",
+			ToolCallIndex: i,
+			ToolName:      tc.Function.Name,
+			Path:          pathFromArgs(tc.Function.Name, args),
+			Timestamp:     now(),
 		}); err != nil {
 			return nil, err
 		}

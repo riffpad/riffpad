@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import {
@@ -24,7 +23,7 @@ import { CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatPanel } from "@/components/chat/ChatPanel";
-import type { ChatItem } from "@/components/chat/types";
+import type { ChatItem, ChatToolItem } from "@/components/chat/types";
 import { useI18n } from "@/lib/i18n";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -45,6 +44,7 @@ interface AgentEvent {
   result?: unknown;
   path?: string;
   toolCallId?: string;
+  toolCallIndex?: number;
   toolName?: string;
   isError?: boolean;
   message?: AgentMessage;
@@ -214,34 +214,108 @@ export default function Home() {
               }
               break;
             }
-            case "tool_execution_start": {
-              flushSync(() => {
-                setChatItems((prev) => [
+            case "tool_call_delta": {
+              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId ?? makeId()}`;
+              const stableId = event.toolCallId ? `tool-${event.toolCallId}` : pendingId;
+              setChatItems((prev) => {
+                const existing = prev.find(
+                  (item): item is ChatToolItem =>
+                    item.type === "tool" &&
+                    (item.id === stableId ||
+                      item.id === pendingId ||
+                      (event.toolCallIndex !== undefined &&
+                        item.id === `tool-pending-${event.toolCallIndex}`))
+                );
+                if (existing) {
+                  return prev.map((item) => {
+                    if (item.type !== "tool" || item.id !== existing.id) {
+                      return item;
+                    }
+                    return {
+                      ...item,
+                      id: stableId,
+                      toolName: event.toolName ?? item.toolName,
+                      args: event.args ?? item.args,
+                      isPartial: true,
+                    };
+                  });
+                }
+                return [
                   ...prev,
                   {
                     type: "tool",
-                    id: `tool-${event.toolCallId ?? makeId()}`,
+                    id: stableId,
                     toolName: event.toolName ?? "tool",
                     args: event.args,
                     isPartial: true,
                     timestamp: event.timestamp,
                   },
-                ]);
+                ];
+              });
+              break;
+            }
+            case "tool_execution_start": {
+              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId ?? makeId()}`;
+              const stableId = `tool-${event.toolCallId}`;
+              setChatItems((prev) => {
+                const existing = prev.find(
+                  (item): item is ChatToolItem =>
+                    item.type === "tool" &&
+                    (item.id === stableId ||
+                      item.id === pendingId ||
+                      (event.toolCallIndex !== undefined &&
+                        item.id === `tool-pending-${event.toolCallIndex}`))
+                );
+                if (existing) {
+                  return prev.map((item) => {
+                    if (item.type !== "tool" || item.id !== existing.id) {
+                      return item;
+                    }
+                    return {
+                      ...item,
+                      id: stableId,
+                      toolName: event.toolName ?? item.toolName,
+                      args: event.args ?? item.args,
+                      isPartial: true,
+                    };
+                  });
+                }
+                return [
+                  ...prev,
+                  {
+                    type: "tool",
+                    id: stableId,
+                    toolName: event.toolName ?? "tool",
+                    args: event.args,
+                    isPartial: true,
+                    timestamp: event.timestamp,
+                  },
+                ];
               });
               break;
             }
             case "tool_execution_end": {
+              const stableId = `tool-${event.toolCallId}`;
+              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId}`;
               setChatItems((prev) =>
-                prev.map((item) =>
-                  item.type === "tool" && item.id === `tool-${event.toolCallId}`
-                    ? {
-                        ...item,
-                        isPartial: false,
-                        result: event.result,
-                        isError: event.isError,
-                      }
-                    : item
-                )
+                prev.map((item) => {
+                  if (item.type !== "tool") return item;
+                  if (
+                    item.id !== stableId &&
+                    item.id !== pendingId &&
+                    (event.toolCallIndex === undefined ||
+                      item.id !== `tool-pending-${event.toolCallIndex}`)
+                  ) {
+                    return item;
+                  }
+                  return {
+                    ...item,
+                    id: stableId,
+                    isPartial: false,
+                    result: event.result,
+                    isError: event.isError,
+                  };
+                })
               );
               void fetchFiles(id);
               break;

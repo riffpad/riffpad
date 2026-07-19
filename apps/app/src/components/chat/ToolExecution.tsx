@@ -64,7 +64,7 @@ export function ToolExecution({
   const dotClass = isError
     ? "bg-accent-red"
     : isPartial
-    ? "bg-primary"
+    ? "bg-accent-yellow"
     : "bg-accent-green";
 
   return (
@@ -79,10 +79,10 @@ export function ToolExecution({
           }`}
           aria-hidden="true"
         />
-        <span className="min-w-0 flex-1 truncate text-xs text-mute transition group-hover:text-ink">
+        <span className="min-w-0 flex-1 truncate text-xs text-body transition group-hover:text-ink">
           {statusText}
         </span>
-        <span className="shrink-0 text-mute opacity-0 transition group-hover:opacity-100">
+        <span className="shrink-0 text-ash opacity-0 transition group-hover:opacity-100">
           {expanded ? (
             <ChevronDown className="h-3.5 w-3.5" />
           ) : (
@@ -97,7 +97,7 @@ export function ToolExecution({
             <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ash">
               Arguments
             </p>
-            <pre className="max-w-full overflow-x-auto rounded bg-card/60 p-2 text-[11px] font-mono text-body">
+            <pre className="max-w-full whitespace-pre-wrap break-words p-2 text-[11px] font-mono text-body">
               {safeStringify(args)}
             </pre>
           </div>
@@ -106,7 +106,7 @@ export function ToolExecution({
               <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ash">
                 Result
               </p>
-              <pre className="max-w-full overflow-x-auto rounded bg-card/60 p-2 text-[11px] font-mono text-body">
+              <pre className="max-w-full whitespace-pre-wrap break-words p-2 text-[11px] font-mono text-body">
                 {safeStringify(result)}
               </pre>
             </div>
