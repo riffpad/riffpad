@@ -35,9 +35,6 @@ function AssistantMessageImpl({
             <MarkdownRenderer content={isStreaming ? displayed : content} />
           </div>
         ) : null}
-        {isStreaming && (
-          <span className="inline-block h-3.5 w-0.5 animate-pulse bg-primary align-middle" />
-        )}
       </div>
     </div>
   );
