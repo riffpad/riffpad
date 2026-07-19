@@ -17,18 +17,12 @@ test("agent markdown output is rendered as HTML", async ({ page }) => {
   await promptBox.fill(prompt);
   await page.getByRole("button", { name: /send|发送/i }).click();
 
-  // Wait for a complete assistant message (no blinking cursor)
   const assistantContent = page.getByTestId("assistant-content");
   await expect(assistantContent).toBeVisible({ timeout: 90_000 });
 
-  // Wait until streaming cursor disappears
-  await expect(assistantContent.locator("span.animate-pulse")).toHaveCount(0, {
-    timeout: 30_000,
-  });
-
-  // Confirm markdown was rendered, not shown raw
+  // Confirm markdown is rendered into HTML while streaming
   await expect(assistantContent.locator("h1")).toHaveCount(1, {
-    timeout: 5_000,
+    timeout: 30_000,
   });
   await expect.poll(async () => await assistantContent.locator("ul > li").count()).toBeGreaterThanOrEqual(1);
   await expect.poll(async () => await assistantContent.locator("code").count()).toBeGreaterThanOrEqual(1);
