@@ -68,7 +68,7 @@ function ToolExecutionImpl({
     : "bg-accent-green";
 
   return (
-    <div className="ml-7 min-w-0">
+    <div className="min-w-0">
       <button
         onClick={() => setExpanded((v) => !v)}
         className="group flex w-full min-w-0 items-center gap-2 text-left"
