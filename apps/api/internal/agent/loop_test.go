@@ -103,7 +103,7 @@ func runLoopWithHandler(t *testing.T, handler func(r *http.Request) string, prom
 		return nil
 	}
 
-	err = loop.Run(context.Background(), []Message{NewUserMessage(prompt)})
+	_, err = loop.Run(context.Background(), []Message{NewUserMessage(prompt)})
 	return events, finalMsg, err
 }
 
@@ -194,4 +194,48 @@ func eventTypes(events []AgentEvent) []string {
 		types[i] = e.Type
 	}
 	return types
+}
+
+func TestLoop_ReturnsUpdatedHistory(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(textDeltas("Hello")))
+	}))
+	defer ts.Close()
+
+	cfg := openai.DefaultConfig("test-key")
+	cfg.BaseURL = ts.URL
+	client := openai.NewClientWithConfig(cfg)
+
+	sb, err := sandbox.NewLocal("test-history-" + fmt.Sprint(time.Now().UnixNano()))
+	if err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+	defer sb.Destroy()
+
+	loop := NewLoop(LoopConfig{
+		Client:       client,
+		Model:        "test-model",
+		SystemPrompt: "You are a helpful assistant.",
+		Sandbox:      sb,
+	}, func(event AgentEvent) error { return nil })
+
+	initial := []Message{NewUserMessage("hi")}
+	updated, err := loop.Run(context.Background(), initial)
+	if err != nil {
+		t.Fatalf("loop failed: %v", err)
+	}
+	if len(updated) != 2 {
+		t.Fatalf("expected 2 messages (user + assistant), got %d", len(updated))
+	}
+	if updated[0].Role != RoleUser {
+		t.Fatalf("expected first message role user, got %s", updated[0].Role)
+	}
+	if updated[1].Role != RoleAssistant {
+		t.Fatalf("expected second message role assistant, got %s", updated[1].Role)
+	}
+	if updated[1].Content != "Hello" {
+		t.Fatalf("expected assistant content 'Hello', got %q", updated[1].Content)
+	}
 }

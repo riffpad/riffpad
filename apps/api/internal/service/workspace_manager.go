@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 
+	"github.com/riffpad/riffpad/apps/api/internal/agent"
 	"github.com/riffpad/riffpad/apps/api/internal/domain"
 	"github.com/riffpad/riffpad/apps/api/internal/sandbox"
 )
@@ -12,12 +14,15 @@ import (
 type WorkspaceManager struct {
 	workspaces map[string]*domain.Workspace
 	sandboxes  map[string]sandbox.Sandbox
+	messages   map[string][]agent.Message
+	mu         sync.RWMutex
 }
 
 func NewWorkspaceManager() *WorkspaceManager {
 	return &WorkspaceManager{
 		workspaces: make(map[string]*domain.Workspace),
 		sandboxes:  make(map[string]sandbox.Sandbox),
+		messages:   make(map[string][]agent.Message),
 	}
 }
 
@@ -46,6 +51,23 @@ func (m *WorkspaceManager) Get(id string) (*domain.Workspace, bool) {
 func (m *WorkspaceManager) Sandbox(id string) (sandbox.Sandbox, bool) {
 	box, ok := m.sandboxes[id]
 	return box, ok
+}
+
+func (m *WorkspaceManager) Messages(id string) []agent.Message {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	msgs := m.messages[id]
+	out := make([]agent.Message, len(msgs))
+	copy(out, msgs)
+	return out
+}
+
+func (m *WorkspaceManager) SetMessages(id string, msgs []agent.Message) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]agent.Message, len(msgs))
+	copy(out, msgs)
+	m.messages[id] = out
 }
 
 func (m *WorkspaceManager) ListFiles(ctx context.Context, id string, dir string) ([]sandbox.FileInfo, error) {

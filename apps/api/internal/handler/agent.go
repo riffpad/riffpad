@@ -87,6 +87,9 @@ func (h *AgentHandler) Handle(c echo.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	})
 
+	// Serialize prompt handling so conversation history stays consistent.
+	var runMu sync.Mutex
+
 	// Read loop
 	go func() {
 		for {
@@ -98,10 +101,19 @@ func (h *AgentHandler) Handle(c echo.Context) error {
 			if msg.Type == "prompt" {
 				go func(content string) {
 					// Cap a single prompt session so a stuck loop/provider cannot hang forever.
-					runCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-					defer cancel()
-					// Errors are already emitted as events by the loop; no need to duplicate.
-					_ = orch.Run(runCtx, box, content, emitter)
+					runCtx, cancelRun := context.WithTimeout(ctx, 10*time.Minute)
+					defer cancelRun()
+
+					runMu.Lock()
+					defer runMu.Unlock()
+
+					messages := append(h.manager.Messages(workspaceID), agent.NewUserMessage(content))
+					updatedMessages, err := orch.Run(runCtx, box, messages, emitter)
+					if err != nil {
+						// Errors are already emitted as events by the loop; no need to duplicate.
+						return
+					}
+					h.manager.SetMessages(workspaceID, updatedMessages)
 				}(msg.Content)
 			}
 		}

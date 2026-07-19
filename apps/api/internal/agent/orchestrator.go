@@ -96,8 +96,11 @@ func (o *Orchestrator) systemPromptZH() string {
 	return b.String()
 }
 
-func (o *Orchestrator) Run(ctx context.Context, box sandbox.Sandbox, userPrompt string, emitter EventEmitter) error {
-	lang := DetectLanguage(userPrompt)
+func (o *Orchestrator) Run(ctx context.Context, box sandbox.Sandbox, messages []Message, emitter EventEmitter) ([]Message, error) {
+	if len(messages) == 0 {
+		return messages, nil
+	}
+	lang := DetectLanguage(messages[len(messages)-1].Content)
 	loop := NewLoop(LoopConfig{
 		Client:       o.client,
 		Model:        o.model,
@@ -122,6 +125,5 @@ func (o *Orchestrator) Run(ctx context.Context, box sandbox.Sandbox, userPrompt 
 		},
 	}, emitter)
 
-	messages := []Message{NewUserMessage(userPrompt)}
 	return loop.Run(ctx, messages)
 }

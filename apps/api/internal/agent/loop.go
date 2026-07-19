@@ -37,9 +37,9 @@ func NewLoop(config LoopConfig, emitter EventEmitter) *Loop {
 	}
 }
 
-func (l *Loop) Run(ctx context.Context, messages []Message) error {
+func (l *Loop) Run(ctx context.Context, messages []Message) ([]Message, error) {
 	if err := l.emit(AgentEvent{Type: "agent_start"}); err != nil {
-		return err
+		return messages, err
 	}
 
 	currentMessages := make([]Message, len(messages))
@@ -49,12 +49,13 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 	finished := false
 	for turn := 0; turn < maxTurns; turn++ {
 		if err := l.emit(AgentEvent{Type: "turn_start"}); err != nil {
-			return err
+			return currentMessages, err
 		}
 
 		assistantMsg, err := l.callLLM(ctx, currentMessages)
 		if err != nil {
-			return l.emitError(err)
+			_ = l.emitError(err)
+			return currentMessages, err
 		}
 
 		if err := l.emit(AgentEvent{
@@ -62,7 +63,7 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 			Message:   &assistantMsg,
 			Timestamp: assistantMsg.Timestamp,
 		}); err != nil {
-			return err
+			return currentMessages, err
 		}
 
 		currentMessages = append(currentMessages, assistantMsg)
@@ -73,7 +74,7 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 				Message:   &assistantMsg,
 				Timestamp: assistantMsg.Timestamp,
 			}); err != nil {
-				return err
+				return currentMessages, err
 			}
 			finished = true
 			break
@@ -81,7 +82,8 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 
 		toolResults, err := l.executeToolCalls(ctx, assistantMsg.ToolCalls)
 		if err != nil {
-			return l.emitError(err)
+			_ = l.emitError(err)
+			return currentMessages, err
 		}
 
 		for _, result := range toolResults {
@@ -94,12 +96,12 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 			Message:   &assistantMsg,
 			Timestamp: assistantMsg.Timestamp,
 		}); err != nil {
-			return err
+			return currentMessages, err
 		}
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return currentMessages, ctx.Err()
 		default:
 		}
 	}
@@ -112,14 +114,18 @@ func (l *Loop) Run(ctx context.Context, messages []Message) error {
 			Content:   "Agent reached the maximum number of turns. Please simplify your request.",
 			Timestamp: now(),
 		}); err != nil {
-			return err
+			return currentMessages, err
 		}
 	}
 
-	return l.emit(AgentEvent{
+	if err := l.emit(AgentEvent{
 		Type:      "agent_end",
 		Timestamp: now(),
-	})
+	}); err != nil {
+		return currentMessages, err
+	}
+
+	return currentMessages, nil
 }
 
 func (l *Loop) callLLM(ctx context.Context, messages []Message) (Message, error) {
