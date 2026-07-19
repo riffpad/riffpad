@@ -19,26 +19,24 @@ export function AssistantMessage({
   const displayed = useSmoothTypewriter(content, !!isStreaming);
 
   return (
-    <div className="animate-fade-in-up">
+    <div className="animate-fade-in-up" data-testid="assistant-message">
       <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-mute">
         {t("chat.agent")}
       </span>
-      <div className="space-y-2">
+      <div className="space-y-2" data-testid="assistant-content">
         {reasoning ? (
           <div className="text-xs italic text-mute leading-relaxed whitespace-pre-wrap border-l-2 border-hairline pl-2">
             {reasoning}
           </div>
         ) : null}
-        {isStreaming ? (
-          <div className="text-sm leading-relaxed text-body whitespace-pre-wrap">
-            {displayed}
-            <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-primary align-middle" />
-          </div>
-        ) : content ? (
+        {content ? (
           <div className="text-sm leading-relaxed text-body">
-            <MarkdownRenderer content={content} />
+            <MarkdownRenderer content={isStreaming ? displayed : content} />
           </div>
         ) : null}
+        {isStreaming && (
+          <span className="inline-block h-3.5 w-0.5 animate-pulse bg-primary align-middle" />
+        )}
       </div>
     </div>
   );

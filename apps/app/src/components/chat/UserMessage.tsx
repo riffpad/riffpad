@@ -10,7 +10,7 @@ export function UserMessage({ content }: UserMessageProps) {
   const { t } = useI18n();
 
   return (
-    <div className="animate-fade-in-up">
+    <div className="animate-fade-in-up" data-testid="user-message">
       <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-mute">
         {t("chat.user")}
       </span>
