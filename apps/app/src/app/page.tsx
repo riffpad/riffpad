@@ -293,7 +293,7 @@ export default function Home() {
     return data;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
@@ -443,24 +443,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-canvas text-body flex flex-col relative overflow-hidden">
-      {/* Ambient background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full opacity-30 blur-3xl animate-drift"
-          style={{ background: "hsl(var(--primary) / 0.12)" }}
-        />
-        <div
-          className="absolute top-[40%] -right-[10%] w-[50%] h-[50%] rounded-full opacity-20 blur-3xl animate-drift-slow"
-          style={{ background: "hsl(var(--accent-blue) / 0.10)" }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          }}
-        />
-      </div>
-
       {/* Header */}
       <header className="relative border-b border-hairline bg-card/80 backdrop-blur px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
@@ -583,9 +565,9 @@ export default function Home() {
 
       {/* IDE layout */}
       {workspaceId ? (
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] overflow-hidden">
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] overflow-hidden h-full min-h-0">
           {/* File tree */}
-          <aside className="border-r border-hairline bg-card/70 backdrop-blur hidden lg:flex flex-col">
+          <aside className="border-r border-hairline bg-card/70 backdrop-blur hidden lg:flex flex-col h-full min-h-0">
             {fileTree}
           </aside>
 
@@ -603,13 +585,13 @@ export default function Home() {
           )}
 
           {/* Center: Preview / Code */}
-          <section className="flex flex-col min-w-0 border-r border-hairline bg-card/30">
+          <section className="flex flex-col min-w-0 border-r border-hairline bg-card/30 h-full min-h-0">
             {centerTabs}
             {activeTab === "preview" ? previewPane : codePane}
           </section>
 
           {/* Right: Chat */}
-          <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0">
+          <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0 h-full min-h-0">
             <CardHeader className="py-3 px-4 border-b border-hairline-soft">
               <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
@@ -620,18 +602,27 @@ export default function Home() {
             <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
 
             <div className="p-3 border-t border-hairline bg-card/80 backdrop-blur">
-              <form onSubmit={handleSubmit} className="flex gap-2">
+              <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-hairline bg-card px-3 py-2 shadow-sm">
                 <Textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (prompt.trim()) {
+                        handleSubmit(e);
+                      }
+                    }
+                  }}
                   placeholder={t("chat.placeholder")}
-                  className="min-h-[64px] resize-none bg-card border-hairline text-ink placeholder:text-ash focus-visible:ring-primary/50"
+                  rows={1}
+                  className="flex-1 resize-none bg-transparent border-0 text-ink placeholder:text-ash focus-visible:ring-0 focus-visible:ring-offset-0 min-h-0 py-1 px-0 max-h-32"
                 />
                 <Button
                   type="submit"
                   disabled={!prompt.trim()}
                   aria-label={t("prompt.send")}
-                  className="self-end h-10 bg-primary text-primary-foreground hover:bg-primary-pressed font-bold rounded-md disabled:opacity-50 px-3"
+                  className="h-8 w-8 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary-pressed disabled:opacity-50 p-0"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -643,10 +634,6 @@ export default function Home() {
         /* Empty state */
         <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
           <div className="relative mb-8">
-            <div
-              className="absolute inset-0 blur-2xl opacity-40 rounded-full"
-              style={{ background: "hsl(var(--primary) / 0.35)" }}
-            />
             <div className="relative w-24 h-24 bg-card border border-hairline rounded-3xl shadow-xl flex items-center justify-center">
               <Image
                 src="/logo.png"
