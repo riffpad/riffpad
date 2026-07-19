@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import { Send } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
@@ -23,8 +23,8 @@ function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="p-3 border-t border-hairline bg-card/80 backdrop-blur">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-hairline bg-card px-3 py-2 shadow-sm">
+    <div className="p-3 bg-card/80 backdrop-blur">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-hairline bg-card px-3 py-2">
         <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -45,9 +45,9 @@ function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
           type="submit"
           disabled={!prompt.trim() || disabled}
           aria-label={t("prompt.send")}
-          className="h-8 w-8 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary-pressed disabled:opacity-50 p-0"
+          className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary p-0 text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
         >
-          <Send className="h-4 w-4" />
+          <ArrowUp className="h-4 w-4" />
         </Button>
       </form>
     </div>
