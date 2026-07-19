@@ -14,7 +14,7 @@ interface ChatPanelProps {
 export function ChatPanel({ items, emptyHint, scrollRef }: ChatPanelProps) {
   return (
     <ScrollArea className="flex-1 px-3">
-      <div className="space-y-3 py-3">
+      <div className="space-y-5 py-4 px-1">
         {items.length === 0 && emptyHint && (
           <p className="text-xs text-mute">{emptyHint}</p>
         )}

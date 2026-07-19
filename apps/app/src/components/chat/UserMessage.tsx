@@ -1,18 +1,22 @@
-import { User } from "lucide-react";
+"use client";
+
+import { useI18n } from "@/lib/i18n";
 
 interface UserMessageProps {
   content: string;
 }
 
 export function UserMessage({ content }: UserMessageProps) {
+  const { t } = useI18n();
+
   return (
-    <div className="flex justify-end gap-2">
-      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-card-soft px-4 py-2.5 text-sm text-ink shadow-sm">
-        <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
-      </div>
-      <div className="mt-1 h-5 w-5 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-        <User className="h-3 w-3 text-primary" />
-      </div>
+    <div className="animate-fade-in-up">
+      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-mute">
+        {t("chat.user")}
+      </span>
+      <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap">
+        {content}
+      </p>
     </div>
   );
 }

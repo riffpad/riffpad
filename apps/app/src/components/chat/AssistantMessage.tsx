@@ -1,4 +1,8 @@
-import { Bot } from "lucide-react";
+"use client";
+
+import { useI18n } from "@/lib/i18n";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { useSmoothTypewriter } from "./useSmoothTypewriter";
 
 interface AssistantMessageProps {
   content: string;
@@ -6,26 +10,33 @@ interface AssistantMessageProps {
   isStreaming?: boolean;
 }
 
-export function AssistantMessage({ content, reasoning, isStreaming }: AssistantMessageProps) {
+export function AssistantMessage({
+  content,
+  reasoning,
+  isStreaming,
+}: AssistantMessageProps) {
+  const { t } = useI18n();
+  const displayed = useSmoothTypewriter(content, !!isStreaming);
+
   return (
-    <div className="flex gap-2">
-      <div className="mt-1 h-5 w-5 shrink-0 rounded-full bg-accent-blue/10 flex items-center justify-center">
-        <Bot className="h-3 w-3 text-accent-blue" />
-      </div>
-      <div className="flex-1 min-w-0 space-y-2">
+    <div className="animate-fade-in-up">
+      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-mute">
+        {t("chat.agent")}
+      </span>
+      <div className="space-y-2">
         {reasoning ? (
           <div className="text-xs italic text-mute leading-relaxed whitespace-pre-wrap border-l-2 border-hairline pl-2">
             {reasoning}
           </div>
         ) : null}
-        {content ? (
-          <div className="text-sm text-body leading-relaxed whitespace-pre-wrap">
-            {content}
+        {isStreaming ? (
+          <div className="text-sm leading-relaxed text-body whitespace-pre-wrap">
+            {displayed}
+            <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-primary align-middle" />
           </div>
-        ) : isStreaming && !reasoning ? (
-          <div className="flex items-center gap-2 text-xs text-mute">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent-blue animate-pulse" />
-            Working...
+        ) : content ? (
+          <div className="text-sm leading-relaxed text-body">
+            <MarkdownRenderer content={content} />
           </div>
         ) : null}
       </div>
