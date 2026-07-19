@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   ReactNode,
 } from "react";
 
@@ -82,10 +83,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
-    if (typeof document !== "undefined") {
-      document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
-    }
   }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+    }
+  }, [locale]);
 
   const t = useCallback(
     (key: string) => {
