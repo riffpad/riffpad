@@ -13,7 +13,6 @@ import {
   MessageSquare,
   Moon,
   PanelLeft,
-  Send,
   Sun,
   X,
 } from "lucide-react";
@@ -21,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
+import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { ChatItem, ChatToolItem } from "@/components/chat/types";
 import { useI18n } from "@/lib/i18n";
@@ -63,7 +62,6 @@ export default function Home() {
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  const [prompt, setPrompt] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
@@ -360,7 +358,7 @@ export default function Home() {
     [fetchFiles]
   );
 
-  const createWorkspace = async () => {
+  const createWorkspace = useCallback(async () => {
     const res = await fetch(`${API_URL}/api/v1/workspaces`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to create workspace");
     const data = await res.json();
@@ -369,31 +367,32 @@ export default function Home() {
     connect(data.id);
     await fetchFiles(data.id);
     return data;
-  };
+  }, [connect, fetchFiles]);
 
-  const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
 
-    let id = workspaceId;
-    if (!id) {
-      const ws = await createWorkspace();
-      id = ws.id;
-    }
+      let id = workspaceId;
+      if (!id) {
+        const ws = await createWorkspace();
+        id = ws.id;
+      }
 
-    setChatItems((prev) => [
-      ...prev,
-      {
-        id: `${++chatIdRef.current}`,
-        type: "user",
-        content: prompt,
-        timestamp: Date.now(),
-      },
-    ]);
+      setChatItems((prev) => [
+        ...prev,
+        {
+          id: `${++chatIdRef.current}`,
+          type: "user",
+          content,
+          timestamp: Date.now(),
+        },
+      ]);
 
-    wsRef.current?.send(JSON.stringify({ type: "prompt", content: prompt }));
-    setPrompt("");
-  };
+      wsRef.current?.send(JSON.stringify({ type: "prompt", content }));
+    },
+    [workspaceId, createWorkspace]
+  );
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -679,33 +678,7 @@ export default function Home() {
 
             <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
 
-            <div className="p-3 border-t border-hairline bg-card/80 backdrop-blur">
-              <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-hairline bg-card px-3 py-2 shadow-sm">
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (prompt.trim()) {
-                        handleSubmit(e);
-                      }
-                    }
-                  }}
-                  placeholder={t("chat.placeholder")}
-                  rows={1}
-                  className="flex-1 resize-none bg-transparent border-0 text-ink placeholder:text-ash focus-visible:ring-0 focus-visible:ring-offset-0 min-h-0 py-1 px-0 max-h-32"
-                />
-                <Button
-                  type="submit"
-                  disabled={!prompt.trim()}
-                  aria-label={t("prompt.send")}
-                  className="h-8 w-8 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary-pressed disabled:opacity-50 p-0"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
-            </div>
+            <ChatInput onSend={handleSend} disabled={!connected} />
           </aside>
         </div>
       ) : (

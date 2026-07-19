@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { useSmoothTypewriter } from "./useSmoothTypewriter";
@@ -10,7 +11,7 @@ interface AssistantMessageProps {
   isStreaming?: boolean;
 }
 
-export function AssistantMessage({
+function AssistantMessageImpl({
   content,
   reasoning,
   isStreaming,
@@ -41,3 +42,5 @@ export function AssistantMessage({
     </div>
   );
 }
+
+export const AssistantMessage = memo(AssistantMessageImpl);

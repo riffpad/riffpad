@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface ToolExecutionProps {
@@ -48,7 +48,7 @@ function toolLabel(toolName: string, isPartial: boolean): string {
   }
 }
 
-export function ToolExecution({
+function ToolExecutionImpl({
   toolName,
   args,
   result,
@@ -116,3 +116,5 @@ export function ToolExecution({
     </div>
   );
 }
+
+export const ToolExecution = memo(ToolExecutionImpl);

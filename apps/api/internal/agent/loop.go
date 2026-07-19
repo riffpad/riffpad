@@ -221,23 +221,41 @@ func (l *Loop) callLLM(ctx context.Context, messages []Message) (Message, error)
 		if err := l.processDelta(&response, &content, pendingToolCalls, &sawContent, &msg); err != nil {
 			return Message{}, err
 		}
+
+		// A provider may send finish_reason without any prior content/reasoning
+		// (e.g. for refusals) or before we consider content meaningful. End early
+		// so a kept-alive connection does not hang the stream.
+		if len(response.Choices) > 0 && response.Choices[0].FinishReason != "" {
+			break
+		}
 	}
 
-	// Meaningful content has started; consume the rest under the overall 60s deadline.
+	// Meaningful content has started; consume the rest under the overall 60s
+	// deadline. Once tokens are flowing, a 10s idle timeout keeps the UI from
+	// hanging if a provider keeps the connection open after the response ends.
 	for {
-		response, err := recvWithTimeout(60 * time.Second)
+		response, err := recvWithTimeout(10 * time.Second)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
-				return Message{}, fmt.Errorf("llm stream timeout after 60s")
+				// Treat an idle timeout as a graceful end of stream. Some providers
+				// do not send finish_reason or close the connection promptly.
+				break
 			}
 			return Message{}, fmt.Errorf("llm stream: %w", err)
 		}
 
 		if err := l.processDelta(&response, &content, pendingToolCalls, &sawContent, &msg); err != nil {
 			return Message{}, err
+		}
+
+		// Some providers keep the connection open after sending finish_reason.
+		// Treat a non-empty finish_reason as the end of the assistant message
+		// so the user isn't left waiting on a hung stream.
+		if len(response.Choices) > 0 && response.Choices[0].FinishReason != "" {
+			break
 		}
 
 		select {

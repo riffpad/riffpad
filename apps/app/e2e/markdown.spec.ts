@@ -20,7 +20,7 @@ test("agent markdown output is rendered as HTML", async ({ page }) => {
   const assistantContent = page.getByTestId("assistant-content");
   await expect(assistantContent).toBeVisible({ timeout: 90_000 });
 
-  // Confirm markdown is rendered into HTML while streaming
+  // Confirm markdown is rendered into HTML during/after streaming.
   await expect(assistantContent.locator("h1")).toHaveCount(1, {
     timeout: 30_000,
   });

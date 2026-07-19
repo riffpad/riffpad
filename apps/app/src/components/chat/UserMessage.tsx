@@ -1,12 +1,13 @@
 "use client";
 
+import { memo } from "react";
 import { useI18n } from "@/lib/i18n";
 
 interface UserMessageProps {
   content: string;
 }
 
-export function UserMessage({ content }: UserMessageProps) {
+function UserMessageImpl({ content }: UserMessageProps) {
   const { t } = useI18n();
 
   return (
@@ -20,3 +21,5 @@ export function UserMessage({ content }: UserMessageProps) {
     </div>
   );
 }
+
+export const UserMessage = memo(UserMessageImpl);
