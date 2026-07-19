@@ -45,6 +45,27 @@ func NewAgentHandler(manager *service.WorkspaceManager, cfg config.Config) *Agen
 	}
 }
 
+func (h *AgentHandler) contextConfig() agent.ContextConfig {
+	llm := h.cfg.LLM
+	cfg := agent.DefaultContextConfig()
+	if llm.ContextWindow > 0 {
+		cfg.ContextWindow = llm.ContextWindow
+	}
+	if llm.ContextThresholdRatio > 0 {
+		cfg.ThresholdRatio = llm.ContextThresholdRatio
+	}
+	if llm.MaxTurnsBeforeCompact > 0 {
+		cfg.MaxTurnsBeforeCompact = llm.MaxTurnsBeforeCompact
+	}
+	if llm.ReserveTokens > 0 {
+		cfg.ReserveTokens = llm.ReserveTokens
+	}
+	if llm.KeepRecentTokens > 0 {
+		cfg.KeepRecentTokens = llm.KeepRecentTokens
+	}
+	return cfg
+}
+
 type wsMessage struct {
 	Type    string `json:"type"`
 	Content string `json:"content"`
@@ -108,7 +129,7 @@ func (h *AgentHandler) Handle(c echo.Context) error {
 					defer runMu.Unlock()
 
 					messages := append(h.manager.Messages(workspaceID), agent.NewUserMessage(content))
-					updatedMessages, err := orch.Run(runCtx, box, messages, emitter)
+					updatedMessages, err := orch.Run(runCtx, box, messages, emitter, h.contextConfig())
 					if err != nil {
 						// Errors are already emitted as events by the loop; no need to duplicate.
 						return

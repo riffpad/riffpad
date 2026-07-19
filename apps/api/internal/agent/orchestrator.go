@@ -96,10 +96,22 @@ func (o *Orchestrator) systemPromptZH() string {
 	return b.String()
 }
 
-func (o *Orchestrator) Run(ctx context.Context, box sandbox.Sandbox, messages []Message, emitter EventEmitter) ([]Message, error) {
+func (o *Orchestrator) Run(ctx context.Context, box sandbox.Sandbox, messages []Message, emitter EventEmitter, ctxCfg ContextConfig) ([]Message, error) {
 	if len(messages) == 0 {
 		return messages, nil
 	}
+
+	// Compact history when it grows too large. The compacted list is
+	// cache-friendly: main system prompt + summary + recent messages.
+	if ShouldCompact(messages, ctxCfg) {
+		compacted, err := Compact(ctx, o.client, o.model, messages, ctxCfg)
+		if err == nil {
+			messages = compacted
+		}
+		// On compaction failure we continue with the original messages; the loop
+		// may still succeed and the next turn will retry compaction.
+	}
+
 	lang := DetectLanguage(messages[len(messages)-1].Content)
 	loop := NewLoop(LoopConfig{
 		Client:       o.client,
