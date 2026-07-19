@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Wrench } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface ToolExecutionProps {
   toolName: string;
@@ -30,7 +30,7 @@ function toolTarget(args: unknown): string | undefined {
   return undefined;
 }
 
-function toolVerb(toolName: string, isPartial: boolean): string {
+function toolLabel(toolName: string, isPartial: boolean): string {
   if (!isPartial) return "Done";
   switch (toolName) {
     case "file_read":
@@ -38,7 +38,7 @@ function toolVerb(toolName: string, isPartial: boolean): string {
     case "file_write":
       return "Writing";
     case "file_list":
-      return "Listing";
+      return "Listing files";
     case "bash_exec":
       return "Running";
     case "web_search":
@@ -57,55 +57,56 @@ export function ToolExecution({
 }: ToolExecutionProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const statusClass = isError
-    ? "bg-accent-red-soft border-accent-red/20"
-    : isPartial
-    ? "bg-accent-blue-soft border-accent-blue/20"
-    : "bg-accent-green-soft border-accent-green/20";
-
   const target = toolTarget(args);
-  const verb = toolVerb(toolName, !!isPartial);
-  const statusText = isError ? "Error" : target ? `${verb} ${target}` : verb;
+  const label = toolLabel(toolName, !!isPartial);
+  const statusText = isError ? "Failed" : target ? `${label} ${target}` : label;
+
+  const dotClass = isError
+    ? "bg-accent-red"
+    : isPartial
+    ? "bg-primary"
+    : "bg-accent-green";
 
   return (
-    <div className={`ml-7 rounded-md border ${statusClass} overflow-hidden`}>
+    <div className="ml-7 min-w-0">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-left"
+        className="group flex w-full min-w-0 items-center gap-2 text-left"
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <Wrench className="h-3.5 w-3.5 text-mute shrink-0" />
-          <span className="text-xs font-semibold text-ink truncate">{toolName}</span>
-          <span
-            className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-              isError
-                ? "bg-accent-red text-white"
-                : isPartial
-                ? "bg-accent-blue text-white"
-                : "bg-accent-green text-white"
-            }`}
-          >
-            {statusText}
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 text-mute shrink-0" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-mute shrink-0" />
-        )}
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${dotClass} ${
+            isPartial ? "animate-pulse" : ""
+          }`}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 flex-1 truncate text-xs text-mute transition group-hover:text-ink">
+          {statusText}
+        </span>
+        <span className="shrink-0 text-mute opacity-0 transition group-hover:opacity-100">
+          {expanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+        </span>
       </button>
+
       {expanded && (
-        <div className="px-3 pb-3 space-y-2 border-t border-hairline-soft/50">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-mute mb-1">Arguments</p>
-            <pre className="text-[11px] font-mono text-body bg-card/60 rounded p-2 overflow-x-auto">
+        <div className="mt-2 space-y-2 min-w-0">
+          <div className="min-w-0">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ash">
+              Arguments
+            </p>
+            <pre className="max-w-full overflow-x-auto rounded bg-card/60 p-2 text-[11px] font-mono text-body">
               {safeStringify(args)}
             </pre>
           </div>
           {result !== undefined && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-mute mb-1">Result</p>
-              <pre className="text-[11px] font-mono text-body bg-card/60 rounded p-2 overflow-x-auto">
+            <div className="min-w-0">
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ash">
+                Result
+              </p>
+              <pre className="max-w-full overflow-x-auto rounded bg-card/60 p-2 text-[11px] font-mono text-body">
                 {safeStringify(result)}
               </pre>
             </div>

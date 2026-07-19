@@ -569,7 +569,7 @@ export default function Home() {
 
       {/* IDE layout */}
       {workspaceId ? (
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] overflow-hidden h-full min-h-0">
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,320px)] overflow-hidden h-full min-h-0">
           {/* File tree */}
           <aside className="border-r border-hairline bg-card/70 backdrop-blur hidden lg:flex flex-col h-full min-h-0">
             {fileTree}
