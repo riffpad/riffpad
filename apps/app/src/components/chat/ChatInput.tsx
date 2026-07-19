@@ -23,7 +23,7 @@ function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="p-3 bg-card/80 backdrop-blur">
+    <div className="p-3">
       <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-hairline bg-card px-3 py-2">
         <Textarea
           value={prompt}
