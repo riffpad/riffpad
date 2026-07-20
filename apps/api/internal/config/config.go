@@ -6,17 +6,15 @@ import (
 )
 
 type LLMConfig struct {
-	Provider                string
-	BaseURL                 string
-	APIKey                  string
-	Model                   string
-	EnableThinking          *bool
-	ThinkingBudget          *int
-	ContextWindow           int
-	ContextThresholdRatio   float64
-	MaxTurnsBeforeCompact   int
-	ReserveTokens           int
-	KeepRecentTokens        int
+	Provider       string
+	BaseURL        string
+	APIKey         string
+	Model          string
+	EnableThinking *bool
+	ThinkingBudget *int
+	ContextWindow  int
+	ReserveTokens  int
+	KeepRecentTokens int
 }
 
 type Config struct {
@@ -41,10 +39,8 @@ func Load() Config {
 			APIKey:                getEnv("LLM_API_KEY", ""),
 			Model:                 getEnv("LLM_MODEL", "doubao-pro-32k"),
 			ContextWindow:         128000,
-			ContextThresholdRatio: 0.6,
-			MaxTurnsBeforeCompact: 20,
-			ReserveTokens:         8000,
-			KeepRecentTokens:      16000,
+			ReserveTokens:    16384,
+			KeepRecentTokens: 20480,
 		},
 	}
 	if v := os.Getenv("LLM_ENABLE_THINKING"); v != "" {
@@ -59,16 +55,6 @@ func Load() Config {
 	if v := os.Getenv("LLM_CONTEXT_WINDOW"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.LLM.ContextWindow = n
-		}
-	}
-	if v := os.Getenv("LLM_CONTEXT_THRESHOLD_RATIO"); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			cfg.LLM.ContextThresholdRatio = f
-		}
-	}
-	if v := os.Getenv("LLM_MAX_TURNS_BEFORE_COMPACT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.LLM.MaxTurnsBeforeCompact = n
 		}
 	}
 	if v := os.Getenv("LLM_RESERVE_TOKENS"); v != "" {

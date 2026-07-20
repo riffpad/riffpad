@@ -51,12 +51,6 @@ func (h *AgentHandler) contextConfig() agent.ContextConfig {
 	if llm.ContextWindow > 0 {
 		cfg.ContextWindow = llm.ContextWindow
 	}
-	if llm.ContextThresholdRatio > 0 {
-		cfg.ThresholdRatio = llm.ContextThresholdRatio
-	}
-	if llm.MaxTurnsBeforeCompact > 0 {
-		cfg.MaxTurnsBeforeCompact = llm.MaxTurnsBeforeCompact
-	}
 	if llm.ReserveTokens > 0 {
 		cfg.ReserveTokens = llm.ReserveTokens
 	}
