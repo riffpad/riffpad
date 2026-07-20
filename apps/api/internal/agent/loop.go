@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/riffpad/riffpad/apps/api/internal/sandbox"
@@ -370,93 +371,107 @@ func (l *Loop) processDelta(
 }
 
 func (l *Loop) executeToolCalls(ctx context.Context, toolCalls []ToolCall) ([]ToolResult, error) {
-	results := make([]ToolResult, 0, len(toolCalls))
+	results := make([]ToolResult, len(toolCalls))
+
+	type indexedResult struct {
+		index  int
+		result ToolResult
+	}
+
+	var wg sync.WaitGroup
+	resultCh := make(chan indexedResult, len(toolCalls))
 
 	for i, tc := range toolCalls {
-		tool := FindTool(tc.Function.Name)
-		if tool == nil {
-			results = append(results, ToolResult{
-				ToolCallID: tc.ID,
-				Name:       tc.Function.Name,
-				Content:    fmt.Sprintf("Tool %q not found", tc.Function.Name),
-				IsError:    true,
-			})
-			continue
-		}
-
-		args := json.RawMessage(tc.Function.Arguments)
-
-		if l.config.BeforeToolCall != nil {
-			blocked, reason := l.config.BeforeToolCall(ctx, tc, args)
-			if blocked {
-				results = append(results, ToolResult{
-					ToolCallID: tc.ID,
-					Name:       tc.Function.Name,
-					Content:    fmt.Sprintf("Blocked: %s", reason),
-					IsError:    true,
-				})
-				continue
+		wg.Add(1)
+		go func(i int, tc ToolCall) {
+			defer wg.Done()
+			resultCh <- indexedResult{
+				index:  i,
+				result: l.executeSingleToolCall(ctx, i, tc),
 			}
-		}
+		}(i, tc)
+	}
 
-		if err := l.emit(AgentEvent{
-			Type:          "tool_execution_start",
-			ToolCallID:    tc.ID,
-			ToolCallIndex: i,
-			ToolName:      tc.Function.Name,
-			Args:          jsonAny(args),
-			Timestamp:     now(),
-		}); err != nil {
-			return nil, err
-		}
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
 
-		output, isError, err := tool.Execute(ctx, l.config.Sandbox, tc.ID, args)
-		if err != nil {
-			isError = true
-			output = err.Error()
-		}
+	for r := range resultCh {
+		results[r.index] = r.result
+	}
 
-		if l.config.AfterToolCall != nil {
-			l.config.AfterToolCall(ctx, tc, output, isError)
-		}
+	return results, ctx.Err()
+}
 
-		if err := l.emit(AgentEvent{
-			Type:          "tool_execution_end",
-			ToolCallID:    tc.ID,
-			ToolCallIndex: i,
-			ToolName:      tc.Function.Name,
-			Result:        output,
-			IsError:       isError,
-			Timestamp:     now(),
-		}); err != nil {
-			return nil, err
-		}
-
-		if err := l.emit(AgentEvent{
-			Type:          "file_change",
-			ToolCallIndex: i,
-			ToolName:      tc.Function.Name,
-			Path:          pathFromArgs(tc.Function.Name, args),
-			Timestamp:     now(),
-		}); err != nil {
-			return nil, err
-		}
-
-		results = append(results, ToolResult{
+func (l *Loop) executeSingleToolCall(ctx context.Context, index int, tc ToolCall) ToolResult {
+	tool := FindTool(tc.Function.Name)
+	if tool == nil {
+		return ToolResult{
 			ToolCallID: tc.ID,
 			Name:       tc.Function.Name,
-			Content:    output,
-			IsError:    isError,
-		})
-
-		select {
-		case <-ctx.Done():
-			return results, ctx.Err()
-		default:
+			Content:    fmt.Sprintf("Tool %q not found", tc.Function.Name),
+			IsError:    true,
 		}
 	}
 
-	return results, nil
+	args := json.RawMessage(tc.Function.Arguments)
+
+	if l.config.BeforeToolCall != nil {
+		blocked, reason := l.config.BeforeToolCall(ctx, tc, args)
+		if blocked {
+			return ToolResult{
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+				Content:    fmt.Sprintf("Blocked: %s", reason),
+				IsError:    true,
+			}
+		}
+	}
+
+	_ = l.emit(AgentEvent{
+		Type:          "tool_execution_start",
+		ToolCallID:    tc.ID,
+		ToolCallIndex: index,
+		ToolName:      tc.Function.Name,
+		Args:          jsonAny(args),
+		Timestamp:     now(),
+	})
+
+	output, isError, err := tool.Execute(ctx, l.config.Sandbox, tc.ID, args)
+	if err != nil {
+		isError = true
+		output = err.Error()
+	}
+
+	if l.config.AfterToolCall != nil {
+		l.config.AfterToolCall(ctx, tc, output, isError)
+	}
+
+	_ = l.emit(AgentEvent{
+		Type:          "tool_execution_end",
+		ToolCallID:    tc.ID,
+		ToolCallIndex: index,
+		ToolName:      tc.Function.Name,
+		Result:        output,
+		IsError:       isError,
+		Timestamp:     now(),
+	})
+
+	_ = l.emit(AgentEvent{
+		Type:          "file_change",
+		ToolCallIndex: index,
+		ToolName:      tc.Function.Name,
+		Path:          pathFromArgs(tc.Function.Name, args),
+		Timestamp:     now(),
+	})
+
+	return ToolResult{
+		ToolCallID: tc.ID,
+		Name:       tc.Function.Name,
+		Content:    output,
+		IsError:    isError,
+	}
 }
 
 func (l *Loop) emit(event AgentEvent) error {

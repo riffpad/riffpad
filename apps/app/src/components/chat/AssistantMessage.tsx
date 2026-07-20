@@ -2,25 +2,31 @@
 
 import { memo } from "react";
 import { useI18n } from "@/lib/i18n";
-import { MarkdownRenderer } from "./MarkdownRenderer";
+import { MarkdownRenderer, type Citation } from "./MarkdownRenderer";
 import { useSmoothTypewriter } from "./useSmoothTypewriter";
 
 interface AssistantMessageProps {
   content: string;
   reasoning?: string;
   isStreaming?: boolean;
+  citations?: Citation[];
 }
 
 function AssistantMessageImpl({
   content,
   reasoning,
   isStreaming,
+  citations,
 }: AssistantMessageProps) {
   const { t } = useI18n();
   const displayed = useSmoothTypewriter(content, !!isStreaming);
 
   return (
-    <div className="animate-fade-in-up" data-testid="assistant-message">
+    <div
+      className="animate-fade-in-up"
+      data-testid="assistant-message"
+      data-streaming={isStreaming ? "true" : "false"}
+    >
       <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-mute">
         {t("chat.agent")}
       </span>
@@ -32,7 +38,7 @@ function AssistantMessageImpl({
         ) : null}
         {content ? (
           <div className="text-sm leading-relaxed text-body">
-            <MarkdownRenderer content={isStreaming ? displayed : content} />
+            <MarkdownRenderer content={isStreaming ? displayed : content} citations={citations} />
           </div>
         ) : null}
       </div>

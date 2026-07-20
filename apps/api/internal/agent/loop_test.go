@@ -196,6 +196,30 @@ func eventTypes(events []AgentEvent) []string {
 	return types
 }
 
+// multiToolCallDeltas returns SSE chunks for N tool calls in one assistant turn.
+func multiToolCallDeltas(calls ...struct {
+	id   string
+	name string
+	args string
+}) string {
+	var b strings.Builder
+	for i, c := range calls {
+		b.WriteString(sseChunk(map[string]any{
+			"tool_calls": []map[string]any{
+				{"index": i, "id": c.id, "type": "function", "function": map[string]any{"name": c.name}},
+			},
+		}, ""))
+		b.WriteString(sseChunk(map[string]any{
+			"tool_calls": []map[string]any{
+				{"index": i, "function": map[string]any{"arguments": c.args}},
+			},
+		}, ""))
+	}
+	b.WriteString(sseChunk(map[string]any{}, "stop"))
+	b.WriteString(sseDone())
+	return b.String()
+}
+
 func TestLoop_ReturnsUpdatedHistory(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -238,4 +262,57 @@ func TestLoop_ReturnsUpdatedHistory(t *testing.T) {
 	if updated[1].Content != "Hello" {
 		t.Fatalf("expected assistant content 'Hello', got %q", updated[1].Content)
 	}
+}
+
+func TestLoop_ParallelToolCalls(t *testing.T) {
+	argsA, _ := json.Marshal(map[string]string{"command": "sleep 0.1 && echo a"})
+	argsB, _ := json.Marshal(map[string]string{"command": "sleep 0.1 && echo b"})
+
+	first := multiToolCallDeltas(
+		struct{ id, name, args string }{"call-1", "bash_exec", string(argsA)},
+		struct{ id, name, args string }{"call-2", "bash_exec", string(argsB)},
+	)
+	second := textDeltas("Done")
+
+	callCount := 0
+	events, finalMsg, err := runLoopWithHandler(t, func(r *http.Request) string {
+		callCount++
+		if callCount == 1 {
+			return first
+		}
+		return second
+	}, "run two commands")
+	if err != nil {
+		t.Fatalf("loop failed: %v", err)
+	}
+	if callCount != 2 {
+		t.Fatalf("expected 2 LLM calls, got %d", callCount)
+	}
+	if finalMsg.Content != "Done" {
+		t.Fatalf("expected final content 'Done', got %q", finalMsg.Content)
+	}
+
+	var starts []AgentEvent
+	var ends []AgentEvent
+	for _, e := range events {
+		switch e.Type {
+		case "tool_execution_start":
+			starts = append(starts, e)
+		case "tool_execution_end":
+			ends = append(ends, e)
+		}
+	}
+	if len(starts) != 2 {
+		t.Fatalf("expected 2 tool_execution_start events, got %d", len(starts))
+	}
+	if len(ends) != 2 {
+		t.Fatalf("expected 2 tool_execution_end events, got %d", len(ends))
+	}
+
+	// If the two sleeps ran in parallel, the second start event should have
+	// fired before the first end event.
+	if starts[1].Timestamp >= ends[0].Timestamp {
+		t.Fatalf("tool calls appear sequential: second start (%d) is not before first end (%d)", starts[1].Timestamp, ends[0].Timestamp)
+	}
+
 }

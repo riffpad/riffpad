@@ -41,11 +41,90 @@ SyntaxHighlighter.registerLanguage("yml", yaml);
 SyntaxHighlighter.registerLanguage("go", go);
 SyntaxHighlighter.registerLanguage("rust", rust);
 
-interface MarkdownRendererProps {
-  content: string;
+export interface Citation {
+  index: number;
+  url: string;
+  title: string;
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+interface MarkdownRendererProps {
+  content: string;
+  citations?: Citation[];
+}
+
+function applyCitations(content: string, citations: Citation[]): string {
+  const maxIndex = citations.length;
+  if (maxIndex === 0) return content;
+
+  const validSet = new Set(citations.map((c) => c.index));
+  const urlFor = (idx: number) => citations.find((c) => c.index === idx)?.url;
+
+  // Protect URLs and code blocks so we don't accidentally turn digits inside
+  // them into citation links.
+  type Protected = { key: string; value: string };
+  const protectedParts: Protected[] = [];
+  let counter = 0;
+  const protect = (value: string) => {
+    const key = `__PROTECTED_${counter++}__`;
+    protectedParts.push({ key, value });
+    return key;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  };
+
+  let text = content
+    // Code blocks (fenced)
+    .replace(/```[\s\S]*?```/g, protect)
+    // Inline code
+    .replace(/`[^`]*`/g, protect)
+    // Markdown links and bare URLs
+    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, protect)
+    .replace(/https?:\/\/[^\s\])]+/g, protect);
+
+  // 1. Explicit bracketed citations [1], [2].
+  text = text.replace(/\[(\d+)\]/g, (_, num) => {
+    const idx = Number(num);
+    const url = urlFor(idx);
+    if (!url) return `[${num}]`;
+    return `[${num}](${url})`;
+  });
+
+  // 2. Concatenated citations like "23" meaning [2] and [3]. Only when both
+  //    digits are valid indices and there is no third digit.
+  const concatRe = new RegExp(`(?<!\\d)([1-${maxIndex}])([1-${maxIndex}])(?!\\d)`, "g");
+  text = text.replace(concatRe, (_, d1, d2) => {
+    const idx1 = Number(d1);
+    const idx2 = Number(d2);
+    const url1 = urlFor(idx1);
+    const url2 = urlFor(idx2);
+    if (!url1 || !url2) return `${d1}${d2}`;
+    return `[${d1}](${url1})[${d2}](${url2})`;
+  });
+
+  // 3. Standalone single-digit citations surrounded by word boundaries or
+  //    punctuation. Avoid digits that are part of a word or inside links.
+  const singleRe = new RegExp(
+    `(?<!\\d)(?<!\\[)\\b([1-${maxIndex}])\\b(?!\\d)(?!\\])`,
+    "g"
+  );
+  text = text.replace(singleRe, (match, num) => {
+    const idx = Number(num);
+    const url = urlFor(idx);
+    if (!url) return match;
+    return `[${num}](${url})`;
+  });
+
+  // Restore protected parts in reverse order so earlier keys don't mask later.
+  for (let i = protectedParts.length - 1; i >= 0; i--) {
+    const { key, value } = protectedParts[i];
+    text = text.replace(key, () => value);
+  }
+
+  return text;
+}
+
+export function MarkdownRenderer({ content, citations }: MarkdownRendererProps) {
+  const processed = citations?.length ? applyCitations(content, citations) : content;
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -117,7 +196,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         ),
       }}
     >
-      {content}
+      {processed}
     </ReactMarkdown>
   );
 }

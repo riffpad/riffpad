@@ -17,6 +17,7 @@ import (
 
 // SearchResult is a single web search result.
 type SearchResult struct {
+	Index   int    `json:"index"`
 	Title   string `json:"title"`
 	URL     string `json:"url"`
 	Snippet string `json:"snippet"`
@@ -89,6 +90,7 @@ func (p *DuckDuckGoProvider) Search(ctx context.Context, query string) ([]Search
 			return
 		}
 		results = append(results, SearchResult{
+			Index:   i + 1,
 			Title:   title,
 			URL:     href,
 			Snippet: snippet,
@@ -112,10 +114,10 @@ func NewWebSearchTool() *WebSearchTool {
 }
 
 func (t *WebSearchTool) Definition(lang string) openai.Tool {
-	desc := "Search the web for current information, facts, or documentation. Returns up to 5 results with title, URL, and snippet."
+	desc := "Search the web for current information, facts, or documentation. Returns up to 5 results with title, URL, and snippet. When answering, cite sources with [1], [2], etc. matching the result index."
 	paramDesc := "Search query"
 	if lang == "zh" {
-		desc = "在网络上搜索最新信息、事实或文档。返回最多 5 条结果，包含标题、URL 和摘要。"
+		desc = "在网络上搜索最新信息、事实或文档。返回最多 5 条结果，每条结果带有 [1]、[2] 等角标。回答时请用对应的角标标注信息来源。"
 		paramDesc = "搜索关键词"
 	}
 	return openai.Tool{
@@ -155,5 +157,5 @@ func (t *WebSearchTool) Execute(ctx context.Context, _ sandbox.Sandbox, _ string
 	if err != nil {
 		return "", true, err
 	}
-	return string(data), false, nil
+	return string(data) + "\n\n---\nCITE EVERY FACTUAL CLAIM using the exact bracketed format [1], [2], etc. matching the result index.\n- Correct: \"Beijing is sunny today [1].\" \"AccuWeather and EaseWeather both report clear skies [1][2].\"\n- Wrong: \"Beijing is sunny today 1.\" \"Beijing is sunny today 12.\" \"Beijing is sunny today [12].\"\nAlways keep each citation as a separate bracketed marker.", false, nil
 }

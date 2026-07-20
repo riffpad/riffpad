@@ -1,7 +1,14 @@
 "use client";
 
 import { memo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+
+interface SearchResult {
+  index: number;
+  title: string;
+  url: string;
+  snippet: string;
+}
 
 interface ToolExecutionProps {
   toolName: string;
@@ -18,6 +25,40 @@ function safeStringify(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function parseSearchResults(result: unknown): SearchResult[] | undefined {
+  if (!result) return undefined;
+  let raw: unknown = result;
+  if (typeof result === "string") {
+    // The backend returns a JSON array followed by an instruction delimiter.
+    // Only parse the JSON array portion.
+    const delimiter = result.indexOf("\n\n---\n");
+    const jsonPart = delimiter === -1 ? result : result.slice(0, delimiter);
+    try {
+      raw = JSON.parse(jsonPart);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!Array.isArray(raw)) return undefined;
+  const results: SearchResult[] = [];
+  for (const item of raw) {
+    if (
+      item &&
+      typeof item === "object" &&
+      typeof (item as Record<string, unknown>).url === "string" &&
+      typeof (item as Record<string, unknown>).title === "string"
+    ) {
+      results.push({
+        index: Number((item as Record<string, unknown>).index) || results.length + 1,
+        title: String((item as Record<string, unknown>).title),
+        url: String((item as Record<string, unknown>).url),
+        snippet: String((item as Record<string, unknown>).snippet ?? ""),
+      });
+    }
+  }
+  return results.length > 0 ? results : undefined;
 }
 
 function toolTarget(args: unknown): string | undefined {
@@ -67,6 +108,8 @@ function ToolExecutionImpl({
     ? "bg-accent-yellow"
     : "bg-accent-green";
 
+  const searchResults = toolName === "web_search" ? parseSearchResults(result) : undefined;
+
   return (
     <div className="min-w-0">
       <button
@@ -106,9 +149,36 @@ function ToolExecutionImpl({
               <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ash">
                 Result
               </p>
-              <pre className="max-w-full whitespace-pre-wrap break-words p-2 text-[11px] font-mono text-body">
-                {safeStringify(result)}
-              </pre>
+              {searchResults ? (
+                <div className="space-y-2">
+                  {searchResults.map((r) => (
+                    <a
+                      key={r.index}
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-md border border-hairline bg-card-doc/50 p-2.5 transition hover:border-primary hover:bg-card-doc"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-semibold text-ink line-clamp-1">
+                          [{r.index}] {r.title}
+                        </span>
+                        <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-ash" />
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-body line-clamp-2">
+                        {r.snippet}
+                      </p>
+                      <p className="mt-1 truncate text-[10px] text-mute">
+                        {r.url}
+                      </p>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <pre className="max-w-full whitespace-pre-wrap break-words p-2 text-[11px] font-mono text-body">
+                  {safeStringify(result)}
+                </pre>
+              )}
             </div>
           )}
         </div>

@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { ChatItem, ChatToolItem } from "@/components/chat/types";
+import type { Citation } from "@/components/chat/MarkdownRenderer";
 import { useI18n } from "@/lib/i18n";
 import { DockLayout } from "@/components/layout/DockLayout";
 
@@ -74,6 +75,7 @@ export default function Home() {
   const [filesOpen, setFilesOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [citations, setCitations] = useState<Citation[]>([]);
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -324,6 +326,38 @@ export default function Home() {
                   };
                 })
               );
+              if (event.toolName === "web_search" && event.result && !event.isError) {
+                try {
+                  let raw: unknown = event.result;
+                  if (typeof event.result === "string") {
+                    const delimiter = event.result.indexOf("\n\n---\n");
+                    const jsonPart =
+                      delimiter === -1 ? event.result : event.result.slice(0, delimiter);
+                    raw = JSON.parse(jsonPart);
+                  }
+                  if (Array.isArray(raw)) {
+                    const newCitations: Citation[] = raw
+                      .filter(
+                        (r: unknown): r is Record<string, unknown> =>
+                          r !== null &&
+                          typeof r === "object" &&
+                          typeof (r as Record<string, unknown>).url === "string" &&
+                          typeof (r as Record<string, unknown>).title === "string"
+                      )
+                      .map((r: Record<string, unknown>) => ({
+                        index: Number(r.index) || 0,
+                        url: String(r.url),
+                        title: String(r.title),
+                      }));
+                    setCitations((prev) => {
+                      const existing = new Set(prev.map((c) => c.url));
+                      return [...prev, ...newCitations.filter((c) => !existing.has(c.url))];
+                    });
+                  }
+                } catch {
+                  // ignore invalid search results
+                }
+              }
               void fetchFiles(id);
               break;
             }
@@ -402,10 +436,6 @@ export default function Home() {
     },
     [workspaceId, createWorkspace]
   );
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatItems]);
 
   useEffect(() => {
     return () => {
@@ -682,7 +712,7 @@ export default function Home() {
                       {t("chat.title")}
                     </CardTitle>
                   </CardHeader>
-                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
+                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} />
                   <ChatInput onSend={handleSend} disabled={!connected} />
                 </>
               }
@@ -703,7 +733,7 @@ export default function Home() {
                     {t("chat.title")}
                   </CardTitle>
                 </CardHeader>
-                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} />
+                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} />
                 <ChatInput onSend={handleSend} disabled={!connected} />
               </aside>
             </div>
