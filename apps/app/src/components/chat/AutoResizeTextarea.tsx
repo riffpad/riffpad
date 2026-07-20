@@ -7,6 +7,7 @@ export interface AutoResizeTextareaProps
   extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "ref"> {
   minRows?: number;
   maxRows?: number;
+  controlledHeight?: number;
 }
 
 const LINE_HEIGHT = 20; // matches text-sm leading-relaxed ~20px per row
@@ -16,6 +17,7 @@ const MAX_HEIGHT = 200;
 export function AutoResizeTextarea({
   minRows = 1,
   maxRows = 10,
+  controlledHeight,
   className,
   onInput,
   ...props
@@ -38,11 +40,17 @@ export function AutoResizeTextarea({
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
+    if (controlledHeight !== undefined) {
+      textarea.style.height = `${controlledHeight}px`;
+      return;
+    }
     adjustHeight(textarea);
-  }, [adjustHeight, props.value, props.defaultValue]);
+  }, [adjustHeight, controlledHeight, props.value, props.defaultValue]);
 
   const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-    adjustHeight(e.currentTarget);
+    if (controlledHeight === undefined) {
+      adjustHeight(e.currentTarget);
+    }
     onInput?.(e);
   };
 
@@ -51,7 +59,7 @@ export function AutoResizeTextarea({
       ref={textareaRef}
       onInput={handleInput}
       className={cn(
-        "flex-1 resize-y bg-transparent border-0 text-ink placeholder:text-ash focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 min-h-0 py-1.5 px-0 overflow-auto",
+        "w-full resize-none bg-transparent border-0 text-ink placeholder:text-ash placeholder:text-xs focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 min-h-0 py-1.5 px-0 overflow-auto",
         className
       )}
       style={{
