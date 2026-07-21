@@ -93,6 +93,7 @@ export default function Home() {
   const langRef = useRef<HTMLDivElement>(null);
   const chatIdRef = useRef(0);
   const assistantIdRef = useRef<string | null>(null);
+  const pendingPromptRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -151,7 +152,13 @@ export default function Home() {
       const ws = new WebSocket(`${wsUrl}/ws/workspaces/${id}`);
       wsRef.current = ws;
 
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => {
+        setConnected(true);
+        if (pendingPromptRef.current) {
+          ws.send(JSON.stringify({ type: "prompt", content: pendingPromptRef.current }));
+          pendingPromptRef.current = null;
+        }
+      };
       ws.onclose = () => setConnected(false);
       ws.onerror = () => setConnected(false);
       ws.onmessage = (msg) => {
@@ -446,11 +453,21 @@ export default function Home() {
       ]);
 
       // Reconnect if the socket was closed (e.g. after the user pressed stop).
+      // If it is still connecting, queue the prompt and send it in onopen.
       if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
-        if (id) connect(id);
+        if (id) {
+          pendingPromptRef.current = content;
+          connect(id);
+        }
+        return;
       }
 
-      wsRef.current?.send(JSON.stringify({ type: "prompt", content }));
+      if (wsRef.current.readyState === WebSocket.CONNECTING) {
+        pendingPromptRef.current = content;
+        return;
+      }
+
+      wsRef.current.send(JSON.stringify({ type: "prompt", content }));
     },
     [workspaceId, createWorkspace, connect]
   );
@@ -488,12 +505,22 @@ export default function Home() {
       return prev;
     });
 
-    if (userContent.trim()) {
-      // Re-send the last user prompt. The backend keeps full history, so the
-      // model sees the prior turn plus this repeated prompt.
-      wsRef.current?.send(JSON.stringify({ type: "prompt", content: userContent.trim() }));
+    if (!userContent.trim() || !workspaceId) return;
+
+    // Re-send the last user prompt. The backend keeps full history, so the
+    // model sees the prior turn plus this repeated prompt.
+    const content = userContent.trim();
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
+      pendingPromptRef.current = content;
+      connect(workspaceId);
+      return;
     }
-  }, []);
+    if (wsRef.current.readyState === WebSocket.CONNECTING) {
+      pendingPromptRef.current = content;
+      return;
+    }
+    wsRef.current.send(JSON.stringify({ type: "prompt", content }));
+  }, [workspaceId, connect]);
 
   const handleStop = useCallback(() => {
     // Close the WebSocket to interrupt the current turn. The backend may still
