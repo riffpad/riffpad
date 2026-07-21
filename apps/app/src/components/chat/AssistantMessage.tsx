@@ -13,7 +13,6 @@ interface AssistantMessageProps {
   stopped?: boolean;
   citations?: Citation[];
   onRegenerate?: () => void;
-  isLatest?: boolean;
 }
 
 function AssistantMessageImpl({
@@ -23,7 +22,6 @@ function AssistantMessageImpl({
   stopped,
   citations,
   onRegenerate,
-  isLatest,
 }: AssistantMessageProps) {
   const { t } = useI18n();
   const displayed = useSmoothTypewriter(content, !!isStreaming, !!stopped);
@@ -48,7 +46,7 @@ function AssistantMessageImpl({
             <MarkdownRenderer content={isStreaming ? displayed : content} citations={citations} />
           </div>
         ) : null}
-        {!isStreaming && !stopped && content && isLatest ? (
+        {!isStreaming && !stopped && content ? (
           <MessageActions content={content} onRegenerate={onRegenerate} />
         ) : null}
       </div>

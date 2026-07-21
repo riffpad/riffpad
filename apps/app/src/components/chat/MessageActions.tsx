@@ -30,11 +30,13 @@ function MessageActionsImpl({ content, onRegenerate }: MessageActionsProps) {
         label={t("chat.copy")}
         icon={copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       />
-      <ActionButton
-        onClick={onRegenerate}
-        label={t("chat.regenerate")}
-        icon={<RefreshCw className="h-3.5 w-3.5" />}
-      />
+      {onRegenerate ? (
+        <ActionButton
+          onClick={onRegenerate}
+          label={t("chat.regenerate")}
+          icon={<RefreshCw className="h-3.5 w-3.5" />}
+        />
+      ) : null}
       <ActionButton
         label={t("chat.more")}
         icon={<MoreHorizontal className="h-3.5 w-3.5" />}

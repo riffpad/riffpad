@@ -82,8 +82,9 @@ export function ChatPanel({ items, emptyHint, scrollRef, citations, onRegenerate
                   isStreaming={item.isStreaming}
                   stopped={item.stopped}
                   citations={citations}
-                  onRegenerate={onRegenerate}
-                  isLatest={item.id === latestAssistantId}
+                  onRegenerate={
+                    item.id === latestAssistantId ? onRegenerate : undefined
+                  }
                 />
               );
             case "tool":
