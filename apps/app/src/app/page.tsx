@@ -77,6 +77,10 @@ export default function Home() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [citations, setCitations] = useState<Citation[]>([]);
 
+  const isStreaming = chatItems.some(
+    (item) => item.type === "assistant" && item.isStreaming
+  );
+
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
     check();
@@ -378,6 +382,15 @@ export default function Home() {
             }
             case "agent_end": {
               assistantIdRef.current = null;
+              // Safety net: ensure no assistant message stays stuck in streaming
+              // state if a message_end was dropped or reordered.
+              setChatItems((prev) =>
+                prev.map((item) =>
+                  item.type === "assistant" && item.isStreaming
+                    ? { ...item, isStreaming: false }
+                    : item
+                )
+              );
               break;
             }
             case "error": {
@@ -432,10 +445,70 @@ export default function Home() {
         },
       ]);
 
+      // Reconnect if the socket was closed (e.g. after the user pressed stop).
+      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
+        if (id) connect(id);
+      }
+
       wsRef.current?.send(JSON.stringify({ type: "prompt", content }));
     },
-    [workspaceId, createWorkspace]
+    [workspaceId, createWorkspace, connect]
   );
+
+  const handleRegenerate = useCallback(() => {
+    // Find the last user message to resend, and remove the latest assistant
+    // response from the UI so the new one replaces it.
+    let userContent = "";
+    setChatItems((prev) => {
+      let lastAssistantIndex = -1;
+      let lastUserIndex = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        const item = prev[i];
+        if (
+          lastAssistantIndex === -1 &&
+          item.type === "assistant" &&
+          !item.isStreaming
+        ) {
+          lastAssistantIndex = i;
+        }
+        if (lastUserIndex === -1 && item.type === "user") {
+          lastUserIndex = i;
+        }
+        if (lastAssistantIndex !== -1 && lastUserIndex !== -1) break;
+      }
+      if (lastUserIndex >= 0) {
+        const item = prev[lastUserIndex];
+        if (item.type === "user") {
+          userContent = item.content;
+        }
+      }
+      if (lastAssistantIndex >= 0) {
+        return prev.filter((_, i) => i !== lastAssistantIndex);
+      }
+      return prev;
+    });
+
+    if (userContent.trim()) {
+      // Re-send the last user prompt. The backend keeps full history, so the
+      // model sees the prior turn plus this repeated prompt.
+      wsRef.current?.send(JSON.stringify({ type: "prompt", content: userContent.trim() }));
+    }
+  }, []);
+
+  const handleStop = useCallback(() => {
+    // Close the WebSocket to interrupt the current turn. The backend may still
+    // finish its current LLM call, but the UI stops showing streaming state.
+    wsRef.current?.close();
+    wsRef.current = null;
+    assistantIdRef.current = null;
+    setChatItems((prev) =>
+      prev.map((item) =>
+        item.type === "assistant" && item.isStreaming
+          ? { ...item, isStreaming: false }
+          : item
+      )
+    );
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -712,8 +785,8 @@ export default function Home() {
                       {t("chat.title")}
                     </CardTitle>
                   </CardHeader>
-                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} />
-                  <ChatInput onSend={handleSend} disabled={!connected} />
+                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
+                  <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={!connected && !isStreaming} />
                 </>
               }
             />
@@ -733,8 +806,8 @@ export default function Home() {
                     {t("chat.title")}
                   </CardTitle>
                 </CardHeader>
-                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} />
-                <ChatInput onSend={handleSend} disabled={!connected} />
+                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
+                <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={!connected && !isStreaming} />
               </aside>
             </div>
           )}

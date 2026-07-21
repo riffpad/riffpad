@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Brain, CornerDownLeft, Paperclip } from "lucide-react";
+import { Brain, CornerDownLeft, Paperclip, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AutoResizeTextarea } from "./AutoResizeTextarea";
 import { useI18n } from "@/lib/i18n";
@@ -11,10 +11,12 @@ const MAX_HEIGHT = 200;
 
 interface ChatInputProps {
   onSend: (content: string) => void;
+  onStop?: () => void;
+  isStreaming?: boolean;
   disabled?: boolean;
 }
 
-function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
+function ChatInputImpl({ onSend, onStop, isStreaming, disabled }: ChatInputProps) {
   const { t } = useI18n();
   const [prompt, setPrompt] = useState("");
   const [controlledHeight, setControlledHeight] = useState<number | undefined>(
@@ -129,14 +131,25 @@ function ChatInputImpl({ onSend, disabled }: ChatInputProps) {
             </Button>
           </div>
 
-          <Button
-            type="submit"
-            disabled={!prompt.trim() || disabled}
-            aria-label={t("prompt.send")}
-            className="h-7 w-7 shrink-0 rounded-md border border-hairline bg-transparent p-0 text-mute transition hover:border-ash hover:text-ink hover:bg-transparent disabled:opacity-50"
-          >
-            <CornerDownLeft className="h-4 w-4" />
-          </Button>
+          {isStreaming ? (
+            <Button
+              type="button"
+              onClick={onStop}
+              aria-label={t("chat.stop")}
+              className="h-7 w-7 shrink-0 rounded-md border border-hairline bg-transparent p-0 text-mute transition hover:border-accent-red hover:text-accent-red hover:bg-transparent"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              disabled={!prompt.trim() || disabled}
+              aria-label={t("prompt.send")}
+              className="h-7 w-7 shrink-0 rounded-md border border-hairline bg-transparent p-0 text-mute transition hover:border-ash hover:text-ink hover:bg-transparent disabled:opacity-50"
+            >
+              <CornerDownLeft className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </form>
     </div>
