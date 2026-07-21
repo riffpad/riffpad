@@ -497,14 +497,15 @@ export default function Home() {
 
   const handleStop = useCallback(() => {
     // Close the WebSocket to interrupt the current turn. The backend may still
-    // finish its current LLM call, but the UI stops showing streaming state.
+    // finish its current LLM call, but the UI stops showing streaming state
+    // and freezes the message in place.
     wsRef.current?.close();
     wsRef.current = null;
     assistantIdRef.current = null;
     setChatItems((prev) =>
       prev.map((item) =>
         item.type === "assistant" && item.isStreaming
-          ? { ...item, isStreaming: false }
+          ? { ...item, isStreaming: false, stopped: true }
           : item
       )
     );
@@ -786,7 +787,7 @@ export default function Home() {
                     </CardTitle>
                   </CardHeader>
                   <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
-                  <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={!connected && !isStreaming} />
+                  <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={isStreaming} />
                 </>
               }
             />
@@ -807,7 +808,7 @@ export default function Home() {
                   </CardTitle>
                 </CardHeader>
                 <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
-                <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={!connected && !isStreaming} />
+                <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={isStreaming} />
               </aside>
             </div>
           )}

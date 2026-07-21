@@ -10,6 +10,7 @@ interface AssistantMessageProps {
   content: string;
   reasoning?: string;
   isStreaming?: boolean;
+  stopped?: boolean;
   citations?: Citation[];
   onRegenerate?: () => void;
 }
@@ -18,11 +19,12 @@ function AssistantMessageImpl({
   content,
   reasoning,
   isStreaming,
+  stopped,
   citations,
   onRegenerate,
 }: AssistantMessageProps) {
   const { t } = useI18n();
-  const displayed = useSmoothTypewriter(content, !!isStreaming);
+  const displayed = useSmoothTypewriter(content, !!isStreaming, !!stopped);
 
   return (
     <div
@@ -44,7 +46,7 @@ function AssistantMessageImpl({
             <MarkdownRenderer content={isStreaming ? displayed : content} citations={citations} />
           </div>
         ) : null}
-        {!isStreaming && content ? (
+        {!isStreaming && !stopped && content ? (
           <MessageActions content={content} onRegenerate={onRegenerate} />
         ) : null}
       </div>

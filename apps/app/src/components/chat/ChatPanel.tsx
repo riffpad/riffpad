@@ -74,6 +74,7 @@ export function ChatPanel({ items, emptyHint, scrollRef, citations, onRegenerate
                   content={item.content}
                   reasoning={item.reasoning}
                   isStreaming={item.isStreaming}
+                  stopped={item.stopped}
                   citations={citations}
                   onRegenerate={onRegenerate}
                 />
