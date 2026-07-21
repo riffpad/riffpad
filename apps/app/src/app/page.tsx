@@ -5,8 +5,6 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import {
   ChevronDown,
-  Code,
-  Eye,
   FileCode,
   Folder,
   Languages,
@@ -26,6 +24,7 @@ import type { ChatItem, ChatToolItem } from "@/components/chat/types";
 import type { Citation } from "@/components/chat/MarkdownRenderer";
 import { useI18n } from "@/lib/i18n";
 import { DockLayout } from "@/components/layout/DockLayout";
+import { FileEditor } from "@/components/files/FileEditor";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -70,8 +69,6 @@ export default function Home() {
   const [connected, setConnected] = useState(false);
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
   const [filesOpen, setFilesOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -129,20 +126,6 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Failed to fetch files:", err);
-    }
-  }, []);
-
-  const fetchFile = useCallback(async (id: string, path: string) => {
-    try {
-      const res = await fetch(
-        `${API_URL}/api/v1/workspaces/${id}/file?path=${encodeURIComponent(path)}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setFileContent(data.content);
-      }
-    } catch (err) {
-      console.error("Failed to fetch file:", err);
     }
   }, []);
 
@@ -547,8 +530,6 @@ export default function Home() {
   const handleFileClick = (file: FileInfo) => {
     if (!workspaceId || file.isDir) return;
     setSelectedFile(file.path);
-    setActiveTab("code");
-    void fetchFile(workspaceId, file.path);
   };
 
   const toggleTheme = () => {
@@ -601,62 +582,14 @@ export default function Home() {
     </div>
   );
 
-  const centerTabs = (
-    <div className="flex items-center gap-1 border-b border-hairline bg-card/70 backdrop-blur px-2">
-      <button
-        onClick={() => setActiveTab("preview")}
-        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition ${
-          activeTab === "preview"
-            ? "text-ink border-b-2 border-primary"
-            : "text-mute hover:text-ink"
-        }`}
-      >
-        <Eye className="h-3.5 w-3.5" />
-        {t("preview.title")}
-      </button>
-      <button
-        onClick={() => setActiveTab("code")}
-        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition ${
-          activeTab === "code"
-            ? "text-ink border-b-2 border-primary"
-            : "text-mute hover:text-ink"
-        }`}
-      >
-        <Code className="h-3.5 w-3.5" />
-        {t("code.title")}
-      </button>
-    </div>
-  );
-
-  const previewPane = (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center min-h-0">
-      <div className="w-16 h-16 mb-4 bg-primary/10 rounded-2xl flex items-center justify-center">
-        <Eye className="h-8 w-8 text-primary" />
-      </div>
-      <h3 className="text-sm font-semibold text-ink mb-1">
-        {t("preview.empty")}
-      </h3>
-      <p className="text-xs text-mute max-w-xs">
-        {t("preview.hint")}
-      </p>
-    </div>
-  );
-
-  const codePane = (
-    <div className="flex-1 min-h-0 overflow-hidden bg-card-doc/50">
-      {selectedFile ? (
-        <ScrollArea className="h-full">
-          <pre className="p-4 text-sm font-mono text-body whitespace-pre-wrap">
-            {fileContent}
-          </pre>
-        </ScrollArea>
-      ) : (
-        <div className="h-full flex items-center justify-center text-mute text-sm">
-          {t("code.empty")}
-        </div>
-      )}
-    </div>
-  );
+  const fileEditor = workspaceId ? (
+    <FileEditor
+      workspaceId={workspaceId}
+      selectedFile={selectedFile}
+      onSelectFile={setSelectedFile}
+      emptyHint={t("code.empty")}
+    />
+  ) : null;
 
   return (
     <div className="h-dvh bg-canvas text-body flex flex-col relative overflow-hidden">
@@ -799,12 +732,7 @@ export default function Home() {
           {isDesktop ? (
             <DockLayout
               left={fileTree}
-              center={
-                <>
-                  {centerTabs}
-                  {activeTab === "preview" ? previewPane : codePane}
-                </>
-              }
+              center={fileEditor}
               right={
                 <>
                   <CardHeader className="py-3 px-4 border-b border-hairline-soft">
@@ -820,10 +748,9 @@ export default function Home() {
             />
           ) : (
             <div className="flex flex-col h-full min-h-0">
-              {/* Center: Preview / Code */}
+              {/* Center: File editor */}
               <section className="flex-1 flex flex-col min-w-0 border-b border-hairline bg-card/30 min-h-0">
-                {centerTabs}
-                {activeTab === "preview" ? previewPane : codePane}
+                {fileEditor}
               </section>
 
               {/* Right: Chat */}

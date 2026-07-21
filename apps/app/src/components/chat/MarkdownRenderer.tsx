@@ -56,7 +56,6 @@ function applyCitations(content: string, citations: Citation[]): string {
   const maxIndex = citations.length;
   if (maxIndex === 0) return content;
 
-  const validSet = new Set(citations.map((c) => c.index));
   const urlFor = (idx: number) => citations.find((c) => c.index === idx)?.url;
 
   // Protect URLs and code blocks so we don't accidentally turn digits inside

@@ -72,7 +72,7 @@ export function useSmoothTypewriter(
     return () => {
       cancelAnimationFrame(raf);
     };
-  }, [target, isActive]);
+  }, [target, isActive, freeze]);
 
   return freeze ? frozenRef.current ?? displayed : displayed;
 }
