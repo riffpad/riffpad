@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Code, Eye, FileCode, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CodeHighlighter } from "@/components/ui/CodeHighlighter";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -22,6 +23,31 @@ function isMarkdown(path: string) {
 
 function fileName(path: string) {
   return path.split("/").pop() ?? path;
+}
+
+const LANG_MAP: Record<string, string> = {
+  ts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  jsx: "jsx",
+  json: "json",
+  py: "python",
+  go: "go",
+  rs: "rust",
+  css: "css",
+  html: "html",
+  htm: "html",
+  md: "markdown",
+  mdx: "markdown",
+  yml: "yaml",
+  yaml: "yaml",
+  sh: "bash",
+  bash: "bash",
+};
+
+function languageFromPath(path: string) {
+  const ext = path.split(".").pop()?.toLowerCase();
+  return ext ? LANG_MAP[ext] ?? ext : "text";
 }
 
 export function FileEditor({
@@ -172,9 +198,12 @@ export function FileEditor({
                 <MarkdownRenderer content={activeContent} />
               </div>
             ) : (
-              <pre className="p-4 text-sm font-mono text-body whitespace-pre-wrap">
-                {activeContent}
-              </pre>
+              <div className="p-4 text-sm leading-relaxed">
+                <CodeHighlighter
+                  content={activeContent}
+                  language={languageFromPath(activeFile)}
+                />
+              </div>
             )}
           </ScrollArea>
         ) : (
