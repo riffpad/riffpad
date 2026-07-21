@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssistantMessage } from "./AssistantMessage";
 import { FileChange } from "./FileChange";
@@ -20,6 +20,15 @@ const NEAR_BOTTOM_THRESHOLD = 60;
 export function ChatPanel({ items, emptyHint, scrollRef, citations, onRegenerate }: ChatPanelProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
+
+  const latestAssistantId = useMemo(() => {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].type === "assistant") {
+        return items[i].id;
+      }
+    }
+    return null;
+  }, [items]);
 
   // Auto-scroll to bottom whenever new content arrives, but only if the user
   // is already near the bottom. If the user has scrolled up, we respect that
@@ -74,6 +83,7 @@ export function ChatPanel({ items, emptyHint, scrollRef, citations, onRegenerate
                   stopped={item.stopped}
                   citations={citations}
                   onRegenerate={onRegenerate}
+                  isLatest={item.id === latestAssistantId}
                 />
               );
             case "tool":
