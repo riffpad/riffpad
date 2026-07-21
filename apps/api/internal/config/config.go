@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 )
@@ -67,6 +68,7 @@ func Load() Config {
 			cfg.LLM.KeepRecentTokens = n
 		}
 	}
+	log.Printf("config loaded: baseURL=%s model=%s apiKeyLen=%d", cfg.LLM.BaseURL, cfg.LLM.Model, len(cfg.LLM.APIKey))
 	return cfg
 }
 

@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/riffpad/riffpad/apps/api/internal/config"
@@ -17,6 +18,18 @@ import (
 )
 
 func main() {
+	// Try to load .env from common locations. The API is usually run from
+	// apps/api during development, so look up to the project root first.
+	loaded := false
+	for _, path := range []string{"../../.env", ".env"} {
+		if err := godotenv.Load(path); err == nil {
+			loaded = true
+			break
+		}
+	}
+	if !loaded {
+		log.Println("No .env file found, relying on environment variables")
+	}
 	cfg := config.Load()
 
 	e := echo.New()
