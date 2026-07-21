@@ -6,13 +6,26 @@ const MS_PER_CHAR = 14;
 const MAX_DURATION = 600;
 const MIN_DURATION = 50;
 
-export function useSmoothTypewriter(target: string, isActive: boolean) {
+export function useSmoothTypewriter(
+  target: string,
+  isActive: boolean,
+  freeze = false
+) {
   const [displayed, setDisplayed] = useState(target);
   const targetRef = useRef(target);
   const displayedRef = useRef(target);
+  const frozenRef = useRef<string | null>(null);
 
   useEffect(() => {
     targetRef.current = target;
+
+    if (freeze && frozenRef.current === null) {
+      frozenRef.current = displayedRef.current;
+    }
+
+    if (freeze) {
+      return;
+    }
 
     if (!isActive) {
       if (displayedRef.current !== target) {
@@ -61,5 +74,5 @@ export function useSmoothTypewriter(target: string, isActive: boolean) {
     };
   }, [target, isActive]);
 
-  return displayed;
+  return freeze ? frozenRef.current ?? displayed : displayed;
 }

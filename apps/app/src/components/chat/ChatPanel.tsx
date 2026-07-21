@@ -12,11 +12,12 @@ interface ChatPanelProps {
   emptyHint?: string;
   scrollRef?: React.RefObject<HTMLDivElement>;
   citations?: Citation[];
+  onRegenerate?: () => void;
 }
 
 const NEAR_BOTTOM_THRESHOLD = 60;
 
-export function ChatPanel({ items, emptyHint, scrollRef, citations }: ChatPanelProps) {
+export function ChatPanel({ items, emptyHint, scrollRef, citations, onRegenerate }: ChatPanelProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -73,7 +74,9 @@ export function ChatPanel({ items, emptyHint, scrollRef, citations }: ChatPanelP
                   content={item.content}
                   reasoning={item.reasoning}
                   isStreaming={item.isStreaming}
+                  stopped={item.stopped}
                   citations={citations}
+                  onRegenerate={onRegenerate}
                 />
               );
             case "tool":

@@ -53,10 +53,10 @@ export function DockLayout({ left, center, right }: DockLayoutProps) {
     // Avoid hydration mismatch by rendering a static layout first.
     return (
       <div className="flex-1 grid grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,320px)] overflow-hidden">
-        <div className="border-r border-hairline bg-card/70 backdrop-blur flex flex-col min-h-0">
+        <div className="bg-card/70 backdrop-blur flex flex-col min-h-0">
           {left}
         </div>
-        <div className="flex flex-col min-w-0 border-r border-hairline bg-card/30 min-h-0">
+        <div className="flex flex-col min-w-0 bg-card/30 min-h-0">
           {center}
         </div>
         <div className="flex flex-col bg-card/70 backdrop-blur min-w-0 min-h-0">
@@ -79,22 +79,22 @@ export function DockLayout({ left, center, right }: DockLayoutProps) {
         defaultSize={260}
         minSize={180}
         maxSize={400}
-        className="flex flex-col border-r border-hairline bg-card/70 backdrop-blur min-h-0"
+        className="flex flex-col bg-card/70 backdrop-blur min-h-0"
       >
         {left}
       </Panel>
-      <Separator className="group relative w-[5px] bg-transparent hover:bg-primary/20 focus-visible:bg-primary/30 transition-colors data-[separator-active]:bg-primary/30">
-        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[3px] rounded-full bg-hairline group-hover:bg-primary/40 group-data-[separator-active]:bg-primary/50 transition-colors" />
+      <Separator className="group relative w-[5px] bg-transparent focus-visible:outline-none">
+        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px rounded-full bg-hairline transition-all group-hover:w-[3px] group-hover:bg-primary/40 group-data-[separator-active]:w-[3px] group-data-[separator-active]:bg-primary/50" />
       </Separator>
       <Panel
         id={PANEL_IDS[1]}
         minSize={320}
-        className="flex flex-col min-w-0 border-r border-hairline bg-card/30 min-h-0"
+        className="flex flex-col min-w-0 bg-card/30 min-h-0"
       >
         {center}
       </Panel>
-      <Separator className="group relative w-[5px] bg-transparent hover:bg-primary/20 focus-visible:bg-primary/30 transition-colors data-[separator-active]:bg-primary/30">
-        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[3px] rounded-full bg-hairline group-hover:bg-primary/40 group-data-[separator-active]:bg-primary/50 transition-colors" />
+      <Separator className="group relative w-[5px] bg-transparent focus-visible:outline-none">
+        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px rounded-full bg-hairline transition-all group-hover:w-[3px] group-hover:bg-primary/40 group-data-[separator-active]:w-[3px] group-data-[separator-active]:bg-primary/50" />
       </Separator>
       <Panel
         id={PANEL_IDS[2]}

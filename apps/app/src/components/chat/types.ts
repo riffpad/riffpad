@@ -11,6 +11,7 @@ export interface ChatAssistantItem {
   content: string;
   reasoning?: string;
   isStreaming?: boolean;
+  stopped?: boolean;
   timestamp: number;
 }
 

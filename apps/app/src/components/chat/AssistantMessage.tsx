@@ -3,23 +3,28 @@
 import { memo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { MarkdownRenderer, type Citation } from "./MarkdownRenderer";
+import { MessageActions } from "./MessageActions";
 import { useSmoothTypewriter } from "./useSmoothTypewriter";
 
 interface AssistantMessageProps {
   content: string;
   reasoning?: string;
   isStreaming?: boolean;
+  stopped?: boolean;
   citations?: Citation[];
+  onRegenerate?: () => void;
 }
 
 function AssistantMessageImpl({
   content,
   reasoning,
   isStreaming,
+  stopped,
   citations,
+  onRegenerate,
 }: AssistantMessageProps) {
   const { t } = useI18n();
-  const displayed = useSmoothTypewriter(content, !!isStreaming);
+  const displayed = useSmoothTypewriter(content, !!isStreaming, !!stopped);
 
   return (
     <div
@@ -40,6 +45,9 @@ function AssistantMessageImpl({
           <div className="text-sm leading-relaxed text-body">
             <MarkdownRenderer content={isStreaming ? displayed : content} citations={citations} />
           </div>
+        ) : null}
+        {!isStreaming && !stopped && content ? (
+          <MessageActions content={content} onRegenerate={onRegenerate} />
         ) : null}
       </div>
     </div>
