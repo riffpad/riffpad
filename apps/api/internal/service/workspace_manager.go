@@ -78,6 +78,35 @@ func (m *WorkspaceManager) ListFiles(ctx context.Context, id string, dir string)
 	return box.ListFiles(ctx, dir)
 }
 
+func (m *WorkspaceManager) ListFilesRecursive(ctx context.Context, id string, dir string) ([]sandbox.FileInfo, error) {
+	box, ok := m.sandboxes[id]
+	if !ok {
+		return nil, fmt.Errorf("sandbox not found")
+	}
+
+	var result []sandbox.FileInfo
+	var walk func(string) error
+	walk = func(current string) error {
+		files, err := box.ListFiles(ctx, current)
+		if err != nil {
+			return err
+		}
+		for _, f := range files {
+			result = append(result, f)
+			if f.IsDir {
+				if err := walk(f.Path); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(dir); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (m *WorkspaceManager) ReadFile(ctx context.Context, id string, path string) (string, error) {
 	box, ok := m.sandboxes[id]
 	if !ok {

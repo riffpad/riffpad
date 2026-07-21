@@ -5,8 +5,6 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import {
   ChevronDown,
-  FileCode,
-  Folder,
   Languages,
   MessageSquare,
   Moon,
@@ -25,6 +23,7 @@ import type { Citation } from "@/components/chat/MarkdownRenderer";
 import { useI18n } from "@/lib/i18n";
 import { DockLayout } from "@/components/layout/DockLayout";
 import { FileEditor } from "@/components/files/FileEditor";
+import { FileTree } from "@/components/files/FileTree";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -119,7 +118,7 @@ export default function Home() {
 
   const fetchFiles = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/v1/workspaces/${id}/files`);
+      const res = await fetch(`${API_URL}/api/v1/workspaces/${id}/files?recursive=true`);
       if (res.ok) {
         const data = await res.json();
         setFiles(data ?? []);
@@ -527,11 +526,6 @@ export default function Home() {
     };
   }, []);
 
-  const handleFileClick = (file: FileInfo) => {
-    if (!workspaceId || file.isDir) return;
-    setSelectedFile(file.path);
-  };
-
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
@@ -542,7 +536,6 @@ export default function Home() {
     <div data-testid="file-tree-panel" className="flex flex-col h-full min-h-0">
       <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
         <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-          <Folder className="h-4 w-4" />
           {t("files.title")}
         </CardTitle>
         <button
@@ -554,30 +547,14 @@ export default function Home() {
         </button>
       </CardHeader>
       <ScrollArea className="flex-1 px-2">
-        {files.length === 0 && (
-          <p className="text-xs text-mute px-2 py-1">{t("files.empty")}</p>
-        )}
-        <ul className="space-y-0.5 pb-4">
-          {files.map((file) => (
-            <li key={file.path}>
-              <button
-                onClick={() => handleFileClick(file)}
-                className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
-                  selectedFile === file.path
-                    ? "bg-canvas text-ink shadow-sm"
-                    : "hover:bg-card-soft text-body"
-                }`}
-              >
-                {file.isDir ? (
-                  <Folder className="h-4 w-4 text-mute shrink-0" />
-                ) : (
-                  <FileCode className="h-4 w-4 text-mute shrink-0" />
-                )}
-                <span className="truncate">{file.name}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <FileTree
+          files={files}
+          selectedFile={selectedFile}
+          onSelectFile={(path) => {
+            if (!workspaceId) return;
+            setSelectedFile(path);
+          }}
+        />
       </ScrollArea>
     </div>
   );

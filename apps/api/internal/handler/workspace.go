@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/riffpad/riffpad/apps/api/internal/sandbox"
 	"github.com/riffpad/riffpad/apps/api/internal/service"
 )
 
@@ -41,7 +42,15 @@ func (h *WorkspaceHandler) ListFiles(c echo.Context) error {
 	if dir == "" {
 		dir = "."
 	}
-	files, err := h.manager.ListFiles(context.Background(), id, dir)
+	recursive := c.QueryParam("recursive") == "true"
+
+	var files []sandbox.FileInfo
+	var err error
+	if recursive {
+		files, err = h.manager.ListFilesRecursive(context.Background(), id, dir)
+	} else {
+		files, err = h.manager.ListFiles(context.Background(), id, dir)
+	}
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
