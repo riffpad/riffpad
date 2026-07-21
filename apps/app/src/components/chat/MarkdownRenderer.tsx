@@ -277,7 +277,7 @@ function Code({
           codeTagProps={{
             style: {
               fontFamily:
-                'ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono", monospace',
+                'ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono", "Noto Sans Mono CJK SC", "PingFang SC", "Microsoft YaHei", monospace',
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
             },

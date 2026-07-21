@@ -18,7 +18,15 @@ const config: Config = {
           "system-ui",
           "sans-serif",
         ],
-        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        mono: [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Noto Sans Mono CJK SC",
+          "PingFang SC",
+          "Microsoft YaHei",
+          "monospace",
+        ],
       },
       colors: {
         border: "hsl(var(--border))",
