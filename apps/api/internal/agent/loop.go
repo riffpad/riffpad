@@ -322,20 +322,9 @@ func (l *Loop) processDelta(
 		}
 		if _, ok := pendingToolCalls[idx]; !ok {
 			pendingToolCalls[idx] = &ToolCall{Type: "function"}
-			// As soon as we know a tool is being chosen, surface a pending tool
-			// card so the user sees feedback while the model finishes emitting the
-			// tool-call JSON.
-			if !*sawContent {
-				if err := l.emit(AgentEvent{
-					Type:      "message_delta",
-					Delta:     "I will use a tool to help with that.\n\n",
-					Timestamp: now(),
-				}); err != nil {
-					return err
-				}
-				*sawContent = true
-				content.WriteString("I will use a tool to help with that.\n\n")
-			}
+			// Mark that the model has produced meaningful output so the first-token
+			// timeout loop exits while the tool-call JSON is still streaming.
+			*sawContent = true
 		}
 		existing := pendingToolCalls[idx]
 		if tc.ID != "" {
