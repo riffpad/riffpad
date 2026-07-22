@@ -1,0 +1,867 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
+import {
+  ArrowLeft,
+  ChevronDown,
+  Languages,
+  MessageSquare,
+  Moon,
+  PanelLeft,
+  Sun,
+  X,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import type { ChatItem, ChatToolItem } from "@/components/chat/types";
+import type { Citation } from "@/components/chat/MarkdownRenderer";
+import { useI18n } from "@/lib/i18n";
+import { DockLayout } from "@/components/layout/DockLayout";
+import { FileEditor } from "@/components/files/FileEditor";
+import { FileTree } from "@/components/files/FileTree";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+interface AgentMessage {
+  role: "user" | "assistant" | "tool";
+  content?: string;
+  tool_calls?: { id: string; function: { name: string; arguments: string } }[];
+  timestamp: number;
+}
+
+interface AgentEvent {
+  type: string;
+  content?: string;
+  delta?: string;
+  name?: string;
+  args?: unknown;
+  result?: unknown;
+  path?: string;
+  toolCallId?: string;
+  toolCallIndex?: number;
+  toolName?: string;
+  isError?: boolean;
+  message?: AgentMessage;
+  timestamp: number;
+}
+
+interface FileInfo {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+}
+
+function safeParseArgs(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+export default function WorkspacePage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const { t, locale, setLocale } = useI18n();
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  const routeId = params?.id ?? null;
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [chatItems, setChatItems] = useState<ChatItem[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [files, setFiles] = useState<FileInfo[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [citations, setCitations] = useState<Citation[]>([]);
+
+  const isStreaming = chatItems.some(
+    (item) => item.type === "assistant" && item.isStreaming
+  );
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
+  const chatIdRef = useRef(0);
+  const assistantIdRef = useRef<string | null>(null);
+  const pendingPromptRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (filesOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [filesOpen]);
+
+  const fetchFiles = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/workspaces/${id}/files?recursive=true`);
+      if (res.ok) {
+        const data = await res.json();
+        setFiles(data ?? []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch files:", err);
+    }
+  }, []);
+
+  const connect = useCallback(
+    (id: string) => {
+      const wsUrl = API_URL.replace(/^http/, "ws");
+      const ws = new WebSocket(`${wsUrl}/ws/workspaces/${id}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setConnected(true);
+        if (pendingPromptRef.current) {
+          ws.send(JSON.stringify({ type: "prompt", content: pendingPromptRef.current }));
+          pendingPromptRef.current = null;
+        }
+      };
+      ws.onclose = () => setConnected(false);
+      ws.onerror = () => setConnected(false);
+      ws.onmessage = (msg) => {
+        try {
+          const event: AgentEvent = JSON.parse(msg.data);
+          const makeId = () => `${++chatIdRef.current}`;
+
+          switch (event.type) {
+            case "agent_start": {
+              assistantIdRef.current = makeId();
+              setChatItems((prev) => [
+                ...prev,
+                {
+                  type: "assistant",
+                  id: assistantIdRef.current!,
+                  content: "",
+                  isStreaming: true,
+                  timestamp: event.timestamp,
+                },
+              ]);
+              break;
+            }
+            case "message_start": {
+              if (!assistantIdRef.current) {
+                assistantIdRef.current = makeId();
+                setChatItems((prev) => [
+                  ...prev,
+                  {
+                    type: "assistant",
+                    id: assistantIdRef.current!,
+                    content: "",
+                    isStreaming: true,
+                    timestamp: event.timestamp,
+                  },
+                ]);
+              }
+              break;
+            }
+            case "message_delta": {
+              if (event.delta && assistantIdRef.current) {
+                setChatItems((prev) =>
+                  prev.map((item) =>
+                    item.id === assistantIdRef.current && item.type === "assistant"
+                      ? { ...item, content: item.content + event.delta! }
+                      : item
+                  )
+                );
+              }
+              break;
+            }
+            case "reasoning_delta": {
+              if (event.delta && assistantIdRef.current) {
+                setChatItems((prev) =>
+                  prev.map((item) =>
+                    item.id === assistantIdRef.current && item.type === "assistant"
+                      ? { ...item, reasoning: (item.reasoning ?? "") + event.delta! }
+                      : item
+                  )
+                );
+              }
+              break;
+            }
+            case "message_end": {
+              if (event.message?.role === "assistant" && assistantIdRef.current) {
+                setChatItems((prev) =>
+                  prev.map((item) =>
+                    item.id === assistantIdRef.current && item.type === "assistant"
+                      ? { ...item, content: event.message?.content ?? "", isStreaming: false }
+                      : item
+                  )
+                );
+                assistantIdRef.current = null;
+              }
+              break;
+            }
+            case "tool_call_delta": {
+              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId ?? makeId()}`;
+              const stableId = event.toolCallId ? `tool-${event.toolCallId}` : pendingId;
+              setChatItems((prev) => {
+                const existing = prev.find(
+                  (item): item is ChatToolItem =>
+                    item.type === "tool" &&
+                    (item.id === stableId ||
+                      item.id === pendingId ||
+                      (event.toolCallIndex !== undefined &&
+                        item.id === `tool-pending-${event.toolCallIndex}`))
+                );
+                if (existing) {
+                  return prev.map((item) => {
+                    if (item.type !== "tool" || item.id !== existing.id) {
+                      return item;
+                    }
+                    return {
+                      ...item,
+                      id: stableId,
+                      toolName: event.toolName ?? item.toolName,
+                      args: event.args ?? item.args,
+                      isPartial: true,
+                    };
+                  });
+                }
+                return [
+                  ...prev,
+                  {
+                    type: "tool",
+                    id: stableId,
+                    toolName: event.toolName ?? "tool",
+                    args: event.args,
+                    isPartial: true,
+                    timestamp: event.timestamp,
+                  },
+                ];
+              });
+              break;
+            }
+            case "tool_execution_start": {
+              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId ?? makeId()}`;
+              const stableId = `tool-${event.toolCallId}`;
+              setChatItems((prev) => {
+                const existing = prev.find(
+                  (item): item is ChatToolItem =>
+                    item.type === "tool" &&
+                    (item.id === stableId ||
+                      item.id === pendingId ||
+                      (event.toolCallIndex !== undefined &&
+                        item.id === `tool-pending-${event.toolCallIndex}`))
+                );
+                if (existing) {
+                  return prev.map((item) => {
+                    if (item.type !== "tool" || item.id !== existing.id) {
+                      return item;
+                    }
+                    return {
+                      ...item,
+                      id: stableId,
+                      toolName: event.toolName ?? item.toolName,
+                      args: event.args ?? item.args,
+                      isPartial: true,
+                    };
+                  });
+                }
+                return [
+                  ...prev,
+                  {
+                    type: "tool",
+                    id: stableId,
+                    toolName: event.toolName ?? "tool",
+                    args: event.args,
+                    isPartial: true,
+                    timestamp: event.timestamp,
+                  },
+                ];
+              });
+              break;
+            }
+            case "tool_execution_end": {
+              const stableId = `tool-${event.toolCallId}`;
+              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId}`;
+              setChatItems((prev) =>
+                prev.map((item) => {
+                  if (item.type !== "tool") return item;
+                  if (
+                    item.id !== stableId &&
+                    item.id !== pendingId &&
+                    (event.toolCallIndex === undefined ||
+                      item.id !== `tool-pending-${event.toolCallIndex}`)
+                  ) {
+                    return item;
+                  }
+                  return {
+                    ...item,
+                    id: stableId,
+                    isPartial: false,
+                    result: event.result,
+                    isError: event.isError,
+                  };
+                })
+              );
+              if (event.toolName === "web_search" && event.result && !event.isError) {
+                try {
+                  let raw: unknown = event.result;
+                  if (typeof event.result === "string") {
+                    const delimiter = event.result.indexOf("\n\n---\n");
+                    const jsonPart =
+                      delimiter === -1 ? event.result : event.result.slice(0, delimiter);
+                    raw = JSON.parse(jsonPart);
+                  }
+                  if (Array.isArray(raw)) {
+                    const newCitations: Citation[] = raw
+                      .filter(
+                        (r: unknown): r is Record<string, unknown> =>
+                          r !== null &&
+                          typeof r === "object" &&
+                          typeof (r as Record<string, unknown>).url === "string" &&
+                          typeof (r as Record<string, unknown>).title === "string"
+                      )
+                      .map((r: Record<string, unknown>) => ({
+                        index: Number(r.index) || 0,
+                        url: String(r.url),
+                        title: String(r.title),
+                      }));
+                    setCitations((prev) => {
+                      const existing = new Set(prev.map((c) => c.url));
+                      return [...prev, ...newCitations.filter((c) => !existing.has(c.url))];
+                    });
+                  }
+                } catch {
+                  // ignore invalid search results
+                }
+              }
+              void fetchFiles(id);
+              break;
+            }
+            case "file_change": {
+              if (event.path) {
+                setChatItems((prev) => [
+                  ...prev,
+                  {
+                    type: "file",
+                    id: makeId(),
+                    path: event.path!,
+                    timestamp: event.timestamp,
+                  },
+                ]);
+              }
+              void fetchFiles(id);
+              break;
+            }
+            case "agent_end": {
+              assistantIdRef.current = null;
+              // Safety net: ensure no assistant message stays stuck in streaming
+              // state if a message_end was dropped or reordered.
+              setChatItems((prev) =>
+                prev.map((item) =>
+                  item.type === "assistant" && item.isStreaming
+                    ? { ...item, isStreaming: false }
+                    : item
+                )
+              );
+              break;
+            }
+            case "error": {
+              setChatItems((prev) => [
+                ...prev,
+                {
+                  type: "assistant",
+                  id: makeId(),
+                  content: event.content ?? "Agent error",
+                  timestamp: event.timestamp,
+                },
+              ]);
+              break;
+            }
+          }
+        } catch {
+          console.error("Failed to parse event:", msg.data);
+        }
+      };
+    },
+    [fetchFiles]
+  );
+
+  const loadHistory = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/workspaces/${id}/messages`);
+      if (!res.ok) return;
+      type StoredMessage = AgentMessage & {
+        tool_call_id?: string;
+        name?: string;
+        metadata?: { isError?: boolean };
+      };
+      const messages: StoredMessage[] = await res.json();
+
+      // Index assistant tool calls by id so tool results can be replayed with
+      // their original name and arguments.
+      const callIndex = new Map<string, { name: string; args: unknown }>();
+      for (const m of messages) {
+        if (m.role !== "assistant" || !m.tool_calls) continue;
+        for (const call of m.tool_calls) {
+          callIndex.set(call.id, {
+            name: call.function.name,
+            args: safeParseArgs(call.function.arguments),
+          });
+        }
+      }
+
+      const items: ChatItem[] = [];
+      for (const m of messages) {
+        const itemId = `${++chatIdRef.current}`;
+        if (m.role === "user") {
+          items.push({ type: "user", id: itemId, content: m.content ?? "", timestamp: m.timestamp });
+        } else if (m.role === "assistant") {
+          items.push({
+            type: "assistant",
+            id: itemId,
+            content: m.content ?? "",
+            timestamp: m.timestamp,
+          });
+        } else if (m.role === "tool") {
+          const toolCallId = m.tool_call_id ?? "";
+          const call = callIndex.get(toolCallId);
+          items.push({
+            type: "tool",
+            id: `tool-${toolCallId}`,
+            toolName: call?.name ?? m.name ?? "tool",
+            args: call?.args,
+            result: m.content,
+            isError: m.metadata?.isError ?? false,
+            isPartial: false,
+            timestamp: m.timestamp,
+          });
+        }
+      }
+      setChatItems(items);
+    } catch (err) {
+      console.error("Failed to load history:", err);
+    }
+  }, []);
+
+  const loadWorkspace = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/workspaces/${id}`);
+        if (!res.ok) {
+          setNotFound(true);
+          return;
+        }
+        const data = await res.json();
+        setWorkspaceId(data.id);
+        setWorkspaceSlug(data.slug);
+        await loadHistory(data.id);
+        connect(data.id);
+        await fetchFiles(data.id);
+      } catch (err) {
+        console.error("Failed to load workspace:", err);
+        setNotFound(true);
+      }
+    },
+    [connect, fetchFiles, loadHistory]
+  );
+
+  useEffect(() => {
+    if (routeId && !workspaceId && !notFound) {
+      void loadWorkspace(routeId);
+    }
+  }, [routeId, workspaceId, notFound, loadWorkspace]);
+
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
+
+      const id = workspaceId;
+      if (!id) return;
+
+      setChatItems((prev) => [
+        ...prev,
+        {
+          id: `${++chatIdRef.current}`,
+          type: "user",
+          content,
+          timestamp: Date.now(),
+        },
+      ]);
+
+      // Reconnect if the socket was closed (e.g. after the user pressed stop).
+      // If it is still connecting, queue the prompt and send it in onopen.
+      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
+        if (id) {
+          pendingPromptRef.current = content;
+          connect(id);
+        }
+        return;
+      }
+
+      if (wsRef.current.readyState === WebSocket.CONNECTING) {
+        pendingPromptRef.current = content;
+        return;
+      }
+
+      wsRef.current.send(JSON.stringify({ type: "prompt", content }));
+    },
+    [workspaceId, connect]
+  );
+
+  const handleRegenerate = useCallback(() => {
+    // Find the last user message to resend, and remove the latest assistant
+    // response from the UI so the new one replaces it.
+    let userContent = "";
+    setChatItems((prev) => {
+      let lastAssistantIndex = -1;
+      let lastUserIndex = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        const item = prev[i];
+        if (
+          lastAssistantIndex === -1 &&
+          item.type === "assistant" &&
+          !item.isStreaming
+        ) {
+          lastAssistantIndex = i;
+        }
+        if (lastUserIndex === -1 && item.type === "user") {
+          lastUserIndex = i;
+        }
+        if (lastAssistantIndex !== -1 && lastUserIndex !== -1) break;
+      }
+      if (lastUserIndex >= 0) {
+        const item = prev[lastUserIndex];
+        if (item.type === "user") {
+          userContent = item.content;
+        }
+      }
+      if (lastAssistantIndex >= 0) {
+        return prev.filter((_, i) => i !== lastAssistantIndex);
+      }
+      return prev;
+    });
+
+    if (!userContent.trim() || !workspaceId) return;
+
+    // Re-send the last user prompt. The backend keeps full history, so the
+    // model sees the prior turn plus this repeated prompt.
+    const content = userContent.trim();
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
+      pendingPromptRef.current = content;
+      connect(workspaceId);
+      return;
+    }
+    if (wsRef.current.readyState === WebSocket.CONNECTING) {
+      pendingPromptRef.current = content;
+      return;
+    }
+    wsRef.current.send(JSON.stringify({ type: "prompt", content }));
+  }, [workspaceId, connect]);
+
+  const handleStop = useCallback(() => {
+    // Close the WebSocket to interrupt the current turn. The backend may still
+    // finish its current LLM call, but the UI stops showing streaming state
+    // and freezes the message in place.
+    wsRef.current?.close();
+    wsRef.current = null;
+    assistantIdRef.current = null;
+    setChatItems((prev) =>
+      prev.map((item) =>
+        item.type === "assistant" && item.isStreaming
+          ? { ...item, isStreaming: false, stopped: true }
+          : item
+      )
+    );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
+    };
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+  };
+
+  const isDark = resolvedTheme === "dark";
+
+  const fileTree = (
+    <div data-testid="file-tree-panel" className="flex flex-col h-full min-h-0">
+      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+        <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+          {t("files.title")}
+        </CardTitle>
+        <button
+          onClick={() => setFilesOpen(false)}
+          className="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-md text-mute hover:text-ink hover:bg-card-soft"
+          aria-label={t("files.close")}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </CardHeader>
+      <ScrollArea className="flex-1 px-2">
+        <FileTree
+          files={files}
+          selectedFile={selectedFile}
+          onSelectFile={(path) => {
+            if (!workspaceId) return;
+            setSelectedFile(path);
+          }}
+        />
+      </ScrollArea>
+    </div>
+  );
+
+  const fileEditor = workspaceId ? (
+    <FileEditor
+      workspaceId={workspaceId}
+      selectedFile={selectedFile}
+      onSelectFile={setSelectedFile}
+      emptyHint={t("code.empty")}
+    />
+  ) : null;
+
+  return (
+    <div className="h-dvh bg-canvas text-body flex flex-col relative overflow-hidden">
+      {/* Header */}
+      <header className="relative border-b border-hairline bg-card/80 backdrop-blur px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="Riffpad"
+            width={32}
+            height={32}
+            className="riffpad-logo rounded-md"
+          />
+          <div>
+            <h1 className="text-[15px] font-bold text-ink leading-tight">
+              {t("app.name")}
+            </h1>
+            <p className="text-[11px] text-mute hidden sm:block">
+              {t("app.tagline")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {workspaceId ? (
+            <div className="hidden sm:flex items-center gap-2 text-xs text-mute mr-2">
+              <span className="font-medium text-ink">
+                {workspaceSlug || workspaceId}
+              </span>
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  connected ? "bg-accent-green" : "bg-accent-red"
+                }`}
+                title={connected ? t("workspace.connected") : t("workspace.disconnected")}
+              />
+            </div>
+          ) : null}
+
+          {workspaceId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilesOpen(true)}
+              className="lg:hidden h-8 px-2 text-xs font-semibold"
+            >
+              <PanelLeft className="h-4 w-4 mr-1.5" />
+              {t("files.title")}
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/")}
+            className="h-8 px-2 text-xs font-semibold"
+            aria-label={t("workspaces.back")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">{t("workspaces.back")}</span>
+          </Button>
+
+          <div ref={langRef} className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLangOpen((v) => !v)}
+              className="text-xs font-semibold h-8 px-2 gap-1"
+              aria-expanded={langOpen}
+              aria-haspopup="listbox"
+            >
+              <Languages className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t(`lang.${locale}`)}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${
+                  langOpen ? "rotate-180" : ""
+                }`}
+              />
+            </Button>
+            {langOpen && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1 min-w-[120px] overflow-hidden rounded-md border border-hairline bg-card shadow-lg"
+                role="listbox"
+              >
+                {(["zh", "en"] as const).map((code) => (
+                  <button
+                    key={code}
+                    onClick={() => {
+                      setLocale(code);
+                      setLangOpen(false);
+                    }}
+                    className={`flex min-h-[36px] w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
+                      locale === code
+                        ? "bg-card-soft font-semibold text-ink"
+                        : "text-body hover:bg-card-soft hover:text-ink"
+                    }`}
+                    role="option"
+                    aria-selected={locale === code}
+                  >
+                    {t(`lang.${code}`)}
+                    {locale === code && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="h-8 w-8"
+            aria-label="toggle theme"
+          >
+            {mounted && isDark ? (
+              <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </header>
+
+      {/* IDE layout */}
+      {workspaceId ? (
+        <div className="relative flex-1 overflow-hidden h-full min-h-0">
+          {/* Mobile file drawer */}
+          {filesOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-sm lg:hidden"
+                onClick={() => setFilesOpen(false)}
+              />
+              <aside className="fixed left-0 top-14 bottom-0 z-50 w-[260px] border-r border-hairline bg-card shadow-2xl lg:hidden flex flex-col animate-fade-in-up">
+                {fileTree}
+              </aside>
+            </>
+          )}
+
+          {isDesktop ? (
+            <DockLayout
+              left={fileTree}
+              center={fileEditor}
+              right={
+                <>
+                  <CardHeader className="py-3 px-4 border-b border-hairline-soft">
+                    <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      {t("chat.title")}
+                    </CardTitle>
+                  </CardHeader>
+                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
+                  <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={isStreaming} />
+                </>
+              }
+            />
+          ) : (
+            <div className="flex flex-col h-full min-h-0">
+              {/* Center: File editor */}
+              <section className="flex-1 flex flex-col min-w-0 border-b border-hairline bg-card/30 min-h-0">
+                {fileEditor}
+              </section>
+
+              {/* Right: Chat */}
+              <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0 h-[45%] min-h-0">
+                <CardHeader className="py-3 px-4 border-b border-hairline-soft">
+                  <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    {t("chat.title")}
+                  </CardTitle>
+                </CardHeader>
+                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
+                <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={isStreaming} />
+              </aside>
+            </div>
+          )}
+        </div>
+      ) : notFound ? (
+        /* Workspace not found */
+        <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="relative mb-8">
+            <div className="relative w-24 h-24 bg-card border border-hairline rounded-3xl shadow-xl flex items-center justify-center">
+              <Image
+                src="/logo.png"
+                alt="Riffpad"
+                width={64}
+                height={64}
+                className="riffpad-logo rounded-lg"
+              />
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-extrabold text-ink mb-3 tracking-tight">
+            {t("workspace.notFound")}
+          </h2>
+
+          <Button
+            onClick={() => router.push("/")}
+            className="bg-primary text-primary-foreground hover:bg-primary-pressed font-bold h-11 px-8 rounded-lg shadow-lg shadow-primary/20 transition hover:shadow-primary/30 hover:-translate-y-0.5"
+          >
+            {t("workspaces.back")}
+          </Button>
+        </div>
+      ) : (
+        /* Loading workspace */
+        <div className="relative flex-1 flex items-center justify-center p-6 text-center">
+          <p className="text-sm text-mute">{t("workspace.loading")}</p>
+        </div>
+      )}
+    </div>
+  );
+}

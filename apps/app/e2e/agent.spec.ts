@@ -1,15 +1,12 @@
 import { test, expect } from "@playwright/test";
+import { createWorkspace } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(180_000);
 
 test("agent writes a file from a prompt", async ({ page }) => {
-  await page.goto("/");
-
-  // Create a workspace
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
   const promptBox = page.getByPlaceholder(/describe your idea|描述你的想法/i);
-  await expect(promptBox).toBeVisible();
 
   // Send a prompt
   const prompt = "Create a simple HTML landing page with a title and a button. Save it as index.html.";

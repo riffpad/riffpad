@@ -14,7 +14,7 @@ type Workspace struct {
 	ID           string          `json:"id" gorm:"primaryKey"`
 	Slug         string          `json:"slug" gorm:"uniqueIndex"`
 	Name         *string         `json:"name"`
-	OwnerID      string          `json:"ownerId"`
+	OwnerID      string          `json:"ownerId" gorm:"index"`
 	Status       WorkspaceStatus `json:"status" gorm:"default:WARM"`
 	SandboxID    *string         `json:"sandboxId"`
 	BaseImage    string          `json:"baseImage" gorm:"default:riffpad-node-python"`

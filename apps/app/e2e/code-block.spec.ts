@@ -1,15 +1,12 @@
 import { test, expect } from "@playwright/test";
+import { createWorkspace } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(120_000);
 
 test("agent code block shows language label and copy button", async ({ page }) => {
-  await page.goto("/");
-
-  // Create a workspace
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
   const promptBox = page.getByPlaceholder(/describe your idea|描述你的想法/i);
-  await expect(promptBox).toBeVisible();
 
   // Ask for a code block in a specific language
   const prompt =
@@ -24,8 +21,9 @@ test("agent code block shows language label and copy button", async ({ page }) =
   const codeBlock = assistantContent.locator("pre");
   await expect(codeBlock).toBeVisible({ timeout: 30_000 });
 
-  // Language label should be visible
-  const langLabel = assistantContent.locator("text=PYTHON");
+  // Language label should be visible (exact match so the model's reasoning
+  // text, which echoes the prompt, doesn't also match).
+  const langLabel = assistantContent.getByText("python", { exact: true });
   await expect(langLabel).toBeVisible({ timeout: 5_000 });
 
   // Copy button should be visible and clickable

@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
+import { createWorkspace } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(180_000);
 
 test("dockable panels render with default layout", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
 
   // All three panels should be present.
   await expect(page.getByTestId("file-tree-panel")).toBeVisible();
@@ -14,8 +14,7 @@ test("dockable panels render with default layout", async ({ page }) => {
 });
 
 test("left panel can be resized and respects minimum width", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
 
   const leftPanel = page.getByTestId("file-tree-panel");
   await expect(leftPanel).toBeVisible();
@@ -56,11 +55,9 @@ test("left panel can be resized and respects minimum width", async ({ page }) =>
 
 
 test("markdown file opens with preview and can toggle raw", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
 
   const promptBox = page.getByPlaceholder(/describe your idea|描述你的想法/i);
-  await expect(promptBox).toBeVisible();
 
   // Ask the agent to create a small markdown file.
   await promptBox.fill(

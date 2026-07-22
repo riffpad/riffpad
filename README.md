@@ -70,6 +70,11 @@ make install
 make dev-local
 ```
 
+> The compose Postgres is mapped to host port **5433** (container 5432) so it
+> does not clash with a system-wide Postgres. `DATABASE_URL` in `.env.example`
+> already points there. The API auto-creates the `workspaces` / `messages`
+> tables on startup (GORM AutoMigrate).
+
 Services will be available at:
 
 | Service | URL |
@@ -78,6 +83,7 @@ Services will be available at:
 | Landing (riffpad.ai) | http://localhost:3001 |
 | API (api.riffpad.ai) | http://localhost:8080 |
 | API health check | http://localhost:8080/healthz |
+| Postgres | localhost:5433 |
 | MinIO console | http://localhost:9001 |
 
 ### Useful commands

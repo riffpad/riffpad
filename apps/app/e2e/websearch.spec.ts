@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { createWorkspace } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(180_000);
@@ -24,11 +25,9 @@ async function waitForCitedReply(page: any, timeoutMs = 120_000) {
 }
 
 test("agent uses web search and cites sources", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
 
   const promptBox = page.getByPlaceholder(/describe your idea|描述你的想法/i);
-  await expect(promptBox).toBeVisible();
 
   const prompt = "Search the web for the current weather in Beijing and tell me the source.";
   await promptBox.fill(prompt);

@@ -1,15 +1,12 @@
 import { test, expect } from "@playwright/test";
+import { createWorkspace } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(120_000);
 
 test("agent markdown output is rendered as HTML", async ({ page }) => {
-  await page.goto("/");
-
-  // Create a workspace
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
   const promptBox = page.getByPlaceholder(/describe your idea|描述你的想法/i);
-  await expect(promptBox).toBeVisible();
 
   // Ask for a markdown-formatted reply with no tool calls
   const prompt =

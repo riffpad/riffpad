@@ -308,6 +308,8 @@ model Snapshot {
 }
 ```
 
+> **实现状态（Phase 1，#44）**：`Workspace` 与 `Message` 已通过 GORM + Postgres 落库（`apps/api/internal/repository`），字段为上述 schema 的子集：`Workspace` 含 id/slug/name/ownerId/status/lastActiveAt/createdAt；`Message` 含 id/workspaceId/seq/role/content/toolCalls/toolCallId/name/metadata/createdAt，其中 `seq` 保证回放顺序。开发期迁移使用 `AutoMigrate`，生产前需换正式 migration 工具。`User` / `File` / `Snapshot` 尚未实现（文件仍在沙箱本地目录，见 `docs/multi-workspace-design.md` Phase 2/3）。
+
 ### 4.2 沙箱状态（Upstash Redis）
 
 使用 **Upstash Redis**（serverless Redis）存储临时状态、会话索引和预热池信息。
@@ -1451,10 +1453,12 @@ cd apps/landing && pnpm dev
 **方案 A：完全本地开发（无需 Supabase 账号）**
 
 `infra/docker-compose.yml` 包含：
-- PostgreSQL（端口 5432）
+- PostgreSQL（宿主机端口 5433 → 容器 5432，避免与本机系统 Postgres 冲突；`DATABASE_URL=postgresql://postgres:postgres@localhost:5433/riffpad?sslmode=disable`）
 - Redis（端口 6379）
 - MinIO（端口 9000/9001）
 - Sandbox Worker（开发期用 Docker 简化）
+
+> API 启动时会通过 GORM `AutoMigrate` 自动创建 `workspaces` / `messages` 表（Phase 1）。
 
 > 此时 Auth 使用简化的本地 JWT 方案，仅用于开发测试。
 

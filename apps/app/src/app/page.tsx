@@ -2,94 +2,42 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   ChevronDown,
+  FolderOpen,
   Languages,
-  MessageSquare,
   Moon,
-  PanelLeft,
+  Plus,
   Sun,
-  X,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChatInput } from "@/components/chat/ChatInput";
-import { ChatPanel } from "@/components/chat/ChatPanel";
-import type { ChatItem, ChatToolItem } from "@/components/chat/types";
-import type { Citation } from "@/components/chat/MarkdownRenderer";
 import { useI18n } from "@/lib/i18n";
-import { DockLayout } from "@/components/layout/DockLayout";
-import { FileEditor } from "@/components/files/FileEditor";
-import { FileTree } from "@/components/files/FileTree";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-interface AgentMessage {
-  role: "user" | "assistant" | "tool";
-  content?: string;
-  tool_calls?: { id: string; function: { name: string; arguments: string } }[];
-  timestamp: number;
+interface WorkspaceSummary {
+  id: string;
+  slug: string;
+  name: string | null;
+  status: string;
+  lastActiveAt: string;
+  createdAt: string;
 }
 
-interface AgentEvent {
-  type: string;
-  content?: string;
-  delta?: string;
-  name?: string;
-  args?: unknown;
-  result?: unknown;
-  path?: string;
-  toolCallId?: string;
-  toolCallIndex?: number;
-  toolName?: string;
-  isError?: boolean;
-  message?: AgentMessage;
-  timestamp: number;
-}
-
-interface FileInfo {
-  name: string;
-  path: string;
-  isDir: boolean;
-  size: number;
-}
-
-export default function Home() {
+export default function WorkspaceListPage() {
+  const router = useRouter();
   const { t, locale, setLocale } = useI18n();
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
-  const [chatItems, setChatItems] = useState<ChatItem[]>([]);
-  const [connected, setConnected] = useState(false);
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [filesOpen, setFilesOpen] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [citations, setCitations] = useState<Citation[]>([]);
-
-  const isStreaming = chatItems.some(
-    (item) => item.type === "assistant" && item.isStreaming
-  );
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
-  const chatIdRef = useRef(0);
-  const assistantIdRef = useRef<string | null>(null);
-  const pendingPromptRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -105,426 +53,53 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  useEffect(() => {
-    if (filesOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [filesOpen]);
-
-  const fetchFiles = useCallback(async (id: string) => {
+  const fetchWorkspaces = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/v1/workspaces/${id}/files?recursive=true`);
+      const res = await fetch(`${API_URL}/api/v1/workspaces`);
       if (res.ok) {
         const data = await res.json();
-        setFiles(data ?? []);
+        setWorkspaces(data ?? []);
       }
     } catch (err) {
-      console.error("Failed to fetch files:", err);
+      console.error("Failed to fetch workspaces:", err);
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  const connect = useCallback(
-    (id: string) => {
-      const wsUrl = API_URL.replace(/^http/, "ws");
-      const ws = new WebSocket(`${wsUrl}/ws/workspaces/${id}`);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setConnected(true);
-        if (pendingPromptRef.current) {
-          ws.send(JSON.stringify({ type: "prompt", content: pendingPromptRef.current }));
-          pendingPromptRef.current = null;
-        }
-      };
-      ws.onclose = () => setConnected(false);
-      ws.onerror = () => setConnected(false);
-      ws.onmessage = (msg) => {
-        try {
-          const event: AgentEvent = JSON.parse(msg.data);
-          const makeId = () => `${++chatIdRef.current}`;
-
-          switch (event.type) {
-            case "agent_start": {
-              assistantIdRef.current = makeId();
-              setChatItems((prev) => [
-                ...prev,
-                {
-                  type: "assistant",
-                  id: assistantIdRef.current!,
-                  content: "",
-                  isStreaming: true,
-                  timestamp: event.timestamp,
-                },
-              ]);
-              break;
-            }
-            case "message_start": {
-              if (!assistantIdRef.current) {
-                assistantIdRef.current = makeId();
-                setChatItems((prev) => [
-                  ...prev,
-                  {
-                    type: "assistant",
-                    id: assistantIdRef.current!,
-                    content: "",
-                    isStreaming: true,
-                    timestamp: event.timestamp,
-                  },
-                ]);
-              }
-              break;
-            }
-            case "message_delta": {
-              if (event.delta && assistantIdRef.current) {
-                setChatItems((prev) =>
-                  prev.map((item) =>
-                    item.id === assistantIdRef.current && item.type === "assistant"
-                      ? { ...item, content: item.content + event.delta! }
-                      : item
-                  )
-                );
-              }
-              break;
-            }
-            case "reasoning_delta": {
-              if (event.delta && assistantIdRef.current) {
-                setChatItems((prev) =>
-                  prev.map((item) =>
-                    item.id === assistantIdRef.current && item.type === "assistant"
-                      ? { ...item, reasoning: (item.reasoning ?? "") + event.delta! }
-                      : item
-                  )
-                );
-              }
-              break;
-            }
-            case "message_end": {
-              if (event.message?.role === "assistant" && assistantIdRef.current) {
-                setChatItems((prev) =>
-                  prev.map((item) =>
-                    item.id === assistantIdRef.current && item.type === "assistant"
-                      ? { ...item, content: event.message?.content ?? "", isStreaming: false }
-                      : item
-                  )
-                );
-                assistantIdRef.current = null;
-              }
-              break;
-            }
-            case "tool_call_delta": {
-              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId ?? makeId()}`;
-              const stableId = event.toolCallId ? `tool-${event.toolCallId}` : pendingId;
-              setChatItems((prev) => {
-                const existing = prev.find(
-                  (item): item is ChatToolItem =>
-                    item.type === "tool" &&
-                    (item.id === stableId ||
-                      item.id === pendingId ||
-                      (event.toolCallIndex !== undefined &&
-                        item.id === `tool-pending-${event.toolCallIndex}`))
-                );
-                if (existing) {
-                  return prev.map((item) => {
-                    if (item.type !== "tool" || item.id !== existing.id) {
-                      return item;
-                    }
-                    return {
-                      ...item,
-                      id: stableId,
-                      toolName: event.toolName ?? item.toolName,
-                      args: event.args ?? item.args,
-                      isPartial: true,
-                    };
-                  });
-                }
-                return [
-                  ...prev,
-                  {
-                    type: "tool",
-                    id: stableId,
-                    toolName: event.toolName ?? "tool",
-                    args: event.args,
-                    isPartial: true,
-                    timestamp: event.timestamp,
-                  },
-                ];
-              });
-              break;
-            }
-            case "tool_execution_start": {
-              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId ?? makeId()}`;
-              const stableId = `tool-${event.toolCallId}`;
-              setChatItems((prev) => {
-                const existing = prev.find(
-                  (item): item is ChatToolItem =>
-                    item.type === "tool" &&
-                    (item.id === stableId ||
-                      item.id === pendingId ||
-                      (event.toolCallIndex !== undefined &&
-                        item.id === `tool-pending-${event.toolCallIndex}`))
-                );
-                if (existing) {
-                  return prev.map((item) => {
-                    if (item.type !== "tool" || item.id !== existing.id) {
-                      return item;
-                    }
-                    return {
-                      ...item,
-                      id: stableId,
-                      toolName: event.toolName ?? item.toolName,
-                      args: event.args ?? item.args,
-                      isPartial: true,
-                    };
-                  });
-                }
-                return [
-                  ...prev,
-                  {
-                    type: "tool",
-                    id: stableId,
-                    toolName: event.toolName ?? "tool",
-                    args: event.args,
-                    isPartial: true,
-                    timestamp: event.timestamp,
-                  },
-                ];
-              });
-              break;
-            }
-            case "tool_execution_end": {
-              const stableId = `tool-${event.toolCallId}`;
-              const pendingId = `tool-pending-${event.toolCallIndex ?? event.toolCallId}`;
-              setChatItems((prev) =>
-                prev.map((item) => {
-                  if (item.type !== "tool") return item;
-                  if (
-                    item.id !== stableId &&
-                    item.id !== pendingId &&
-                    (event.toolCallIndex === undefined ||
-                      item.id !== `tool-pending-${event.toolCallIndex}`)
-                  ) {
-                    return item;
-                  }
-                  return {
-                    ...item,
-                    id: stableId,
-                    isPartial: false,
-                    result: event.result,
-                    isError: event.isError,
-                  };
-                })
-              );
-              if (event.toolName === "web_search" && event.result && !event.isError) {
-                try {
-                  let raw: unknown = event.result;
-                  if (typeof event.result === "string") {
-                    const delimiter = event.result.indexOf("\n\n---\n");
-                    const jsonPart =
-                      delimiter === -1 ? event.result : event.result.slice(0, delimiter);
-                    raw = JSON.parse(jsonPart);
-                  }
-                  if (Array.isArray(raw)) {
-                    const newCitations: Citation[] = raw
-                      .filter(
-                        (r: unknown): r is Record<string, unknown> =>
-                          r !== null &&
-                          typeof r === "object" &&
-                          typeof (r as Record<string, unknown>).url === "string" &&
-                          typeof (r as Record<string, unknown>).title === "string"
-                      )
-                      .map((r: Record<string, unknown>) => ({
-                        index: Number(r.index) || 0,
-                        url: String(r.url),
-                        title: String(r.title),
-                      }));
-                    setCitations((prev) => {
-                      const existing = new Set(prev.map((c) => c.url));
-                      return [...prev, ...newCitations.filter((c) => !existing.has(c.url))];
-                    });
-                  }
-                } catch {
-                  // ignore invalid search results
-                }
-              }
-              void fetchFiles(id);
-              break;
-            }
-            case "file_change": {
-              if (event.path) {
-                setChatItems((prev) => [
-                  ...prev,
-                  {
-                    type: "file",
-                    id: makeId(),
-                    path: event.path!,
-                    timestamp: event.timestamp,
-                  },
-                ]);
-              }
-              void fetchFiles(id);
-              break;
-            }
-            case "agent_end": {
-              assistantIdRef.current = null;
-              // Safety net: ensure no assistant message stays stuck in streaming
-              // state if a message_end was dropped or reordered.
-              setChatItems((prev) =>
-                prev.map((item) =>
-                  item.type === "assistant" && item.isStreaming
-                    ? { ...item, isStreaming: false }
-                    : item
-                )
-              );
-              break;
-            }
-            case "error": {
-              setChatItems((prev) => [
-                ...prev,
-                {
-                  type: "assistant",
-                  id: makeId(),
-                  content: event.content ?? "Agent error",
-                  timestamp: event.timestamp,
-                },
-              ]);
-              break;
-            }
-          }
-        } catch {
-          console.error("Failed to parse event:", msg.data);
-        }
-      };
-    },
-    [fetchFiles]
-  );
-
-  const createWorkspace = useCallback(async () => {
-    const res = await fetch(`${API_URL}/api/v1/workspaces`, { method: "POST" });
-    if (!res.ok) throw new Error("Failed to create workspace");
-    const data = await res.json();
-    setWorkspaceId(data.id);
-    setWorkspaceSlug(data.slug);
-    connect(data.id);
-    await fetchFiles(data.id);
-    return data;
-  }, [connect, fetchFiles]);
-
-  const handleSend = useCallback(
-    async (content: string) => {
-      if (!content.trim()) return;
-
-      let id = workspaceId;
-      if (!id) {
-        const ws = await createWorkspace();
-        id = ws.id;
-      }
-
-      setChatItems((prev) => [
-        ...prev,
-        {
-          id: `${++chatIdRef.current}`,
-          type: "user",
-          content,
-          timestamp: Date.now(),
-        },
-      ]);
-
-      // Reconnect if the socket was closed (e.g. after the user pressed stop).
-      // If it is still connecting, queue the prompt and send it in onopen.
-      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
-        if (id) {
-          pendingPromptRef.current = content;
-          connect(id);
-        }
-        return;
-      }
-
-      if (wsRef.current.readyState === WebSocket.CONNECTING) {
-        pendingPromptRef.current = content;
-        return;
-      }
-
-      wsRef.current.send(JSON.stringify({ type: "prompt", content }));
-    },
-    [workspaceId, createWorkspace, connect]
-  );
-
-  const handleRegenerate = useCallback(() => {
-    // Find the last user message to resend, and remove the latest assistant
-    // response from the UI so the new one replaces it.
-    let userContent = "";
-    setChatItems((prev) => {
-      let lastAssistantIndex = -1;
-      let lastUserIndex = -1;
-      for (let i = prev.length - 1; i >= 0; i--) {
-        const item = prev[i];
-        if (
-          lastAssistantIndex === -1 &&
-          item.type === "assistant" &&
-          !item.isStreaming
-        ) {
-          lastAssistantIndex = i;
-        }
-        if (lastUserIndex === -1 && item.type === "user") {
-          lastUserIndex = i;
-        }
-        if (lastAssistantIndex !== -1 && lastUserIndex !== -1) break;
-      }
-      if (lastUserIndex >= 0) {
-        const item = prev[lastUserIndex];
-        if (item.type === "user") {
-          userContent = item.content;
-        }
-      }
-      if (lastAssistantIndex >= 0) {
-        return prev.filter((_, i) => i !== lastAssistantIndex);
-      }
-      return prev;
-    });
-
-    if (!userContent.trim() || !workspaceId) return;
-
-    // Re-send the last user prompt. The backend keeps full history, so the
-    // model sees the prior turn plus this repeated prompt.
-    const content = userContent.trim();
-    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
-      pendingPromptRef.current = content;
-      connect(workspaceId);
-      return;
-    }
-    if (wsRef.current.readyState === WebSocket.CONNECTING) {
-      pendingPromptRef.current = content;
-      return;
-    }
-    wsRef.current.send(JSON.stringify({ type: "prompt", content }));
-  }, [workspaceId, connect]);
-
-  const handleStop = useCallback(() => {
-    // Close the WebSocket to interrupt the current turn. The backend may still
-    // finish its current LLM call, but the UI stops showing streaming state
-    // and freezes the message in place.
-    wsRef.current?.close();
-    wsRef.current = null;
-    assistantIdRef.current = null;
-    setChatItems((prev) =>
-      prev.map((item) =>
-        item.type === "assistant" && item.isStreaming
-          ? { ...item, isStreaming: false, stopped: true }
-          : item
-      )
-    );
   }, []);
 
   useEffect(() => {
-    return () => {
-      wsRef.current?.close();
-    };
-  }, []);
+    void fetchWorkspaces();
+  }, [fetchWorkspaces]);
+
+  const createWorkspace = useCallback(async () => {
+    setCreating(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/workspaces`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create workspace");
+      const data = await res.json();
+      router.push(`/w/${data.id}`);
+    } catch (err) {
+      console.error(err);
+      setCreating(false);
+    }
+  }, [router]);
+
+  const deleteWorkspace = useCallback(
+    async (id: string) => {
+      if (!window.confirm(t("workspaces.deleteConfirm"))) return;
+      try {
+        const res = await fetch(`${API_URL}/api/v1/workspaces/${id}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+        }
+      } catch (err) {
+        console.error("Failed to delete workspace:", err);
+      }
+    },
+    [t]
+  );
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -532,46 +107,21 @@ export default function Home() {
 
   const isDark = resolvedTheme === "dark";
 
-  const fileTree = (
-    <div data-testid="file-tree-panel" className="flex flex-col h-full min-h-0">
-      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-        <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-          {t("files.title")}
-        </CardTitle>
-        <button
-          onClick={() => setFilesOpen(false)}
-          className="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-md text-mute hover:text-ink hover:bg-card-soft"
-          aria-label={t("files.close")}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </CardHeader>
-      <ScrollArea className="flex-1 px-2">
-        <FileTree
-          files={files}
-          selectedFile={selectedFile}
-          onSelectFile={(path) => {
-            if (!workspaceId) return;
-            setSelectedFile(path);
-          }}
-        />
-      </ScrollArea>
-    </div>
-  );
-
-  const fileEditor = workspaceId ? (
-    <FileEditor
-      workspaceId={workspaceId}
-      selectedFile={selectedFile}
-      onSelectFile={setSelectedFile}
-      emptyHint={t("code.empty")}
-    />
-  ) : null;
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
-    <div className="h-dvh bg-canvas text-body flex flex-col relative overflow-hidden">
+    <div className="min-h-dvh bg-canvas text-body flex flex-col">
       {/* Header */}
-      <header className="relative border-b border-hairline bg-card/80 backdrop-blur px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
+      <header className="border-b border-hairline bg-card/80 backdrop-blur px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -591,42 +141,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {workspaceId ? (
-            <div className="hidden sm:flex items-center gap-2 text-xs text-mute mr-2">
-              <span className="font-medium text-ink">
-                {workspaceSlug || workspaceId}
-              </span>
-              <span
-                className={`inline-block h-2 w-2 rounded-full ${
-                  connected ? "bg-accent-green" : "bg-accent-red"
-                }`}
-                title={connected ? t("workspace.connected") : t("workspace.disconnected")}
-              />
-            </div>
-          ) : null}
-
-          {workspaceId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFilesOpen(true)}
-              className="lg:hidden h-8 px-2 text-xs font-semibold"
-            >
-              <PanelLeft className="h-4 w-4 mr-1.5" />
-              {t("files.title")}
-            </Button>
-          )}
-
-          {!workspaceId && (
-            <Button
-              onClick={() => void createWorkspace()}
-              size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary-pressed h-8 text-xs font-bold rounded-md"
-            >
-              {t("workspace.new")}
-            </Button>
-          )}
-
           <div ref={langRef} className="relative">
             <Button
               variant="ghost"
@@ -690,92 +204,107 @@ export default function Home() {
         </div>
       </header>
 
-      {/* IDE layout */}
-      {workspaceId ? (
-        <div className="relative flex-1 overflow-hidden h-full min-h-0">
-          {/* Mobile file drawer */}
-          {filesOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-sm lg:hidden"
-                onClick={() => setFilesOpen(false)}
-              />
-              <aside className="fixed left-0 top-14 bottom-0 z-50 w-[260px] border-r border-hairline bg-card shadow-2xl lg:hidden flex flex-col animate-fade-in-up">
-                {fileTree}
-              </aside>
-            </>
-          )}
-
-          {isDesktop ? (
-            <DockLayout
-              left={fileTree}
-              center={fileEditor}
-              right={
-                <>
-                  <CardHeader className="py-3 px-4 border-b border-hairline-soft">
-                    <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      {t("chat.title")}
-                    </CardTitle>
-                  </CardHeader>
-                  <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
-                  <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={isStreaming} />
-                </>
-              }
-            />
-          ) : (
-            <div className="flex flex-col h-full min-h-0">
-              {/* Center: File editor */}
-              <section className="flex-1 flex flex-col min-w-0 border-b border-hairline bg-card/30 min-h-0">
-                {fileEditor}
-              </section>
-
-              {/* Right: Chat */}
-              <aside className="flex flex-col bg-card/70 backdrop-blur min-w-0 h-[45%] min-h-0">
-                <CardHeader className="py-3 px-4 border-b border-hairline-soft">
-                  <CardTitle className="text-xs font-bold uppercase tracking-wide text-mute flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    {t("chat.title")}
-                  </CardTitle>
-                </CardHeader>
-                <ChatPanel items={chatItems} emptyHint={t("chat.empty")} scrollRef={chatEndRef} citations={citations} onRegenerate={handleRegenerate} />
-                <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={isStreaming} />
-              </aside>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Empty state */
-        <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="relative mb-8">
-            <div className="relative w-24 h-24 bg-card border border-hairline rounded-3xl shadow-xl flex items-center justify-center">
-              <Image
-                src="/logo.png"
-                alt="Riffpad"
-                width={64}
-                height={64}
-                className="riffpad-logo rounded-lg"
-              />
-            </div>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-ink mb-3 tracking-tight">
-            {t("app.name")}
+      {/* Body */}
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 lg:px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-extrabold text-ink tracking-tight">
+            {t("workspaces.title")}
           </h2>
-          <p className="text-body max-w-md mb-8 leading-relaxed text-base sm:text-lg">
-            {t("app.tagline")}
-          </p>
-
           <Button
             onClick={() => void createWorkspace()}
-            className="bg-primary text-primary-foreground hover:bg-primary-pressed font-bold h-11 px-8 rounded-lg shadow-lg shadow-primary/20 transition hover:shadow-primary/30 hover:-translate-y-0.5"
+            disabled={creating}
+            size="sm"
+            className="bg-primary text-primary-foreground hover:bg-primary-pressed h-8 text-xs font-bold rounded-md gap-1.5"
           >
-            {t("workspace.new")}
+            <Plus className="h-3.5 w-3.5" />
+            {creating ? t("workspaces.creating") : t("workspace.new")}
           </Button>
-
-          <p className="mt-4 text-xs text-mute">{t("workspace.hint")}</p>
         </div>
-      )}
+
+        {loading ? (
+          <p className="text-sm text-mute">{t("workspace.loading")}</p>
+        ) : workspaces.length === 0 ? (
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative mb-8">
+              <div className="relative w-24 h-24 bg-card border border-hairline rounded-3xl shadow-xl flex items-center justify-center">
+                <Image
+                  src="/logo.png"
+                  alt="Riffpad"
+                  width={64}
+                  height={64}
+                  className="riffpad-logo rounded-lg"
+                />
+              </div>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-ink mb-3 tracking-tight">
+              {t("app.name")}
+            </h2>
+            <p className="text-body max-w-md mb-8 leading-relaxed text-base">
+              {t("app.tagline")}
+            </p>
+
+            <Button
+              onClick={() => void createWorkspace()}
+              disabled={creating}
+              className="bg-primary text-primary-foreground hover:bg-primary-pressed font-bold h-11 px-8 rounded-lg shadow-lg shadow-primary/20 transition hover:shadow-primary/30 hover:-translate-y-0.5"
+            >
+              {creating ? t("workspaces.creating") : t("workspace.new")}
+            </Button>
+
+            <p className="mt-4 text-xs text-mute">{t("workspace.hint")}</p>
+          </div>
+        ) : (
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {workspaces.map((ws) => (
+              <li key={ws.id}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/w/${ws.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") router.push(`/w/${ws.id}`);
+                  }}
+                  className="group h-full cursor-pointer rounded-xl border border-hairline bg-card p-4 shadow-sm transition hover:shadow-md hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 shrink-0 text-mute" />
+                        <h3 className="truncate text-sm font-bold text-ink">
+                          {ws.name || ws.slug}
+                        </h3>
+                      </div>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-mute">
+                        <span
+                          className={`inline-block h-1.5 w-1.5 rounded-full ${
+                            ws.status === "WARM"
+                              ? "bg-accent-green"
+                              : "bg-mute"
+                          }`}
+                        />
+                        {t("workspaces.lastActive")} · {formatTime(ws.lastActiveAt)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void deleteWorkspace(ws.id);
+                      }}
+                      className="shrink-0 rounded-md p-1.5 text-mute opacity-0 transition group-hover:opacity-100 hover:bg-card-soft hover:text-accent-red focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      aria-label={t("workspaces.delete")}
+                      title={t("workspaces.delete")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
     </div>
   );
 }

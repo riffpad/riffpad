@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { createWorkspace } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
 test("chat input auto-grows and respects max height", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await createWorkspace(page);
 
   const textarea = page.getByPlaceholder(/describe your idea|描述你的想法/i);
   await expect(textarea).toBeVisible();

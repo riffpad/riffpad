@@ -27,6 +27,16 @@ func (h *WorkspaceHandler) Create(c echo.Context) error {
 	return c.JSON(http.StatusCreated, ws)
 }
 
+func (h *WorkspaceHandler) List(c echo.Context) error {
+	// TODO: extract owner from JWT once auth is wired
+	ownerID := "anonymous"
+	list, err := h.manager.List(ownerID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
 func (h *WorkspaceHandler) Get(c echo.Context) error {
 	id := c.Param("id")
 	ws, ok := h.manager.Get(id)
@@ -34,6 +44,25 @@ func (h *WorkspaceHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "workspace not found"})
 	}
 	return c.JSON(http.StatusOK, ws)
+}
+
+func (h *WorkspaceHandler) Delete(c echo.Context) error {
+	id := c.Param("id")
+	if _, ok := h.manager.Get(id); !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "workspace not found"})
+	}
+	if err := h.manager.Delete(id); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *WorkspaceHandler) ListMessages(c echo.Context) error {
+	id := c.Param("id")
+	if _, ok := h.manager.Get(id); !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "workspace not found"})
+	}
+	return c.JSON(http.StatusOK, h.manager.Messages(id))
 }
 
 func (h *WorkspaceHandler) ListFiles(c echo.Context) error {

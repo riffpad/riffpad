@@ -1,6 +1,6 @@
 # 多 Workspace 与持久化设计
 
-> 状态：设计稿（design doc），Phase 1 实现中。
+> 状态：Phase 1 已实现（#44）；Phase 2/3 未开始。
 > 参考：TSD §4 数据模型、§7 环境配置。
 > 术语：统一叫 **workspace**，没有 project 概念；前端 UI 文案也只使用 workspace。
 

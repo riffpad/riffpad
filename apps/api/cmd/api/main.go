@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/riffpad/riffpad/apps/api/internal/config"
 	"github.com/riffpad/riffpad/apps/api/internal/handler"
+	"github.com/riffpad/riffpad/apps/api/internal/repository"
 	"github.com/riffpad/riffpad/apps/api/internal/service"
 )
 
@@ -42,14 +43,22 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	workspaceManager := service.NewWorkspaceManager()
+	repo, err := repository.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("failed to connect database: %v (need Postgres, see docs/tsd.md §7)", err)
+	}
+
+	workspaceManager := service.NewWorkspaceManager(repo)
 
 	h := handler.New()
 	e.GET("/healthz", h.Healthz)
 
 	wh := handler.NewWorkspaceHandler(workspaceManager)
 	e.POST("/api/v1/workspaces", wh.Create)
+	e.GET("/api/v1/workspaces", wh.List)
 	e.GET("/api/v1/workspaces/:id", wh.Get)
+	e.DELETE("/api/v1/workspaces/:id", wh.Delete)
+	e.GET("/api/v1/workspaces/:id/messages", wh.ListMessages)
 	e.GET("/api/v1/workspaces/:id/files", wh.ListFiles)
 	e.GET("/api/v1/workspaces/:id/file", wh.ReadFile)
 

@@ -67,7 +67,8 @@ async function sendPrompt(page: any, text: string) {
 async function createWorkspace(page: any) {
   await page.goto("/");
   await installWebSocketSpy(page);
-  await page.getByRole("button", { name: /new workspace|新工作区/i }).nth(1).click();
+  await page.getByRole("button", { name: /new workspace|新工作区/i }).first().click();
+  await page.waitForURL(/\/w\/[a-z0-9]+/i);
   const promptBox = page.getByPlaceholder(/describe your idea|描述你的想法/i);
   await expect(promptBox).toBeVisible();
 }
