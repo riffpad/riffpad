@@ -16,9 +16,9 @@ import {
   Moon,
   MoreHorizontal,
   Pencil,
+  Pin,
   Plus,
   Search,
-  Star,
   Sun,
   Trash2,
 } from "lucide-react";
@@ -753,7 +753,7 @@ function PinButton({
       aria-pressed={pinned}
       title={label}
     >
-      <Star className={`h-4 w-4 ${pinned ? "fill-primary" : ""}`} />
+      <Pin className={`h-4 w-4 ${pinned ? "fill-primary" : ""}`} />
     </button>
   );
 }
@@ -803,7 +803,7 @@ function CardMenu({
   const items: { action: MenuAction; label: string; icon: React.ReactNode; danger?: boolean }[] = [
     { action: "rename", label: labels.rename, icon: <Pencil className="h-3.5 w-3.5" /> },
     { action: "editNote", label: labels.editNote, icon: <Pencil className="h-3.5 w-3.5" /> },
-    { action: "togglePin", label: pinned ? labels.unpin : labels.pin, icon: <Star className="h-3.5 w-3.5" /> },
+    { action: "togglePin", label: pinned ? labels.unpin : labels.pin, icon: <Pin className="h-3.5 w-3.5" /> },
     { action: "copyLink", label: labels.copyLink, icon: <Link2 className="h-3.5 w-3.5" /> },
     {
       action: "toggleArchive",
