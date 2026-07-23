@@ -61,10 +61,13 @@ test("deletes a workspace from the list", async ({ page }) => {
   const card = page.locator("div[role='button']", { hasText: ws.slug });
   await expect(card).toBeVisible();
 
-  page.once("dialog", (dialog) => void dialog.accept());
   await card.hover();
   await card
-    .getByRole("button", { name: /delete workspace|删除工作区/i })
+    .getByRole("button", { name: /workspace actions|工作区操作/i })
+    .click();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page
+    .getByRole("menuitem", { name: /delete workspace|删除工作区/i })
     .click();
   await expect(card).toHaveCount(0);
 });

@@ -46,6 +46,50 @@ func (h *WorkspaceHandler) Get(c echo.Context) error {
 	return c.JSON(http.StatusOK, ws)
 }
 
+type patchWorkspaceRequest struct {
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+	IsPinned    *bool   `json:"isPinned"`
+	Status      *string `json:"status"`
+}
+
+func (h *WorkspaceHandler) Patch(c echo.Context) error {
+	id := c.Param("id")
+	if _, ok := h.manager.Get(id); !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "workspace not found"})
+	}
+
+	var req patchWorkspaceRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid body"})
+	}
+
+	fields := map[string]any{}
+	if req.Name != nil {
+		fields["name"] = *req.Name
+	}
+	if req.Description != nil {
+		fields["description"] = *req.Description
+	}
+	if req.IsPinned != nil {
+		fields["is_pinned"] = *req.IsPinned
+	}
+	if req.Status != nil {
+		switch *req.Status {
+		case "WARM", "ARCHIVED":
+			fields["status"] = *req.Status
+		default:
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid status"})
+		}
+	}
+
+	if err := h.manager.Update(id, fields); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	ws, _ := h.manager.Get(id)
+	return c.JSON(http.StatusOK, ws)
+}
+
 func (h *WorkspaceHandler) Delete(c echo.Context) error {
 	id := c.Param("id")
 	if _, ok := h.manager.Get(id); !ok {

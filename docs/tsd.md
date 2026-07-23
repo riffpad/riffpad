@@ -308,7 +308,7 @@ model Snapshot {
 }
 ```
 
-> **实现状态（Phase 1，#44）**：`Workspace` 与 `Message` 已通过 GORM + Postgres 落库（`apps/api/internal/repository`），字段为上述 schema 的子集：`Workspace` 含 id/slug/name/ownerId/status/lastActiveAt/createdAt；`Message` 含 id/workspaceId/seq/role/content/toolCalls/toolCallId/name/metadata/createdAt，其中 `seq` 保证回放顺序。开发期迁移使用 `AutoMigrate`，生产前需换正式 migration 工具。`User` / `File` / `Snapshot` 尚未实现（文件仍在沙箱本地目录，见 `docs/multi-workspace-design.md` Phase 2/3）。
+> **实现状态（Phase 1，#44）**：`Workspace` 与 `Message` 已通过 GORM + Postgres 落库（`apps/api/internal/repository`），字段为上述 schema 的子集：`Workspace` 含 id/slug/name/description/ownerId/status/isPinned/lastActiveAt/createdAt；`Message` 含 id/workspaceId/seq/role/content/toolCalls/toolCallId/name/metadata/createdAt，其中 `seq` 保证回放顺序。`PATCH /api/v1/workspaces/:id` 支持重命名、备注、置顶、归档（WARM ↔ ARCHIVED）。开发期迁移使用 `AutoMigrate`，生产前需换正式 migration 工具。`User` / `File` / `Snapshot` 尚未实现（文件仍在沙箱本地目录，见 `docs/multi-workspace-design.md` Phase 2/3）。
 
 ### 4.2 沙箱状态（Upstash Redis）
 

@@ -52,9 +52,20 @@ func (r *Repositories) ListWorkspaces(ownerID string) ([]domain.Workspace, error
 	var list []domain.Workspace
 	err := r.DB.
 		Where("owner_id = ?", ownerID).
-		Order("last_active_at DESC").
+		Order("is_pinned DESC, last_active_at DESC").
 		Find(&list).Error
 	return list, err
+}
+
+// UpdateWorkspace applies a partial update to a workspace. Only the keys
+// present in fields are written.
+func (r *Repositories) UpdateWorkspace(id string, fields map[string]any) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.DB.Model(&domain.Workspace{}).
+		Where("id = ?", id).
+		Updates(fields).Error
 }
 
 func (r *Repositories) TouchWorkspace(id string, at time.Time) error {

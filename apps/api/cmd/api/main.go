@@ -57,6 +57,7 @@ func main() {
 	e.POST("/api/v1/workspaces", wh.Create)
 	e.GET("/api/v1/workspaces", wh.List)
 	e.GET("/api/v1/workspaces/:id", wh.Get)
+	e.PATCH("/api/v1/workspaces/:id", wh.Patch)
 	e.DELETE("/api/v1/workspaces/:id", wh.Delete)
 	e.GET("/api/v1/workspaces/:id/messages", wh.ListMessages)
 	e.GET("/api/v1/workspaces/:id/files", wh.ListFiles)

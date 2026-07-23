@@ -41,6 +41,28 @@ func (s *fakeStore) ListWorkspaces(ownerID string) ([]domain.Workspace, error) {
 	return out, nil
 }
 
+func (s *fakeStore) UpdateWorkspace(id string, fields map[string]any) error {
+	ws, ok := s.workspaces[id]
+	if !ok {
+		return nil
+	}
+	if v, ok := fields["name"]; ok {
+		str := v.(string)
+		ws.Name = &str
+	}
+	if v, ok := fields["description"]; ok {
+		str := v.(string)
+		ws.Description = &str
+	}
+	if v, ok := fields["is_pinned"]; ok {
+		ws.IsPinned = v.(bool)
+	}
+	if v, ok := fields["status"]; ok {
+		ws.Status = domain.WorkspaceStatus(v.(string))
+	}
+	return nil
+}
+
 func (s *fakeStore) TouchWorkspace(id string, at time.Time) error {
 	if ws, ok := s.workspaces[id]; ok {
 		ws.LastActiveAt = at

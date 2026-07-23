@@ -20,6 +20,7 @@ type WorkspaceStore interface {
 	GetWorkspace(id string) (*domain.Workspace, bool)
 	ListWorkspaces(ownerID string) ([]domain.Workspace, error)
 	TouchWorkspace(id string, at time.Time) error
+	UpdateWorkspace(id string, fields map[string]any) error
 	DeleteWorkspace(id string) error
 	AppendMessages(workspaceID string, msgs []agent.Message) error
 	ListMessages(workspaceID string) ([]agent.Message, error)
@@ -66,6 +67,10 @@ func (m *WorkspaceManager) Get(id string) (*domain.Workspace, bool) {
 
 func (m *WorkspaceManager) List(ownerID string) ([]domain.Workspace, error) {
 	return m.repo.ListWorkspaces(ownerID)
+}
+
+func (m *WorkspaceManager) Update(id string, fields map[string]any) error {
+	return m.repo.UpdateWorkspace(id, fields)
 }
 
 func (m *WorkspaceManager) Delete(id string) error {
