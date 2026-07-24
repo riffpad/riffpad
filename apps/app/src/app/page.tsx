@@ -21,6 +21,7 @@ import {
   Search,
   Sun,
   Trash2,
+  Wand2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -406,7 +407,9 @@ export default function WorkspaceListPage() {
           </Button>
         </div>
 
-        {/* Toolbar: search / sort / filter / view */}
+        {/* Toolbar: search / sort / filter / view (hidden until there is
+            at least one workspace, to keep the empty state focused) */}
+        {!loading && workspaces.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 h-8 flex-1 min-w-[180px] max-w-sm rounded-md border border-hairline bg-card px-2.5 focus-within:ring-2 focus-within:ring-primary/40">
             <Search className="h-3.5 w-3.5 shrink-0 text-mute" />
@@ -482,6 +485,7 @@ export default function WorkspaceListPage() {
             </button>
           </div>
         </div>
+        )}
 
         {/* Batch bar */}
         {selectionActive && (
@@ -515,25 +519,73 @@ export default function WorkspaceListPage() {
         {loading ? (
           <p className="text-sm text-mute">{t("workspace.loading")}</p>
         ) : workspaces.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="relative mb-8">
-              <div className="relative w-24 h-24 bg-card border border-hairline rounded-3xl shadow-xl flex items-center justify-center">
-                <Image
-                  src="/logo.png"
-                  alt="Riffpad"
-                  width={64}
-                  height={64}
-                  className="riffpad-logo rounded-lg"
-                />
+          /* Empty state: a focused "create your first workspace" hero */
+          <div className="flex flex-col items-center justify-center py-14 sm:py-20 text-center">
+            <div className="relative mb-10 h-44 w-72 sm:w-80" aria-hidden="true">
+              {/* soft glow */}
+              <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/15 blur-3xl" />
+
+              {/* floating code cards */}
+              <div
+                className="animate-float-y absolute left-2 top-8 w-36 rounded-xl border border-hairline bg-card p-3 shadow-lg"
+                style={{ "--tilt": "-6deg" } as React.CSSProperties}
+              >
+                <div className="mb-2 flex gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-hairline" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-hairline" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-hairline" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-3/4 rounded bg-hairline" />
+                  <div className="h-1.5 w-1/2 rounded bg-hairline" />
+                  <div className="h-1.5 w-2/3 rounded bg-primary/30" />
+                </div>
+              </div>
+
+              <div
+                className="animate-float-y absolute right-2 top-14 w-32 rounded-xl border border-hairline bg-card p-3 shadow-lg"
+                style={
+                  {
+                    "--tilt": "5deg",
+                    animationDelay: "0.8s",
+                  } as React.CSSProperties
+                }
+              >
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-2/3 rounded bg-primary/30" />
+                  <div className="h-1.5 w-full rounded bg-hairline" />
+                  <div className="h-1.5 w-1/2 rounded bg-hairline" />
+                </div>
+              </div>
+
+              {/* main card with wand badge */}
+              <div
+                className="animate-float-y absolute left-1/2 top-2 w-44 -translate-x-1/2 rounded-2xl border border-hairline bg-card p-4 shadow-xl"
+                style={{ "--tilt": "0deg" } as React.CSSProperties}
+              >
+                <div className="mb-3 flex gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-accent-red/60" />
+                  <span className="h-2 w-2 rounded-full bg-primary/60" />
+                  <span className="h-2 w-2 rounded-full bg-accent-green/60" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-2 w-5/6 rounded bg-hairline" />
+                  <div className="h-2 w-full rounded bg-hairline" />
+                  <div className="h-2 w-2/3 rounded bg-primary/40" />
+                  <div className="h-2 w-1/2 rounded bg-hairline" />
+                </div>
+              </div>
+
+              <div className="absolute left-1/2 top-[7.5rem] -translate-x-1/2 translate-x-16 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+                <Wand2 className="h-5 w-5" />
               </div>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-ink mb-3 tracking-tight">
-              {t("app.name")}
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-ink mb-3 tracking-tight max-w-lg">
+              {t("workspaces.emptyTitle")}
             </h2>
             <p className="text-body max-w-md mb-8 leading-relaxed text-base">
-              {t("app.tagline")}
+              {t("workspaces.emptySubtitle")}
             </p>
 
             <Button

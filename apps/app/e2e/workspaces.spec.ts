@@ -210,6 +210,39 @@ test("switches between grid and list view and persists the choice", async ({
   await expect(page.locator("ul.grid")).toHaveCount(1);
 });
 
+test("empty state hides the toolbar and focuses on creation", async ({
+  page,
+}) => {
+  // Intercept the list endpoint and return an empty array so the real data
+  // stays untouched.
+  await page.route(`${API_URL}/api/v1/workspaces`, (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: [] });
+    }
+    return route.continue();
+  });
+
+  await page.goto("/");
+
+  // The search / sort / filter / view toolbar must not be rendered.
+  await expect(
+    page.getByPlaceholder(/search by name|搜索名称/i)
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /grid view|网格视图/i })
+  ).toHaveCount(0);
+
+  // The hero guides the user to create the first workspace.
+  await expect(
+    page.getByRole("heading", {
+      name: /ready to turn your idea|准备好把你的想法/i,
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /new workspace|新工作区/i }).first()
+  ).toBeVisible();
+});
+
 test("loads more workspaces when scrolling to the bottom", async ({ page }) => {
   // 26 workspaces with a shared prefix -> first page shows 24, scroll loads the rest.
   const ids: string[] = [];
