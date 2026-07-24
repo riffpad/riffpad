@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useI18n } from "@/lib/i18n";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -69,6 +70,11 @@ export default function WorkspaceListPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const [langOpen, setLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -115,6 +121,13 @@ export default function WorkspaceListPage() {
     toastTimer.current = setTimeout(() => setToast(null), 1600);
   }, []);
 
+  const askConfirm = useCallback(
+    (req: { title: string; message: string; onConfirm: () => void }) => {
+      setConfirmState(req);
+    },
+    []
+  );
+
   const createWorkspace = useCallback(async () => {
     setCreating(true);
     try {
@@ -149,36 +162,36 @@ export default function WorkspaceListPage() {
     []
   );
 
-  const deleteWorkspace = useCallback(
-    async (id: string) => {
-      if (!window.confirm(t("workspaces.deleteConfirm"))) return;
-      try {
-        const res = await fetch(`${API_URL}/api/v1/workspaces/${id}`, {
-          method: "DELETE",
+  const doDeleteWorkspace = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/workspaces/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
         });
-        if (res.ok) {
-          setWorkspaces((prev) => prev.filter((w) => w.id !== id));
-          setSelected((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        }
-      } catch (err) {
-        console.error("Failed to delete workspace:", err);
       }
+    } catch (err) {
+      console.error("Failed to delete workspace:", err);
+    }
+  }, []);
+
+  const deleteWorkspace = useCallback(
+    (id: string) => {
+      askConfirm({
+        title: t("workspaces.delete"),
+        message: t("workspaces.deleteConfirm"),
+        onConfirm: () => void doDeleteWorkspace(id),
+      });
     },
-    [t]
+    [t, askConfirm, doDeleteWorkspace]
   );
 
-  const deleteSelected = useCallback(async () => {
-    const ids = Array.from(selected);
-    if (ids.length === 0) return;
-    const message = t("workspaces.deleteBatchConfirm").replace(
-      "{n}",
-      String(ids.length)
-    );
-    if (!window.confirm(message)) return;
+  const doDeleteSelected = useCallback(async (ids: string[]) => {
     const results = await Promise.all(
       ids.map((id) =>
         fetch(`${API_URL}/api/v1/workspaces/${id}`, { method: "DELETE" })
@@ -189,7 +202,20 @@ export default function WorkspaceListPage() {
     );
     setWorkspaces((prev) => prev.filter((w) => !deleted.has(w.id)));
     setSelected(new Set());
-  }, [selected, t]);
+  }, []);
+
+  const deleteSelected = useCallback(() => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    askConfirm({
+      title: t("workspaces.deleteSelected").replace("{n}", String(ids.length)),
+      message: t("workspaces.deleteBatchConfirm").replace(
+        "{n}",
+        String(ids.length)
+      ),
+      onConfirm: () => void doDeleteSelected(ids),
+    });
+  }, [selected, t, askConfirm, doDeleteSelected]);
 
   // --- Derived list: filter -> sort (pinned first) -> paginate ---
 
@@ -600,6 +626,21 @@ export default function WorkspaceListPage() {
           {toast}
         </div>
       )}
+
+      {/* Confirm dialog */}
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={confirmState?.title ?? ""}
+        message={confirmState?.message ?? ""}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => {
+          const action = confirmState?.onConfirm;
+          setConfirmState(null);
+          action?.();
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

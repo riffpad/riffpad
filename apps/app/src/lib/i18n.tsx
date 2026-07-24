@@ -88,6 +88,8 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "theme.system": "跟随系统",
     "lang.zh": "中文",
     "lang.en": "English",
+    "common.cancel": "取消",
+    "common.delete": "删除",
   },
   en: {
     "app.name": "Riffpad",
@@ -157,6 +159,8 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "theme.system": "System",
     "lang.zh": "中文",
     "lang.en": "English",
+    "common.cancel": "Cancel",
+    "common.delete": "Delete",
   },
 };
 

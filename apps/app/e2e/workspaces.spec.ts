@@ -170,10 +170,14 @@ test("batch deletes selected workspaces", async ({ page }) => {
     page.getByText(/2 selected|已选 2 项/i)
   ).toBeVisible();
 
-  page.once("dialog", (dialog) => void dialog.accept());
   await page
     .getByRole("button", { name: /delete selected|删除所选/i })
     .click();
+
+  // Custom confirm dialog (not a native browser dialog).
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /^delete$|^删除$/i }).click();
 
   await expect(workspaceCard(page, "e2e-batch-del-1")).toHaveCount(0);
   await expect(workspaceCard(page, "e2e-batch-del-2")).toHaveCount(0);

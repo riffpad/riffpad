@@ -65,9 +65,28 @@ test("deletes a workspace from the list", async ({ page }) => {
   await card
     .getByRole("button", { name: /workspace actions|工作区操作/i })
     .click();
-  page.once("dialog", (dialog) => void dialog.accept());
   await page
     .getByRole("menuitem", { name: /delete workspace|删除工作区/i })
+    .click();
+
+  // Custom confirm dialog (not a native browser dialog): cancel keeps the card.
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /^cancel$|^取消$/i }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(card).toBeVisible();
+
+  // Re-open and confirm deletion.
+  await card.hover();
+  await card
+    .getByRole("button", { name: /workspace actions|工作区操作/i })
+    .click();
+  await page
+    .getByRole("menuitem", { name: /delete workspace|删除工作区/i })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /^delete$|^删除$/i })
     .click();
   await expect(card).toHaveCount(0);
 });
