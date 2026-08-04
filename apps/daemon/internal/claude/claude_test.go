@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
@@ -74,5 +75,21 @@ func TestResultEndsSession(t *testing.T) {
 	ev2 := <-c.Events()
 	if ev2.Type != protocol.EventSessionEnd {
 		t.Fatalf("expected session_end, got %s", ev2.Type)
+	}
+}
+
+func TestSystemApiRetryBecomesNotify(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"type":"system","subtype":"api_retry","attempt":2,"max_retries":10,"error":"rate_limit"}`))
+	ev := <-c.Events()
+	if ev.Type != protocol.EventNotify {
+		t.Fatalf("expected notify, got %s", ev.Type)
+	}
+	var p protocol.NotifyPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Level != "waiting" || !strings.Contains(p.Message, "rate_limit") {
+		t.Fatalf("unexpected notify: %+v", p)
 	}
 }

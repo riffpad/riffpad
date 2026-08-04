@@ -43,6 +43,8 @@ type Claude struct {
 	doneCh chan struct{}
 
 	mu               sync.Mutex
+	ctx              context.Context
+	launched         bool
 	pendingTools     map[string]pendingTool
 	pendingApprovals map[string]chan string
 }
@@ -75,8 +77,40 @@ func (c *Claude) Meta() protocol.SessionStartPayload {
 	return protocol.SessionStartPayload{Name: c.name, CLI: "claude", Cwd: c.cwd}
 }
 
-// Start spawns claude in stream-json mode with a per-session settings file.
+// Start records the context and, when an initial prompt is present, spawns
+// claude. Without an initial prompt, the process is started lazily on the
+// first SendPrompt (claude -p exits immediately if started with no input).
 func (c *Claude) Start(ctx context.Context) error {
+	c.mu.Lock()
+	c.ctx = ctx
+	c.mu.Unlock()
+	if c.prompt == "" {
+		return nil
+	}
+	if err := c.ensureStarted(); err != nil {
+		return err
+	}
+	return c.SendPrompt(c.prompt)
+}
+
+// ensureStarted spawns claude exactly once.
+func (c *Claude) ensureStarted() error {
+	c.mu.Lock()
+	if c.launched {
+		c.mu.Unlock()
+		return nil
+	}
+	if c.ctx == nil {
+		c.mu.Unlock()
+		return fmt.Errorf("session not started")
+	}
+	c.launched = true
+	ctx := c.ctx
+	c.mu.Unlock()
+	return c.spawn(ctx)
+}
+
+func (c *Claude) spawn(ctx context.Context) error {
 	if err := c.writeSettings(); err != nil {
 		return fmt.Errorf("write settings: %w", err)
 	}
@@ -84,6 +118,7 @@ func (c *Claude) Start(ctx context.Context) error {
 		"-p",
 		"--input-format", "stream-json",
 		"--output-format", "stream-json",
+		"--verbose",
 		"--settings", c.settingsPath,
 		"--permission-mode", "default",
 		"--include-partial-messages",
@@ -117,16 +152,22 @@ func (c *Claude) Start(ctx context.Context) error {
 			_ = c.cmd.Process.Kill()
 		}
 	}()
-	if c.prompt != "" {
-		if err := c.SendPrompt(c.prompt); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 // Stop terminates the wrapped process.
 func (c *Claude) Stop() error {
+	c.mu.Lock()
+	launched := c.launched
+	c.mu.Unlock()
+	if !launched {
+		select {
+		case <-c.stopCh:
+		default:
+			close(c.stopCh)
+		}
+		return nil
+	}
 	select {
 	case <-c.stopCh:
 		return nil
@@ -161,6 +202,9 @@ func (c *Claude) SendApproval(requestID, decision string) error {
 
 // SendPrompt writes a user message into the stream-json stdin.
 func (c *Claude) SendPrompt(text string) error {
+	if err := c.ensureStarted(); err != nil {
+		return err
+	}
 	msg := map[string]any{
 		"type": "user",
 		"message": map[string]any{
@@ -246,6 +290,8 @@ func (c *Claude) handleLine(line []byte) {
 		return
 	}
 	switch raw.Type {
+	case "system":
+		c.handleSystem(raw.Subtype, line)
 	case "assistant":
 		c.handleAssistant(raw.Message)
 	case "user":
@@ -259,6 +305,25 @@ func (c *Claude) handleLine(line []byte) {
 		}
 		_ = c.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: status})
 		_ = c.emit(protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: raw.Subtype})
+	}
+}
+
+func (c *Claude) handleSystem(subtype string, line []byte) {
+	switch subtype {
+	case "api_retry":
+		var m struct {
+			Attempt      int    `json:"attempt"`
+			MaxRetries   int    `json:"max_retries"`
+			Error        string `json:"error"`
+			RetryDelayMS int64  `json:"retry_delay_ms"`
+		}
+		if err := json.Unmarshal(line, &m); err != nil {
+			return
+		}
+		msg := fmt.Sprintf("API 限流（%s），重试 %d/%d…", m.Error, m.Attempt, m.MaxRetries)
+		_ = c.emit(protocol.EventNotify, protocol.NotifyPayload{Level: "waiting", Message: msg})
+	case "error":
+		_ = c.emit(protocol.EventNotify, protocol.NotifyPayload{Level: "error", Message: "Claude Code 报错，见 daemon 日志"})
 	}
 }
 

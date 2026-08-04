@@ -151,7 +151,10 @@ async function openDetail(sid, name) {
 }
 
 async function sendEvent(type, payload) {
-  if (!ws || !sessionKey) return;
+  if (!ws || !sessionKey) {
+    setConn("未连接，无法发送");
+    return;
+  }
   const ev = { id: String(Date.now()) + Math.random().toString(16).slice(2), sessionId: currentSession, timestamp: Date.now(), type, payload };
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const pt = enc(JSON.stringify(ev));

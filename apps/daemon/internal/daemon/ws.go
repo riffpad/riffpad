@@ -149,16 +149,28 @@ func (s *Server) dispatch(sess *session, ev protocol.Event) {
 		if err := ev.DecodePayload(&p); err != nil {
 			return
 		}
-		_ = sess.adapter.SendPrompt(p.Text)
+		if err := sess.adapter.SendPrompt(p.Text); err != nil {
+			s.notifySession(sess, "error", "指令发送失败："+err.Error())
+		}
 	case protocol.EventControl:
 		var p protocol.ControlPayload
 		if err := ev.DecodePayload(&p); err != nil {
 			return
 		}
 		if p.Action == "stop" {
-			_ = sess.adapter.Stop()
+			if err := sess.adapter.Stop(); err != nil {
+				s.notifySession(sess, "error", "停止失败："+err.Error())
+			}
 		}
 	}
+}
+
+func (s *Server) notifySession(sess *session, level, message string) {
+	ev, err := protocol.NewEvent(sess.id, protocol.EventNotify, protocol.NotifyPayload{Level: level, Message: message})
+	if err != nil {
+		return
+	}
+	s.pumpEvent(sess, ev)
 }
 
 func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) {
