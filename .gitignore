@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+bin/
+apps/daemon/daemon
+apps/relay/relay
+.env
+*.log
+.DS_Store

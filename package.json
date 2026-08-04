@@ -1,0 +1,11 @@
+{
+  "name": "riffpad",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:mobile": "pnpm --filter mobile dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
