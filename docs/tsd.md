@@ -137,20 +137,34 @@ type Adapter interface {
 
 实现时以各 CLI 当前官方输出模式为准（如 Claude Code 的结构化输出、Codex 的 JSON 事件），输出格式变化时只改适配器，不动协议。
 
-### 5.2 tmux / PTY 兜底
+### 5.2 接入机制（三层）
+
+| 层 | 机制 | 适用 |
+|---|---|---|
+| L1 官方结构化协议 | Claude Code：`claude -p --input-format stream-json --output-format stream-json`（NDJSON：`system(init)` / `assistant` 含 `text`、`tool_use` / `user` 含 `tool_result` / `result`，可加 `--include-partial-messages`、`--include-hook-events`）；Codex：`codex exec --json`（JSONL：`thread.started`、`turn.started/completed/failed`、`item.*`、`error`） | 包装启动新会话 |
+| L2 hooks | Claude Code 与 Codex 均支持 `PermissionRequest` / `Notification` / `PreToolUse` / `PostToolUse` 等钩子；Claude Code 支持 `http` 类型 hook 直接 POST 到 daemon 本地端点；Codex 命令 hook 需用户信任 | 审批拦截、通知、事件补全 |
+| L3 PTY/tmux | tmux 控制模式（`tmux -CC`）或 PTY 包装，原始字节流 → 移动端 xterm.js | 任意 CLI 兜底 |
+
+### 5.3 两种运行模式
+
+- **包装模式**：`riffpad run -- claude` 或 `codex exec --json`，daemon 持有协议流，手机是主交互端；适合新会话
+- **附着模式**：用户照常启动 TUI（Claude Code 建议在 tmux 内），daemon 通过 L2 hooks 接收结构化事件与审批请求，审批由 hook 阻塞等待手机响应后返回 `permissionDecision`，指令注入走 tmux send-keys；Codex 可复用 `codex app-server`（实验性）让终端与手机共享同一会话（参考 codex-relay 的 `codex resume --remote unix://` 模式）
+- 所有适配器必须能降级到 L3；实验性接口需要 pin CLI 版本
+
+### 5.4 tmux / PTY 兜底
 
 - 使用 tmux 控制模式（`tmux -CC`）或 `creack/pty` 挂接任意终端会话
 - 原始字节流封装为 `terminal_output` 事件，移动端用 xterm.js 渲染
 - 该路径只读优先，输入发送为显式用户动作
 
-### 5.3 配对与密钥
+### 5.5 配对与密钥
 
 1. daemon 启动生成一次性配对码与 QR（含 short-lived token）
 2. 手机扫码，双方交换 X25519 公钥，建立设备级密钥
 3. 会话开始时派生会话密钥（ephemeral），中继无法推导
 4. 私钥与设备列表存 `~/.config/riffpad/`（0600）
 
-### 5.4 本地配置与恢复
+### 5.6 本地配置与恢复
 
 - 会话元数据（CLI 类型、工作目录、启动命令）落本地 JSON
 - daemon 重启后自动重连会话；agent 进程由 tmux 或 daemon 托管保持存活
