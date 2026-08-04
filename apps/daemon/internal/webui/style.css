@@ -1,0 +1,65 @@
+:root {
+  --bg: #0f1115;
+  --card: #161a22;
+  --line: #262c38;
+  --ink: #e6e9ef;
+  --mute: #8b93a3;
+  --accent: #5b8cff;
+  --danger: #ff6b6b;
+  --ok: #4cd97b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--line);
+}
+h1 { font-size: 18px; margin: 0; }
+h2, h3 { margin: 0 0 10px; }
+main { max-width: 760px; margin: 0 auto; padding: 20px; }
+.hidden { display: none; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px;
+}
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.muted { color: var(--mute); }
+.err { color: var(--danger); font-size: 12px; min-height: 16px; }
+input {
+  flex: 1; min-width: 160px; background: #0d0f13; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+button {
+  background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+  padding: 8px 14px; cursor: pointer; font-size: 13px;
+}
+button.ghost { background: transparent; border: 1px solid var(--line); color: var(--mute); }
+button.danger { background: var(--danger); }
+ul { list-style: none; padding: 0; margin: 0 0 16px; }
+li {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 8px; cursor: pointer;
+}
+li:hover { border-color: var(--accent); }
+.status { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #202636; }
+.status.running { color: var(--ok); }
+.status.waiting_input { color: #ffd166; }
+.status.done, .status.error { color: var(--mute); }
+.events { max-height: 60vh; overflow-y: auto; margin: 12px 0; }
+.ev {
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+  font-size: 13px;
+}
+.ev.approval_request { border-left-color: #ffd166; }
+.ev.error { border-left-color: var(--danger); }
+.ev-head { font-weight: 600; margin-bottom: 4px; }
+.ev-body { color: var(--mute); white-space: pre-wrap; word-break: break-word; }
+code { background: #0d0f13; padding: 2px 6px; border-radius: 6px; }
+#prompt-form { display: flex; gap: 8px; }

@@ -35,6 +35,17 @@ make dev-relay    # 中继服务
 make dev-mobile   # 移动端 PWA
 ```
 
+## M0 本地体验（当前进度）
+
+```bash
+make build-daemon
+./apps/daemon/bin/riffpad daemon start
+./apps/daemon/bin/riffpad pair
+# 打开 http://127.0.0.1:8787，输入配对码，启动 Claude Code 会话
+```
+
+前置：已安装并登录 Claude Code（`claude --version`）。事件、审批、指令均为端到端加密，密钥只在本机。
+
 ## 设计文档
 
 详见 [docs/prd.md](docs/prd.md)（产品需求）、[docs/tsd.md](docs/tsd.md)（技术规格）、[docs/design.md](docs/design.md)（快速总览）、[docs/dev-plan.md](docs/dev-plan.md)（开发计划）。

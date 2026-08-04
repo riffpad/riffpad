@@ -10,7 +10,7 @@ dev-mobile:
 	pnpm --filter mobile dev
 
 build-daemon:
-	cd apps/daemon && go build -o bin/daemon .
+	cd apps/daemon && mkdir -p bin && go build -o bin/riffpad ./cmd/riffpad && go build -o bin/riffpadd ./cmd/riffpadd
 
 build-relay:
 	cd apps/relay && go build -o bin/relay .
@@ -22,5 +22,6 @@ build:
 
 test:
 	cd apps/daemon && go test ./...
+	cd packages/protocol && go test ./...
 	cd apps/relay && go test ./...
 	pnpm -r test

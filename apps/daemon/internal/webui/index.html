@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Riffpad</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Riffpad</h1>
+    <span id="conn" class="muted">离线</span>
+  </header>
+  <main>
+    <section id="pair-view" class="card hidden">
+      <h2>配对</h2>
+      <p class="muted">在电脑终端运行 <code>riffpad pair</code>，输入配对码：</p>
+      <div class="row">
+        <input id="pair-code" placeholder="XXXXXX" autocomplete="off">
+        <button id="pair-btn">配对</button>
+      </div>
+      <p id="pair-err" class="err"></p>
+    </section>
+
+    <section id="sessions-view" class="hidden">
+      <div class="row">
+        <h2>会话</h2>
+        <button id="refresh-btn">刷新</button>
+      </div>
+      <form id="create-form" class="card">
+        <div class="row">
+          <input id="s-name" placeholder="名称（可选）">
+          <input id="s-prompt" placeholder="初始指令（可选）">
+        </div>
+        <div class="row">
+          <input id="s-cwd" placeholder="工作目录（默认 daemon 当前目录）">
+          <button type="submit">启动会话</button>
+        </div>
+      </form>
+      <ul id="session-list"></ul>
+
+      <section id="detail" class="card hidden">
+        <div class="row">
+          <h3 id="d-title"></h3>
+          <button id="stop-btn">停止</button>
+          <button id="leave-btn">返回</button>
+        </div>
+        <div id="events" class="events"></div>
+        <form id="prompt-form">
+          <input id="prompt-text" placeholder="输入新指令…" autocomplete="off">
+          <button type="submit">发送</button>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -47,16 +47,28 @@
 
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
-| M0.1 | daemon CLI 骨架：`riffpad` / `riffpadd` 命令结构、config、日志、后台运行 | `[ ]` | `riffpad daemon start/pair/status/sessions/logs/stop` 可用 | — |
-| M0.2 | 事件协议 v1：`packages/protocol` 定义事件集 + 信封格式 + JSON Schema | `[ ]` | 事件类型与 TSD §4 一致；生成 Go/TS 类型 | — |
-| M0.3 | Claude Code L1 适配器（包装模式） | `[ ]` | 解析 `stream-json`（system/assistant/user/result），转 Riffpad 事件 | — |
-| M0.4 | Claude Code L2 hooks：PermissionRequest + Notification → daemon 本地 HTTP | `[ ]` | 审批请求可阻塞等待外部决定；通知事件进入事件流 | — |
-| M0.5 | 设备配对：终端二维码 + X25519 密钥交换 + 本地密钥存储 | `[ ]` | 扫码配对成功；私钥 0600；撤销可用 | — |
-| M0.6 | 本地网页端（M0 用浏览器代替 App） | `[ ]` | 会话列表 + 事件流 + 审批按钮 + 文字指令注入 | — |
-| M0.7 | E2EE 信封：会话密钥派生 + AES-GCM 加解密 + 单测 | `[ ]` | 加解密往返测试通过；中继侧不可读 | — |
-| M0.8 | M0 端到端演示 | `[ ]` | 真实 Claude Code 会话：批准、拒绝、注入指令均生效 | — |
+| M0.1 | daemon CLI 骨架：`riffpad` / `riffpadd` 命令结构、config、日志、后台运行 | `[x]` | `riffpad daemon start/pair/status/sessions/logs/stop` 可用 | — |
+| M0.2 | 事件协议 v1：`packages/protocol` 定义事件集 + 信封格式 | `[x]` | 事件类型与 TSD §4 一致；Go 类型 + 单测 | — |
+| M0.3 | Claude Code L1 适配器（包装模式） | `[x]` | 解析 `stream-json`（system/assistant/user/result），转 Riffpad 事件 | — |
+| M0.4 | Claude Code L2 hooks：PermissionRequest + Notification → daemon 本地 HTTP | `[x]` | 审批请求可阻塞等待外部决定；通知事件进入事件流 | — |
+| M0.5 | 设备配对：终端二维码 + 密钥交换 + 本地密钥存储 | `[x]` | 扫码配对成功；私钥 0600；撤销可用 | — |
+| M0.6 | 本地网页端（M0 用浏览器代替 App） | `[x]` | 会话列表 + 事件流 + 审批按钮 + 文字指令注入 | — |
+| M0.7 | E2EE 信封：会话密钥派生 + AES-GCM 加解密 + 单测 | `[x]` | 加解密往返测试通过；中继侧不可读 | — |
+| M0.8 | M0 端到端演示 | `[!]` 待人工验证 | 真实 Claude Code 会话：批准、拒绝、注入指令均生效 | — |
 
 **M0 出口条件**：8 个任务全部完成；至少 3 个外部用户跑通一次完整闭环。
+
+### M0 人工验证步骤（M0.8）
+
+前置：本机已安装并登录 Claude Code（`claude --version`，当前 2.1.220）。
+
+1. `make build-daemon`
+2. `./apps/daemon/bin/riffpad daemon start`
+3. `./apps/daemon/bin/riffpad pair`，浏览器打开 http://127.0.0.1:8787 输入配对码
+4. 在网页端启动会话，初始指令用一个会触发审批的例子（如“删除 src/test.tmp”）
+5. 验证：事件流可见 → 审批卡片出现 → 点击同意 → agent 继续 → 会话结束
+6. 若审批事件未出现，查看 `~/.config/riffpad/logs/daemon.log` 的 claude stderr；
+   stream-json 字段以本机 claude 实际输出为准，差异只改 `apps/daemon/internal/claude/claude.go`
 
 ---
 
