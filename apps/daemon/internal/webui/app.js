@@ -61,6 +61,17 @@ async function deviceSecret(dev) {
 let ws = null;
 let sessionKey = null;
 let currentSession = null;
+let pageAlive = false;
+
+async function refreshConn() {
+  try {
+    const res = await fetch("/api/status");
+    pageAlive = res.ok;
+  } catch {
+    pageAlive = false;
+  }
+  if (!currentSession) setConn(pageAlive ? "服务在线" : "离线");
+}
 
 async function pair(code) {
   const dev = await ensureIdentity();
@@ -125,7 +136,7 @@ async function openDetail(sid, name) {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws?device=${dev.deviceId}&session=${sid}&eph=${ephPub}`);
   ws.onopen = () => setConn("连接中…");
-  ws.onclose = () => { setConn("已断开"); sessionKey = null; };
+  ws.onclose = () => { sessionKey = null; setConn(pageAlive ? "服务在线" : "离线"); };
   ws.onerror = () => setConn("连接错误");
   ws.onmessage = async (msg) => {
     const data = JSON.parse(msg.data);
@@ -230,6 +241,8 @@ function setConn(s) {
 
 async function init() {
   const dev = await ensureIdentity();
+  refreshConn();
+  setInterval(refreshConn, 5000);
   const params = new URLSearchParams(location.search);
   if (params.get("pair")) $("pair-code").value = params.get("pair");
   if (params.get("session")) {
