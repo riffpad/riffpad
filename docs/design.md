@@ -8,7 +8,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 
 - **监督**：手机上实时查看 agent 的进度、工具调用、文件变更
 - **审批**：agent 等待确认时推送通知，手机一键同意/拒绝/修改条件
-- **转向**：语音或文字下达新指令，远程影响本地会话
+- **转向**：文字下达新指令，远程影响本地会话
 - **隐私**：agent 跑在用户自己的电脑上，云端只做加密中继，不落盘、不解密
 
 ## 2. 架构
@@ -18,7 +18,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 │  用户电脑        │      │  云端中继 (relay)    │      │  手机 (mobile)│
 │  daemon (Go)    │──WSS─▶│  WebSocket + E2EE   │──WSS─▶│  会话列表      │
 │  适配器层        │      │  不落盘 / 不记录     │      │  审批卡片      │
-│  tmux/PTY 兜底  │      └─────────────────────┘      │  语音输入      │
+│  tmux/PTY 兜底  │      └─────────────────────┘      │  指令输入      │
 └─────────────────┘                                    └──────────────┘
 ```
 
@@ -51,7 +51,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 | `tool_call` | daemon → mobile | 工具名、参数、状态 |
 | `approval_request` | daemon → mobile | 审批请求（含操作摘要） |
 | `approval_response` | mobile → daemon | `approve` / `reject` / 修改后的条件 |
-| `prompt` | mobile → daemon | 文字或语音转写的新指令 |
+| `prompt` | mobile → daemon | 文字新指令 |
 | `file_change` | daemon → mobile | 路径与变更摘要 |
 
 ## 4. 安全基线

@@ -30,7 +30,6 @@
 | relay | Go + Echo + gorilla/websocket | 长连接中继，部署为长运行容器 |
 | mobile | Next.js 14 PWA + xterm.js | 会话列表、审批卡片、终端兜底视图 |
 | 推送 | Web Push（VAPID）MVP | 国内厂商通道在原生壳阶段接入 |
-| 语音 | Web Speech API（中文）起步 | 复杂转写二期接云端 |
 | 数据库 | Postgres | 仅存元数据（用户 / 设备 / 会话状态），内容不落库 |
 | 部署 | Fly.io / Railway 一期 | 国内节点二期（腾讯云 / 阿里云） |
 
@@ -47,7 +46,7 @@
 │ 适配器层           │─────▶│ WebSocket Hub           │─────▶│ 会话列表/详情     │
 │  Claude Code       │      │ 配对与认证              │      │ 审批卡片          │
 │  Codex             │      │ E2EE 信封转发（不解密）  │      │ 终端视图 (xterm)  │
-│  DeepSeek/Kimi ... │      │ 元数据：Postgres        │      │ 语音输入          │
+│  DeepSeek/Kimi ... │      │ 元数据：Postgres        │      │ 指令输入          │
 │  tmux/PTY 兜底     │◀─────│ 不持久化内容            │◀─────│ 推送订阅          │
 └────────────────────┘      └─────────────────────────┘      └──────────────────┘
 ```
@@ -102,7 +101,7 @@
 | `command` | daemon → mobile | bash 命令与退出码 |
 | `approval_request` | daemon → mobile | 审批请求：操作摘要、选项 |
 | `approval_response` | mobile → daemon | `approve` / `reject` / 修改后条件 |
-| `prompt` | mobile → daemon | 文字或语音转写的新指令 |
+| `prompt` | mobile → daemon | 文字新指令 |
 | `control` | 双向 | `pause` / `resume` / `stop` / `ping` / `pong` |
 | `notify` | daemon → relay | 通知事件（等待审批、完成、出错），供推送 |
 
@@ -206,11 +205,6 @@ tokens     (device_id, token_hash, expires_at)
 - 原生壳（Capacitor / Expo）后接安卓厂商通道与 iOS APNs
 - 推送内容只含非敏感摘要（“等待审批：删除 src/old.ts”）
 
-### 7.3 语音
-
-- 起步：Web Speech API 中文识别，识别文本作为 `prompt` 事件
-- 二期：服务端转写，支持更长的指令
-
 ---
 
 ## 8. API 设计
@@ -311,4 +305,3 @@ daemon 与 mobile 共用通道，按角色与配对关系授权。
 1. 协议生成方式：JSON Schema（轻）vs protobuf（强类型、重）
 2. 移动端路线：PWA → Capacitor（快）vs Expo（原生能力强）
 3. Windows daemon 是否一期支持（目标用户以 Mac 为主？）
-4. 语音转写用客户端 API 还是服务端
