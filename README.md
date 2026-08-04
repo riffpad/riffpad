@@ -37,4 +37,4 @@ make dev-mobile   # 移动端 PWA
 
 ## 设计文档
 
-详见 [docs/design.md](docs/design.md)。
+详见 [docs/prd.md](docs/prd.md)（产品需求）、[docs/tsd.md](docs/tsd.md)（技术规格）、[docs/design.md](docs/design.md)（快速总览）。

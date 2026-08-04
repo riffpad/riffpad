@@ -1,5 +1,7 @@
 # Riffpad 设计说明（v0.1）
 
+> 本文是快速总览；产品需求见 [PRD](prd.md)，技术规格见 [TSD](tsd.md)。
+
 ## 1. 定位
 
 AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时间自主工作，用户不该守在电脑前。Riffpad 提供：
