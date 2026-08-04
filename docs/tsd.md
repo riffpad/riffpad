@@ -210,6 +210,14 @@ tokens     (device_id, token_hash, expires_at)
 
 内容（事件、文件、指令）不落库。
 
+### 6.5 可靠性：无状态中继，内容以 daemon 为源
+
+- relay 是实时转发通道（WebSocket pub/sub 房间），不是数据存储；消息不落盘、不写日志
+- 内容的 source of truth 是 daemon 本机会话记录；手机断线重连后向 daemon 回放补齐，不依赖 relay 缓冲
+- 中继故障只影响“实时画面”，不影响用户电脑上的 agent；relay 无状态，重启即恢复
+- 中继被攻破/丢失：内容零损失（无密钥、无明文、无内容库）；可用性可通过自部署中继或局域网直连恢复；元数据丢失最坏只需重新配对
+- 未来优化：WebRTC/局域网直连模式，relay 退化为信令与 NAT 穿透
+
 ---
 
 ## 7. mobile 设计
