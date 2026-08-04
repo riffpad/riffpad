@@ -62,6 +62,7 @@ let ws = null;
 let sessionKey = null;
 let currentSession = null;
 let pageAlive = false;
+let everConnected = false;
 
 async function refreshConn() {
   try {
@@ -130,13 +131,20 @@ async function openDetail(sid, name) {
   $("events").innerHTML = "";
   $("detail").classList.remove("hidden");
   const dev = await ensureIdentity();
-  if (!dev.deviceId) return;
+  if (!dev.deviceId) {
+    setConn("未配对：请刷新页面并重新输入配对码");
+    return;
+  }
+  everConnected = false;
   const eph = await genPair();
   const ephPub = b64u(await crypto.subtle.exportKey("raw", eph.publicKey));
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws?device=${dev.deviceId}&session=${sid}&eph=${ephPub}`);
   ws.onopen = () => setConn("连接中…");
-  ws.onclose = () => { sessionKey = null; setConn(pageAlive ? "服务在线" : "离线"); };
+  ws.onclose = () => {
+    sessionKey = null;
+    setConn(everConnected ? (pageAlive ? "服务在线" : "离线") : "连接失败：请刷新页面重试");
+  };
   ws.onerror = () => setConn("连接错误");
   ws.onmessage = async (msg) => {
     const data = JSON.parse(msg.data);
@@ -149,6 +157,7 @@ async function openDetail(sid, name) {
         { name: "HKDF", hash: "SHA-256", salt: dsec, info: enc("riffpad/session-v1/" + sid) },
         hkdf, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
       );
+      everConnected = true;
       setConn("已连接（加密）");
       return;
     }
@@ -163,7 +172,7 @@ async function openDetail(sid, name) {
 
 async function sendEvent(type, payload) {
   if (!ws || !sessionKey) {
-    setConn("未连接，无法发送");
+    setConn("未连接，无法发送：请刷新页面并重新打开会话");
     return;
   }
   const ev = { id: String(Date.now()) + Math.random().toString(16).slice(2), sessionId: currentSession, timestamp: Date.now(), type, payload };
