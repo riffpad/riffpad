@@ -10,17 +10,17 @@
   --ink: #191917;
   --body: #46463f;
   --mute: #73736a;
-  --hairline: rgba(25, 25, 23, 0.12);
-  --hairline-strong: #191917;
+  --hairline: rgba(25, 25, 23, 0.1);
+  --hairline-strong: rgba(25, 25, 23, 0.42);
 
   --accent: #f7a501;
   --accent-hover: #dd9001;
   --accent-ink: #191917;
 
-  --success: #16a34a;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --info: #2563eb;
+  --success: 22 163 74;
+  --warning: 217 119 6;
+  --danger: 220 38 38;
+  --info: 37 99 235;
 
   --console: #ffffff;
   --console-elevated: #ecebe6;
@@ -36,17 +36,17 @@
   --ink: #f5f4f0;
   --body: #b9b7b0;
   --mute: #8a887f;
-  --hairline: rgba(245, 244, 240, 0.1);
-  --hairline-strong: #f5f4f0;
+  --hairline: rgba(245, 244, 240, 0.05);
+  --hairline-strong: rgba(245, 244, 240, 0.12);
 
   --accent: #ffb224;
   --accent-hover: #f7a501;
   --accent-ink: #191917;
 
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
+  --success: 74 222 128;
+  --warning: 251 191 36;
+  --danger: 248 113 113;
+  --info: 96 165 250;
 
   --console: #080807;
   --console-elevated: #151514;
@@ -96,7 +96,7 @@
   }
 
   .btn-secondary {
-    @apply border border-hairline-strong bg-surface text-ink hover:border-ink;
+    @apply border border-hairline-strong bg-surface text-ink hover:border-hairline-strong hover:bg-surface-muted;
   }
 
   .btn-ghost {

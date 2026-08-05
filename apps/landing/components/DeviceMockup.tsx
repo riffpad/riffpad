@@ -260,7 +260,7 @@ function MacTerminal({
         )}
       </div>
 
-      <div className="border-t border-on-console/10 px-4 py-2 text-[11px] text-on-console-mute sm:px-5">
+      <div className="border-t border-hairline px-4 py-2 text-[11px] text-on-console-mute sm:px-5">
         {status}
       </div>
     </div>
@@ -283,7 +283,7 @@ function SyncConnector({
       className="flex flex-col items-center gap-3 lg:flex-row lg:gap-4"
       aria-hidden="true"
     >
-      <div className="relative h-16 w-px bg-hairline-strong lg:h-px lg:w-20">
+      <div className="relative h-16 w-px bg-hairline lg:h-px lg:w-20">
         <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-accent" />
         {syncing && (
           <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-accent" />
@@ -384,7 +384,7 @@ function PhoneApp({
 
           {/* approval card */}
           {approval === "pending" ? (
-            <div className="mt-3 border border-warning/30 bg-warning/10 p-3">
+            <div className="mt-3 border border-warning/20 bg-warning/10 p-3">
               <div className="text-[11px] text-warning">
                 {t.mockup.phone.approval}
               </div>

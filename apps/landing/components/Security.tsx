@@ -36,7 +36,7 @@ export function Security() {
           </div>
 
           <div className="console-card overflow-hidden">
-            <div className="border-b border-on-console/10 px-4 py-3 text-xs text-on-console-mute sm:px-5">
+            <div className="border-b border-hairline px-4 py-3 text-xs text-on-console-mute sm:px-5">
               riffpad status --security
             </div>
             <div className="px-4 py-5 text-sm leading-[2] sm:px-5">
