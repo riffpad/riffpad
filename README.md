@@ -46,6 +46,14 @@ make build-daemon
 
 前置：已安装并登录 Claude Code（`claude --version`）。事件、审批、指令均为端到端加密，密钥只在本机。
 
+想让 `riffpad` 在任何目录都可用，一次性执行：
+
+```bash
+make install-daemon        # 构建并安装到 ~/.local/bin（已存在则覆盖）
+riffpad daemon start       # 之后在任何目录都能直接使用
+riffpad attach             # 注入 hooks，然后正常打开你的 claude 交互会话
+```
+
 ## 设计文档
 
 详见 [docs/prd.md](docs/prd.md)（产品需求）、[docs/tsd.md](docs/tsd.md)（技术规格）、[docs/design.md](docs/design.md)（快速总览）、[docs/dev-plan.md](docs/dev-plan.md)（开发计划）。
