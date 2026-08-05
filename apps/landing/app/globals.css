@@ -22,10 +22,10 @@
   --danger: #dc2626;
   --info: #2563eb;
 
-  --console: #111110;
-  --console-elevated: #1b1b19;
-  --on-console: #f5f4f0;
-  --on-console-mute: #9c9a92;
+  --console: #ffffff;
+  --console-elevated: #ecebe6;
+  --on-console: #2b2b26;
+  --on-console-mute: #8a887f;
 }
 
 [data-theme="dark"] {
@@ -117,4 +117,12 @@
 }
 
 @layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useLanguage } from "./LanguageProvider";
 import { DeviceMockup } from "./DeviceMockup";
+import { InstallCommand } from "./InstallCommand";
 
 export function Hero() {
   const { t } = useLanguage();
@@ -12,8 +13,7 @@ export function Hero() {
       className="mx-auto max-w-frame scroll-mt-20 px-4 pb-20 pt-14 sm:px-6 sm:pb-28 sm:pt-20"
     >
       <div className="mx-auto max-w-content text-center">
-        <span className="label">{`// ${t.hero.badge}`}</span>
-        <h1 className="mt-6 text-balance text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">
+        <h1 className="text-balance text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">
           {t.hero.title1}
           <br />
           {t.hero.title2}
@@ -35,6 +35,7 @@ export function Hero() {
           </a>
         </div>
         <p className="mt-5 text-xs text-mute">{t.hero.note}</p>
+        <InstallCommand />
       </div>
 
       <div className="mt-16 sm:mt-20">

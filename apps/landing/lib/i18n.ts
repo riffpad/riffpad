@@ -1,16 +1,7 @@
 export type Language = "en" | "zh";
 
 const en = {
-  nav: {
-    features: "Features",
-    how: "How it works",
-    security: "Security",
-    faq: "FAQ",
-    cta: "Early access",
-    menu: "menu",
-  },
   hero: {
-    badge: "v0.1 — live on your machine",
     title1: "Your AI coding agents,",
     title2: "in your pocket.",
     description:
@@ -19,10 +10,17 @@ const en = {
     ctaSecondary: "Read the docs",
     note: "local daemon · end-to-end encrypted · zero-knowledge relay",
   },
+  install: {
+    unix: "macOS / Linux",
+    windows: "Windows",
+    copy: "copy",
+    copied: "copied ✓",
+  },
   mockup: {
+    hint: "Live demo — send a message from the phone and watch the Mac react.",
     mac: {
-      title: "codex — riffpad",
-      prompt: "codex exec --json",
+      title: "riffpad — zsh — 80×24",
+      prompt: "~/projects/api % codex exec --json",
       lines: [
         { text: "reading task: refactor auth middleware", tone: "ok" },
         { text: "edit_file  src/auth/middleware.ts", tone: "info" },
@@ -30,6 +28,9 @@ const en = {
         { text: "waiting for approval · delete src/old.ts", tone: "warn" },
       ],
       status: "riffpad daemon · e2ee ●",
+      fromPhone: "⏎ phone",
+      approvedLine: "approved from phone · resuming agent",
+      rejectedLine: "rejected from phone · agent paused",
     },
     phone: {
       title: "riffpad",
@@ -42,12 +43,42 @@ const en = {
       summary: "delete src/old.ts",
       approve: "Approve",
       reject: "Reject",
+      approved: "approved · agent resumed",
+      rejected: "rejected · agent paused",
+      hello: "Session attached — I'll ping you when I need a decision.",
       input: "message agent…",
       tabs: ["Sessions", "Session", "Settings"],
+      presets: [
+        {
+          send: "Approve the deletion",
+          ack: "Approved — continuing the refactor.",
+          term: [
+            { text: "approval granted · delete src/old.ts", tone: "ok" },
+            { text: "refactor auth middleware · 3 files changed", tone: "info" },
+          ],
+        },
+        {
+          send: "Run the tests first",
+          ack: "On it — tests run before any further edits.",
+          term: [
+            { text: "run_tests  go test ./...", tone: "info" },
+            { text: "42 passed · 0 failed · 1.8s", tone: "ok" },
+          ],
+        },
+        {
+          send: "Use CSV output instead",
+          ack: "Got it — switching output to CSV.",
+          term: [
+            { text: "new instruction · output format → csv", tone: "info" },
+            { text: "edit_file  src/report/export.ts", tone: "info" },
+          ],
+        },
+      ],
     },
     sync: {
       label: "e2ee",
       status: "synced",
+      syncing: "syncing…",
       latency: "84ms",
     },
   },
@@ -190,16 +221,7 @@ const en = {
 };
 
 const zh: typeof en = {
-  nav: {
-    features: "功能",
-    how: "工作方式",
-    security: "安全",
-    faq: "常见问题",
-    cta: "抢先体验",
-    menu: "菜单",
-  },
   hero: {
-    badge: "v0.1 — 运行在你的电脑上",
     title1: "你的 AI 编程 Agent，",
     title2: "装进你的口袋。",
     description:
@@ -208,10 +230,17 @@ const zh: typeof en = {
     ctaSecondary: "阅读文档",
     note: "本地 daemon · 端到端加密 · 零知识中继",
   },
+  install: {
+    unix: "macOS / Linux",
+    windows: "Windows",
+    copy: "复制",
+    copied: "已复制 ✓",
+  },
   mockup: {
+    hint: "可交互演示：在手机上发一条消息，看 Mac 终端实时响应。",
     mac: {
-      title: "codex — riffpad",
-      prompt: "codex exec --json",
+      title: "riffpad — zsh — 80×24",
+      prompt: "~/projects/api % codex exec --json",
       lines: [
         { text: "读取任务：重构 auth 中间件", tone: "ok" },
         { text: "edit_file  src/auth/middleware.ts", tone: "info" },
@@ -219,6 +248,9 @@ const zh: typeof en = {
         { text: "等待审批 · 删除 src/old.ts", tone: "warn" },
       ],
       status: "riffpad daemon · 端到端加密 ●",
+      fromPhone: "⏎ 手机",
+      approvedLine: "手机端已批准 · 继续执行",
+      rejectedLine: "手机端已拒绝 · agent 暂停",
     },
     phone: {
       title: "riffpad",
@@ -231,12 +263,42 @@ const zh: typeof en = {
       summary: "删除 src/old.ts",
       approve: "同意",
       reject: "拒绝",
+      approved: "已同意 · agent 继续运行",
+      rejected: "已拒绝 · agent 已暂停",
+      hello: "会话已附着——需要你决策时我会推送给你。",
       input: "给 agent 发消息…",
       tabs: ["会话", "会话", "设置"],
+      presets: [
+        {
+          send: "同意删除",
+          ack: "已批准——继续重构。",
+          term: [
+            { text: "批准通过 · 删除 src/old.ts", tone: "ok" },
+            { text: "重构 auth 中间件 · 改动 3 个文件", tone: "info" },
+          ],
+        },
+        {
+          send: "先跑一遍测试",
+          ack: "收到——先跑测试，再继续改动。",
+          term: [
+            { text: "run_tests  go test ./...", tone: "info" },
+            { text: "42 通过 · 0 失败 · 1.8s", tone: "ok" },
+          ],
+        },
+        {
+          send: "改用 CSV 输出",
+          ack: "明白——输出切换为 CSV。",
+          term: [
+            { text: "新指令 · 输出格式 → csv", tone: "info" },
+            { text: "edit_file  src/report/export.ts", tone: "info" },
+          ],
+        },
+      ],
     },
     sync: {
       label: "端到端加密",
       status: "已同步",
+      syncing: "同步中…",
       latency: "84ms",
     },
   },
