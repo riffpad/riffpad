@@ -2,6 +2,7 @@ node_modules/
 .next/
 out/
 bin/
+apps/relay/dist/
 .env
 *.log
 .DS_Store
