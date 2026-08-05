@@ -149,7 +149,7 @@
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
 | M1.6 | WebSocket Hub + 房间路由 + 心跳重连 | `[x]` | Host/Viewer 路由、join/leave、会话同步（本地 E2E 验证通过） | — |
-| M1.7 | 用户 auth + 配对 API + per-host 注册密钥 | `[x]` | 用户注册/登录/登出/me；host/device 绑定 owner；daemon `riffpad relay login` | — |
+| M1.7 | 用户 auth + 配对 API + per-host 注册密钥 | `[x]` | 用户注册/登录/登出/me；host/device 绑定 owner；daemon `riffpad login` | — |
 | M1.8 | 元数据存储（SQLite，GORM；可换 Postgres） | `[x]` | users/hosts/devices/sessions 落库；relay 重启不丢 | — |
 | M1.9 | 部署：VPS + nginx + TLS + 健康检查 | `[x]` | relay 已上线 https://api.riffpad.ai（Let's Encrypt 自动续期）；systemd 托管 | — |
 

@@ -72,6 +72,10 @@ func main() {
 		err = withDaemon(func() error { return attachCmd(base) }, base, dataDir)
 	case "detach":
 		err = detachCmd()
+	case "login":
+		err = loginCmd(os.Args[2:], dataDir)
+	case "logout":
+		err = logoutCmd(dataDir)
 	case "relay":
 		err = relayCmd(os.Args[2:], dataDir)
 	case "setup":
@@ -153,8 +157,9 @@ Usage:
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
-  riffpad relay login           log in to the relay (--url wss://… --username …)
-  riffpad relay logout          clear the saved relay token
+  riffpad login [--url wss://… --username …]
+                                log in to Riffpad cloud (relay)
+  riffpad logout                clear the saved login token
   riffpad setup                 install daemon auto-start (Linux systemd user service)
   riffpad logs                  tail daemon logs
   riffpad version`)
@@ -508,6 +513,27 @@ func defaultDaemonPort(base string) int {
 		}
 	}
 	return 8787
+}
+
+// loginCmd logs into the Riffpad relay and stores the token in the daemon
+// config. `riffpad relay login` is kept as an alias.
+func loginCmd(args []string, dataDir string) error {
+	return relayCmd(args, dataDir)
+}
+
+// logoutCmd clears the stored relay token. `riffpad relay logout` is kept as
+// an alias.
+func logoutCmd(dataDir string) error {
+	cfg, err := config.Load(dataDir)
+	if err != nil {
+		return err
+	}
+	cfg.RelayToken = ""
+	if err := config.Save(dataDir, cfg); err != nil {
+		return err
+	}
+	fmt.Println("已退出登录。")
+	return nil
 }
 
 func relayCmd(args []string, dataDir string) error {
