@@ -16,14 +16,14 @@ import (
 // prompt routing use the daemon's pendingHooks map instead of the adapter.
 type hookAdapter struct{}
 
-func (hookAdapter) ID() string                       { return "" }
-func (hookAdapter) Start(_ context.Context) error { return nil }
-func (hookAdapter) Events() <-chan protocol.Event    { return nil }
+func (hookAdapter) ID() string                         { return "" }
+func (hookAdapter) Start(_ context.Context) error      { return nil }
+func (hookAdapter) Events() <-chan protocol.Event      { return nil }
 func (hookAdapter) Meta() protocol.SessionStartPayload { return protocol.SessionStartPayload{} }
-func (hookAdapter) SendApproval(_, _ string) error   { return nil }
-func (hookAdapter) SendPrompt(string) error          { return nil }
-func (hookAdapter) Alive() bool                      { return true }
-func (hookAdapter) Stop() error                      { return nil }
+func (hookAdapter) SendApproval(_, _ string) error     { return nil }
+func (hookAdapter) SendPrompt(string) error            { return nil }
+func (hookAdapter) Alive() bool                        { return true }
+func (hookAdapter) Stop() error                        { return nil }
 
 // hookPayload is the common shape of Claude Code hook input JSON.
 type hookPayload struct {
@@ -303,11 +303,13 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.pendingHooks[reqID] = ch
 	s.mu.Unlock()
+	s.log.Printf("permission hook request session=%s tool=%s req=%s", p.SessionID, p.toolName(), reqID)
 	ev, err := protocol.NewEvent(p.SessionID, protocol.EventApprovalReq, protocol.ApprovalRequestPayload{
 		RequestID: reqID,
 		Action:    p.toolName(),
 		Summary:   p.summary(),
 		Options:   []string{"approve", "reject"},
+		Args:      p.toolInput(),
 	})
 	if err == nil {
 		s.pumpEvent(sess, ev)
@@ -320,6 +322,7 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 		}
 	case <-time.After(10 * time.Minute):
 	}
+	s.log.Printf("permission hook resolved session=%s req=%s decision=%s", p.SessionID, reqID, decision)
 	writeJSON(w, http.StatusOK, map[string]string{"permissionDecision": decision})
 }
 

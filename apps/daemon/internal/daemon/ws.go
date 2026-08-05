@@ -122,6 +122,7 @@ func (c *client) readLoop(s *Server) {
 		if json.Unmarshal(plain, &ev) != nil {
 			continue
 		}
+		s.log.Printf("client event session=%s type=%s device=%s", c.session.id, ev.Type, c.deviceID)
 		s.dispatch(c.session, ev)
 	}
 }

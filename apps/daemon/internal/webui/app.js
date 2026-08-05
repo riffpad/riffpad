@@ -179,13 +179,14 @@ async function openDetail(sid, name) {
 async function sendEvent(type, payload) {
   if (!ws || !sessionKey) {
     setConn("未连接，无法发送：请刷新页面并重新打开会话");
-    return;
+    return false;
   }
   const ev = { id: String(Date.now()) + Math.random().toString(16).slice(2), sessionId: currentSession, timestamp: Date.now(), type, payload };
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const pt = enc.encode(JSON.stringify(ev));
   const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(currentSession) }, sessionKey, pt);
   ws.send(JSON.stringify({ v: 1, kind: "event", sessionId: currentSession, nonce: b64u(iv), ciphertext: b64u(ct) }));
+  return true;
 }
 
 const LABELS = {
@@ -233,13 +234,25 @@ function renderEvent(ev) {
     row.className = "row";
     const ok = document.createElement("button");
     ok.textContent = "同意";
-    ok.onclick = () => sendEvent("approval_response", { requestId: p.requestId, decision: "approve" });
+    ok.onclick = () => { sendApproval(p, "approve", ok); };
     const no = document.createElement("button");
     no.className = "danger";
     no.textContent = "拒绝";
-    no.onclick = () => sendEvent("approval_response", { requestId: p.requestId, decision: "reject" });
+    no.onclick = () => { sendApproval(p, "reject", no); };
     row.append(ok, no);
     el.appendChild(row);
+    if (p.args) {
+      const detail = document.createElement("pre");
+      detail.className = "ev-body";
+      let text = "";
+      if (typeof p.args.content === "string") {
+        text = "内容预览：\n" + p.args.content.slice(0, 500) + (p.args.content.length > 500 ? "\n…[截断]" : "");
+      } else {
+        text = JSON.stringify(p.args, null, 2).slice(0, 800);
+      }
+      detail.textContent = text;
+      el.appendChild(detail);
+    }
   } else {
     const body = document.createElement("div");
     body.className = "ev-body";
@@ -249,6 +262,24 @@ function renderEvent(ev) {
   const events = $("events");
   events.appendChild(el);
   events.scrollTop = events.scrollHeight;
+}
+
+async function sendApproval(p, decision, btn) {
+  btn.disabled = true;
+  btn.textContent = "发送中…";
+  try {
+    const sent = await sendEvent("approval_response", { requestId: p.requestId, decision });
+    if (!sent) {
+      btn.textContent = "未连接";
+      btn.disabled = false;
+      return;
+    }
+    btn.textContent = decision === "approve" ? "已同意" : "已拒绝";
+  } catch (e) {
+    btn.textContent = "发送失败";
+    btn.disabled = false;
+    setConn("审批发送失败：" + (e && e.message ? e.message : String(e)));
+  }
 }
 
 function setConn(s) {

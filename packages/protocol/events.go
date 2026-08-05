@@ -11,19 +11,19 @@ import (
 
 // Event types (see docs/tsd.md §4.3).
 const (
-	EventSessionStart   = "session_start"
-	EventSessionEnd     = "session_end"
-	EventAgentStatus    = "agent_status"
-	EventAgentMessage   = "agent_message"
-	EventUserMessage    = "user_message"
-	EventToolCall       = "tool_call"
-	EventFileChange     = "file_change"
-	EventCommand        = "command"
-	EventApprovalReq    = "approval_request"
-	EventApprovalResp   = "approval_response"
-	EventPrompt         = "prompt"
-	EventControl        = "control"
-	EventNotify         = "notify"
+	EventSessionStart = "session_start"
+	EventSessionEnd   = "session_end"
+	EventAgentStatus  = "agent_status"
+	EventAgentMessage = "agent_message"
+	EventUserMessage  = "user_message"
+	EventToolCall     = "tool_call"
+	EventFileChange   = "file_change"
+	EventCommand      = "command"
+	EventApprovalReq  = "approval_request"
+	EventApprovalResp = "approval_response"
+	EventPrompt       = "prompt"
+	EventControl      = "control"
+	EventNotify       = "notify"
 )
 
 // Agent status values.
@@ -83,10 +83,11 @@ type CommandPayload struct {
 }
 
 type ApprovalRequestPayload struct {
-	RequestID string   `json:"requestId"`
-	Action    string   `json:"action"`
-	Summary   string   `json:"summary,omitempty"`
-	Options   []string `json:"options"`
+	RequestID string         `json:"requestId"`
+	Action    string         `json:"action"`
+	Summary   string         `json:"summary,omitempty"`
+	Options   []string       `json:"options"`
+	Args      map[string]any `json:"args,omitempty"`
 }
 
 type ApprovalResponsePayload struct {
