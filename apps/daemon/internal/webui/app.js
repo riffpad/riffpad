@@ -155,7 +155,7 @@ async function openDetail(sid, name) {
         const ephBits = await crypto.subtle.deriveBits({ name: "ECDH", public: serverEph }, eph.privateKey, 256);
         const hkdf = await crypto.subtle.importKey("raw", ephBits, "HKDF", false, ["deriveKey"]);
         sessionKey = await crypto.subtle.deriveKey(
-          { name: "HKDF", hash: "SHA-256", salt: dsec, info: enc("riffpad/session-v1/" + sid) },
+          { name: "HKDF", hash: "SHA-256", salt: dsec, info: enc.encode("riffpad/session-v1/" + sid) },
           hkdf, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
         );
         everConnected = true;
@@ -165,7 +165,7 @@ async function openDetail(sid, name) {
       if (sessionKey) {
         const iv = b64uToBytes(data.nonce);
         const ct = b64uToBytes(data.ciphertext);
-        const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: enc(sid) }, sessionKey, ct);
+        const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: enc.encode(sid) }, sessionKey, ct);
         renderEvent(JSON.parse(dec.decode(pt)));
       }
     } catch (e) {
@@ -181,8 +181,8 @@ async function sendEvent(type, payload) {
   }
   const ev = { id: String(Date.now()) + Math.random().toString(16).slice(2), sessionId: currentSession, timestamp: Date.now(), type, payload };
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const pt = enc(JSON.stringify(ev));
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc(currentSession) }, sessionKey, pt);
+  const pt = enc.encode(JSON.stringify(ev));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(currentSession) }, sessionKey, pt);
   ws.send(JSON.stringify({ v: 1, kind: "event", sessionId: currentSession, nonce: b64u(iv), ciphertext: b64u(ct) }));
 }
 

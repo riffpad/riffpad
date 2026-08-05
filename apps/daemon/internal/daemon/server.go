@@ -154,6 +154,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAsset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	switch r.URL.Path {
 	case "/app.js":
 		writeRaw(w, http.StatusOK, "application/javascript", webui.AppJS)
