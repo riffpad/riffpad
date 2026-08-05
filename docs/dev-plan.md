@@ -213,6 +213,7 @@
 | M3.5 | Windows daemon | `[ ]` | 安装包 + 自启动 | — |
 | M3.6 | 团队版（多人共享设备/会话） | `[ ]` | 权限模型可用 | — |
 | M3.7 | 无 tmux 注入：Kimi ACP / Codex app-server / Claude host 控制协议 | `[x]` | 三个适配器已实现并真机实测（回复/事件流/审批协议均通）：`riffpad run --cli kimi/codex/claude` | #55 #52 |
+| M3.8 | daemon 无感化启动：CLI 懒启动 + Linux systemd 自启 | `[x]` | `run/sessions/pair/attach` 自动拉起 daemon（文件锁防双实例）；`riffpad setup` 安装 systemd user service，`--remove` 卸载 | #57 |
 
 ---
 
