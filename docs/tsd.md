@@ -151,7 +151,13 @@ type Adapter interface {
 - **附着模式**：用户照常启动 TUI（Claude Code 建议在 tmux 内），daemon 通过 L2 hooks 接收结构化事件与审批请求，审批由 hook 阻塞等待手机响应后返回 `permissionDecision`，指令注入走 tmux send-keys；Codex 可复用 `codex app-server`（实验性）让终端与手机共享同一会话（参考 codex-relay 的 `codex resume --remote unix://` 模式）
 - 所有适配器必须能降级到 L3；实验性接口需要 pin CLI 版本
 
-> 实测（2026-08，Claude Code 2.1.220）：`--permission-prompt-tool` 已从 CLI 移除；`-p --output-format stream-json` 下权限请求不会以 `control_request` 出现，且 hooks 不触发，权限一律自动拒绝。因此**审批拦截依赖附着模式**（交互 TUI + PermissionRequest hook），包装模式只做事件与指令。
+无 tmux 注入的调研结论见 [agent-injection-research.md](agent-injection-research.md)（2026-08-06 实测）：
+
+- **Kimi Code**：官方原生支持 ACP（`kimi acp`，stdio JSON-RPC），daemon 作为 ACP client 可直接 `session/new` + `session/prompt` 注入，`session/update` / `session/request_permission` 覆盖事件与审批，完全不需要 tmux；
+- **Codex**：官方 `codex app-server`（stdio / unix socket / ws）提供 `thread/start` + `turn/start` + `turn/steer`，用户以 `codex --remote` 启动，daemon 连同一通道注入，终端 TUI 与手机共享会话；
+- **Claude Code**：官方无 ACP；daemon 以 host 身份 spawn `claude --input-format stream-json --output-format stream-json --verbose` 后，stdin 控制协议可注入指令并响应 UserPromptSubmit 回调（initialize 需 camelCase 的 `matchers`/`hookCallbackIds` 新格式），但工具权限在 host 模式仍自动拒绝，审批继续依赖附着模式 hooks 或预设 `--permission-mode`。
+
+> 实测（2026-08，Claude Code 2.1.220）：`--permission-prompt-tool` 已从 CLI 移除；`-p --output-format stream-json` 下权限请求不会以 `control_request` 出现，且 hooks 不触发，权限一律自动拒绝。因此 **Claude 的审批拦截依赖附着模式**（交互 TUI + PermissionRequest hook），Claude 包装模式目前只做事件与指令；Kimi/Codex 的包装模式可完整覆盖审批。
 
 ### 5.4 tmux / PTY 兜底
 
