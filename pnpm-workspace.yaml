@@ -1,3 +1,4 @@
 packages:
+  - "apps/client-beta"
   - "apps/mobile"
   - "packages/*"
