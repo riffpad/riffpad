@@ -10,8 +10,8 @@
   --ink: #191917;
   --body: #46463f;
   --mute: #73736a;
-  --hairline: rgba(25, 25, 23, 0.12);
-  --hairline-strong: #191917;
+  --hairline: rgba(25, 25, 23, 0.1);
+  --hairline-strong: rgba(25, 25, 23, 0.42);
 
   --accent: #f7a501;
   --accent-hover: #dd9001;
@@ -36,8 +36,8 @@
   --ink: #f5f4f0;
   --body: #b9b7b0;
   --mute: #8a887f;
-  --hairline: rgba(245, 244, 240, 0.1);
-  --hairline-strong: #f5f4f0;
+  --hairline: rgba(245, 244, 240, 0.08);
+  --hairline-strong: rgba(245, 244, 240, 0.26);
 
   --accent: #ffb224;
   --accent-hover: #f7a501;
