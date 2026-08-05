@@ -283,7 +283,7 @@ function SyncConnector({
       className="flex flex-col items-center gap-3 lg:flex-row lg:gap-4"
       aria-hidden="true"
     >
-      <div className="relative h-16 w-px bg-hairline-strong lg:h-px lg:w-20">
+      <div className="relative h-16 w-px bg-hairline lg:h-px lg:w-20">
         <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-accent" />
         {syncing && (
           <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-accent" />
