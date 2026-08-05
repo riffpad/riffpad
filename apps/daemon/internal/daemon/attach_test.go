@@ -175,10 +175,14 @@ func TestAttachHookFlow(t *testing.T) {
 		resp := post("/hooks/claude/permission", `{"hook_event_name":"PermissionRequest","session_id":"claude-sess-1","tool_use_id":"tu2","tool_use":{"name":"Bash","input":{"command":"rm -rf build"}}}`)
 		defer resp.Body.Close()
 		var out struct {
-			Decision string `json:"permissionDecision"`
+			HookSpecificOutput struct {
+				Decision struct {
+					Behavior string `json:"behavior"`
+				} `json:"decision"`
+			} `json:"hookSpecificOutput"`
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&out)
-		permDone <- out.Decision
+		permDone <- out.HookSpecificOutput.Decision.Behavior
 	}()
 
 	ev = readEvent()

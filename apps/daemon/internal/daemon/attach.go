@@ -270,7 +270,9 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	level := "info"
+	notifType := ""
 	if p.Notification != nil {
+		notifType = p.Notification.Type
 		switch p.Notification.Type {
 		case "idle_prompt", "agent_needs_input":
 			level = "waiting"
@@ -283,6 +285,7 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusOK, map[string]any{})
 		return
 	}
+	s.log.Printf("notification hook session=%s type=%s msg=%q", p.SessionID, notifType, p.Message)
 	sess := s.attachSession(p.SessionID, p.CWD)
 	ev, err := protocol.NewEvent(p.SessionID, protocol.EventNotify, protocol.NotifyPayload{Level: level, Message: p.Message})
 	if err == nil {
@@ -323,7 +326,20 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 	case <-time.After(10 * time.Minute):
 	}
 	s.log.Printf("permission hook resolved session=%s req=%s decision=%s", p.SessionID, reqID, decision)
-	writeJSON(w, http.StatusOK, map[string]string{"permissionDecision": decision})
+	// Claude Code 2.1.220 expects the decision inside hookSpecificOutput,
+	// not the legacy permissionDecision field.
+	decisionObj := map[string]any{"behavior": decision}
+	if decision == "allow" {
+		decisionObj["updatedInput"] = p.toolInput()
+	} else {
+		decisionObj["message"] = "用户拒绝了该操作"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"hookSpecificOutput": map[string]any{
+			"hookEventName": "PermissionRequest",
+			"decision":      decisionObj,
+		},
+	})
 }
 
 // hookInputText extracts a displayable string from hook payload fields.
