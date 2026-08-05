@@ -81,6 +81,16 @@ let sessionKey = null;
 let currentSession = null;
 let pageAlive = false;
 let everConnected = false;
+let listTimer = null;
+
+function startSessionPolling() {
+  if (listTimer) return;
+  listTimer = setInterval(() => {
+    if (currentSession) return;
+    if ($("sessions-view").classList.contains("hidden")) return;
+    refreshSessions().catch(() => {});
+  }, 5000);
+}
 
 async function refreshConn() {
   try {
@@ -107,21 +117,25 @@ async function pair(code) {
 }
 
 async function refreshSessions() {
-  const res = await api("/api/sessions");
-  const data = await res.json();
-  const list = $("session-list");
-  list.innerHTML = "";
-  for (const s of (data.sessions || [])) {
-    const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.textContent = (s.name || s.id) + " · " + String(s.id).slice(0, 8);
-    name.title = s.id;
-    const st = document.createElement("span");
-    st.className = "status " + s.status;
-    st.textContent = s.status;
-    li.append(name, st);
-    li.onclick = () => openDetail(s.id, s.name);
-    list.appendChild(li);
+  try {
+    const res = await api("/api/sessions");
+    const data = await res.json();
+    const list = $("session-list");
+    list.innerHTML = "";
+    for (const s of (data.sessions || [])) {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = (s.name || s.id) + " · " + String(s.id).slice(0, 8);
+      name.title = s.id;
+      const st = document.createElement("span");
+      st.className = "status " + s.status;
+      st.textContent = s.status;
+      li.append(name, st);
+      li.onclick = () => openDetail(s.id, s.name);
+      list.appendChild(li);
+    }
+  } catch {
+    // 网络抖动时静默，等下一轮轮询
   }
 }
 
@@ -325,6 +339,7 @@ async function init() {
         } else {
           $("sessions-view").classList.remove("hidden");
           await refreshSessions();
+          startSessionPolling();
         }
         return;
       }
@@ -347,6 +362,7 @@ async function init() {
   if (dev.deviceId) {
     $("sessions-view").classList.remove("hidden");
     await refreshSessions();
+    startSessionPolling();
   } else {
     $("pair-view").classList.remove("hidden");
   }
@@ -367,6 +383,7 @@ async function doAuth(path) {
     $("logout-btn").classList.remove("hidden");
     $("sessions-view").classList.remove("hidden");
     await refreshSessions();
+    startSessionPolling();
   } catch (e) {
     $("auth-err").textContent = e.message;
   }
@@ -389,6 +406,7 @@ $("pair-btn").onclick = async () => {
     $("pair-view").classList.add("hidden");
     $("sessions-view").classList.remove("hidden");
     await refreshSessions();
+    startSessionPolling();
   } catch (e) {
     $("pair-err").textContent = e.message;
   }
