@@ -32,6 +32,11 @@ claude
 
 Open `http://127.0.0.1:8787`, pair your phone, and approve from anywhere.
 
+The CLI speaks English and Chinese. It detects your locale from
+`LC_ALL`/`LC_MESSAGES`/`LANG`; override it anytime with
+`riffpad --lang zh` or `riffpad --lang en`. Unsupported locales fall back to
+English.
+
 ## How it works
 
 ```

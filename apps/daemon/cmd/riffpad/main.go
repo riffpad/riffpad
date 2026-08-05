@@ -29,6 +29,7 @@ import (
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
+	"github.com/riffpad/riffpad/apps/daemon/internal/i18n"
 	"github.com/riffpad/riffpad/apps/daemon/internal/logging"
 )
 
@@ -36,7 +37,13 @@ const version = "0.1.0-m0"
 
 const updateRepo = "riffpad/riffpad"
 
+// t is the active language bundle, initialized in main from --lang / env.
+var t = i18n.New(i18n.DefaultLang)
+
 func main() {
+	langFlag, args := extractLangFlag(os.Args[1:])
+	t = i18n.New(i18n.Detect(langFlag))
+	os.Args = append([]string{os.Args[0]}, args...)
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
@@ -52,7 +59,7 @@ func main() {
 	if dataDir == "" {
 		d, err := config.DefaultDataDir()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "resolve data dir:", err)
+			fmt.Fprintln(os.Stderr, t.T("resolve_data_dir", err))
 			os.Exit(1)
 		}
 		dataDir = d
@@ -152,29 +159,34 @@ func runDaemon(args []string) int {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `riffpad — AI agent remote control (M0)
+	fmt.Fprintln(os.Stderr, t.T("usage"))
+}
 
-Usage:
-  riffpad daemon start          start the background daemon (same binary)
-  riffpad daemon stop           stop the daemon
-  riffpad status                show daemon status
-  riffpad pair                  print a pairing code and QR
-  riffpad sessions              list sessions
-  riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
-  riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
-  riffpad detach                remove injected hooks
-  riffpad login [--url wss://… --username …]
-                                log in to Riffpad cloud (relay)
-  riffpad logout                clear the saved login token
-  riffpad setup                 install daemon auto-start (Linux systemd user service)
-  riffpad update                check for updates and replace this binary
-  riffpad logs                  tail daemon logs
-  riffpad version`)
+// extractLangFlag pulls a global --lang/-lang value out of args so it works
+// before any subcommand, regardless of position.
+func extractLangFlag(args []string) (lang string, rest []string) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--lang" || a == "-lang":
+			if i+1 < len(args) {
+				lang = args[i+1]
+				i++
+			}
+		case strings.HasPrefix(a, "--lang="):
+			lang = strings.TrimPrefix(a, "--lang=")
+		case strings.HasPrefix(a, "-lang="):
+			lang = strings.TrimPrefix(a, "-lang=")
+		default:
+			rest = append(rest, a)
+		}
+	}
+	return lang, rest
 }
 
 func daemonCmd(args []string, base, dataDir string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: riffpad daemon start|stop")
+		return fmt.Errorf("%s", t.T("usage_daemon"))
 	}
 	switch args[0] {
 	case "start":
@@ -182,13 +194,13 @@ func daemonCmd(args []string, base, dataDir string) error {
 	case "stop":
 		return daemonStop(base)
 	default:
-		return fmt.Errorf("usage: riffpad daemon start|stop")
+		return fmt.Errorf("%s", t.T("usage_daemon"))
 	}
 }
 
 func daemonStart(base, dataDir string) error {
 	if reachable(base) {
-		return fmt.Errorf("daemon already running at %s", base)
+		return fmt.Errorf("%s", t.T("daemon_already_running", base))
 	}
 	exe, err := os.Executable()
 	if err != nil {
@@ -216,11 +228,11 @@ func daemonStart(base, dataDir string) error {
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
 		if reachable(base) {
-			fmt.Println("daemon started at", base)
+			fmt.Println(t.T("daemon_started", base))
 			return nil
 		}
 	}
-	return fmt.Errorf("daemon did not become reachable; check %s", filepath.Join(logDir, "daemon.out.log"))
+	return fmt.Errorf("%s", t.T("daemon_start_wait_failed", filepath.Join(logDir, "daemon.out.log")))
 }
 
 // startDaemonFn is indirection so tests can observe/emulate lazy starts.
@@ -283,7 +295,7 @@ func setupCmd(args []string, dataDir string) error {
 		if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		fmt.Println("已移除 riffpad systemd user 服务。")
+		fmt.Println(t.T("setup_removed"))
 		return nil
 	}
 	exe, err := os.Executable()
@@ -318,14 +330,14 @@ WantedBy=default.target
 	if out, err := exec.Command("systemctl", "--user", "enable", "--now", "riffpad.service").CombinedOutput(); err != nil {
 		return fmt.Errorf("systemctl enable riffpad: %v\n%s", err, out)
 	}
-	fmt.Printf("已安装并启用 %s\n", unitPath)
-	fmt.Println("daemon 将随登录自启，崩溃后自动重启；以后可直接运行 riffpad run/attach/pair。")
+	fmt.Println(t.T("setup_installed", unitPath))
+	fmt.Println(t.T("setup_done"))
 	return nil
 }
 
 func daemonStop(base string) error {
 	if !reachable(base) {
-		return fmt.Errorf("daemon is not running")
+		return fmt.Errorf("%s", t.T("daemon_not_running"))
 	}
 	resp, err := http.Post(base+"/api/shutdown", "application/json", nil)
 	if err != nil {
@@ -336,17 +348,17 @@ func daemonStop(base string) error {
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
 		if !reachable(base) {
-			fmt.Println("daemon stopped")
+			fmt.Println(t.T("daemon_stopped"))
 			return nil
 		}
 	}
-	return fmt.Errorf("daemon did not stop")
+	return fmt.Errorf("%s", t.T("daemon_did_not_stop"))
 }
 
 func statusCmd(base string) error {
 	resp, err := http.Get(base + "/api/status")
 	if err != nil {
-		return fmt.Errorf("daemon not reachable at %s: %w", base, err)
+		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
@@ -361,7 +373,7 @@ func statusCmd(base string) error {
 func pairCmd(base string) error {
 	resp, err := http.Post(base+"/api/pairings", "application/json", nil)
 	if err != nil {
-		return fmt.Errorf("daemon not reachable at %s: %w", base, err)
+		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
 	defer resp.Body.Close()
 	var data struct {
@@ -371,7 +383,7 @@ func pairCmd(base string) error {
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
 	}
-	fmt.Printf("配对码：%s\n在手机/浏览器输入此配对码（或扫描二维码）\n", data.Code)
+	fmt.Println(t.T("pair_code", data.Code))
 	qrterminal.GenerateWithConfig(data.URL, qrterminal.Config{
 		Level:     qrterminal.L,
 		Writer:    os.Stdout,
@@ -385,7 +397,7 @@ func pairCmd(base string) error {
 func sessionsCmd(base string) error {
 	resp, err := http.Get(base + "/api/sessions")
 	if err != nil {
-		return fmt.Errorf("daemon not reachable at %s: %w", base, err)
+		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
@@ -409,7 +421,7 @@ func runCmd(args []string, base string) error {
 	})
 	resp, err := http.Post(base+"/api/sessions", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("daemon not reachable at %s: %w", base, err)
+		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
 	defer resp.Body.Close()
 	var data struct {
@@ -419,7 +431,7 @@ func runCmd(args []string, base string) error {
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
 	}
-	fmt.Printf("session: %s\n打开 %s 查看\n", data.ID, data.URL)
+	fmt.Println(t.T("session_url", data.ID, data.URL))
 	return nil
 }
 
@@ -437,7 +449,7 @@ func logsCmd(dataDir string) error {
 // from the web UI / mobile.
 func attachCmd(base string) error {
 	if !reachable(base) {
-		return fmt.Errorf("daemon not reachable at %s (run: riffpad daemon start)", base)
+		return fmt.Errorf("%s", t.T("daemon_start_hint", base))
 	}
 	port := defaultDaemonPort(base)
 	home, err := os.UserHomeDir()
@@ -487,9 +499,9 @@ func attachCmd(base string) error {
 	if err := os.WriteFile(settingsPath, raw, 0o600); err != nil {
 		return err
 	}
-	fmt.Println("已注入 Claude Code hooks（备份在 settings.json.riffpad.bak）")
-	fmt.Println("现在正常打开你的 claude（建议放在 tmux 里），daemon 会自动捕捉会话与审批。")
-	fmt.Println("验证完运行: riffpad detach")
+	fmt.Println(t.T("attach_injected"))
+	fmt.Println(t.T("attach_next"))
+	fmt.Println(t.T("attach_verify"))
 	return nil
 }
 
@@ -509,7 +521,7 @@ func detachCmd() error {
 		return err
 	}
 	// Keep the backup file; user can remove it manually.
-	fmt.Println("已还原 Claude Code settings，hooks 已移除。")
+	fmt.Println(t.T("detach_restored"))
 	return nil
 }
 
@@ -539,7 +551,7 @@ func logoutCmd(dataDir string) error {
 	if err := config.Save(dataDir, cfg); err != nil {
 		return err
 	}
-	fmt.Println("已退出登录。")
+	fmt.Println(t.T("logout_done"))
 	return nil
 }
 
@@ -558,7 +570,7 @@ func relayCmd(args []string, dataDir string) error {
 		}
 		password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
 		if password == "" {
-			fmt.Print("密码: ")
+			fmt.Print(t.T("login_password"))
 			b, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				return err
@@ -572,7 +584,7 @@ func relayCmd(args []string, dataDir string) error {
 		body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
 		resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
 		if err != nil {
-			return fmt.Errorf("登录失败: %w", err)
+			return fmt.Errorf("%s: %w", t.T("login_failed"), err)
 		}
 		defer resp.Body.Close()
 		var out struct {
@@ -582,7 +594,7 @@ func relayCmd(args []string, dataDir string) error {
 			return err
 		}
 		if out.Token == "" {
-			return fmt.Errorf("登录失败（状态 %d）", resp.StatusCode)
+			return fmt.Errorf("%s", t.T("login_failed_status", resp.StatusCode))
 		}
 		cfg, err := config.Load(dataDir)
 		if err != nil {
@@ -593,7 +605,7 @@ func relayCmd(args []string, dataDir string) error {
 		if err := config.Save(dataDir, cfg); err != nil {
 			return err
 		}
-		fmt.Printf("已登录 %s，token 已保存到配置。\n", *username)
+		fmt.Println(t.T("login_success", *username))
 		return nil
 	case "logout":
 		cfg, err := config.Load(dataDir)
@@ -604,7 +616,7 @@ func relayCmd(args []string, dataDir string) error {
 		if err := config.Save(dataDir, cfg); err != nil {
 			return err
 		}
-		fmt.Println("已退出登录。")
+		fmt.Println(t.T("logout_done"))
 		return nil
 	default:
 		return fmt.Errorf("usage: riffpad relay login|logout")
@@ -629,14 +641,14 @@ func updateCmd(args []string) error {
 	force := fs.Bool("force", false, "reinstall even if already up to date")
 	_ = fs.Parse(args)
 
-	fmt.Printf("当前版本: %s\n", version)
+	fmt.Println(t.T("update_current", version))
 	latest, err := latestReleaseTag()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("最新版本: %s\n", latest)
+	fmt.Println(t.T("update_latest", latest))
 	if !*force && compareVersions(version, latest) >= 0 {
-		fmt.Println("已是最新版本。")
+		fmt.Println(t.T("update_up_to_date"))
 		return nil
 	}
 
@@ -646,7 +658,7 @@ func updateCmd(args []string) error {
 	}
 	asset := "riffpad-" + osName + "-" + arch
 	base := "https://github.com/" + updateRepo + "/releases/latest/download/"
-	fmt.Printf("下载 %s …\n", asset)
+	fmt.Println(t.T("update_downloading", asset))
 
 	exe, err := os.Executable()
 	if err != nil {
@@ -666,7 +678,7 @@ func updateCmd(args []string) error {
 		return err
 	}
 	if err := verifyChecksum(base+"sha256sums.txt", asset, tmpPath); err != nil {
-		fmt.Println("校验失败，已中止更新（原文件未改动）。")
+		fmt.Println(t.T("update_checksum_failed"))
 		return err
 	}
 	if err := os.Chmod(tmpPath, 0o755); err != nil {
@@ -675,15 +687,15 @@ func updateCmd(args []string) error {
 
 	backup := exe + ".riffpad.bak"
 	if err := copyFile(exe, backup); err != nil {
-		fmt.Println("备份失败，已中止更新:", err)
+		fmt.Println(t.T("update_backup_failed", err))
 		return err
 	}
 	if err := os.Rename(tmpPath, exe); err != nil {
-		fmt.Println("替换失败:", err)
+		fmt.Println(t.T("update_replace_failed", err))
 		return err
 	}
-	fmt.Printf("已更新到 %s（旧版本备份: %s）\n", latest, backup)
-	fmt.Println("如果 daemon 正在运行，请执行 `riffpad daemon stop && riffpad daemon start` 让新版本生效。")
+	fmt.Println(t.T("update_done", latest, backup))
+	fmt.Println(t.T("update_restart_hint"))
 	return nil
 }
 
@@ -694,7 +706,7 @@ func latestReleaseTag() (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("获取最新版本失败: %s", resp.Status)
+		return "", fmt.Errorf("%s", t.T("latest_release_failed", resp.Status))
 	}
 	var rel struct {
 		TagName string `json:"tag_name"`
@@ -703,7 +715,7 @@ func latestReleaseTag() (string, error) {
 		return "", err
 	}
 	if rel.TagName == "" {
-		return "", fmt.Errorf("release 缺少 tag_name")
+		return "", fmt.Errorf("%s", t.T("release_no_tag"))
 	}
 	return rel.TagName, nil
 }
@@ -711,7 +723,7 @@ func latestReleaseTag() (string, error) {
 func updatePlatform() (string, string, error) {
 	osName := strings.ToLower(runtime.GOOS)
 	if osName != "linux" && osName != "darwin" {
-		return "", "", fmt.Errorf("update 暂不支持 %s", runtime.GOOS)
+		return "", "", fmt.Errorf("%s", t.T("update_platform_unsupported", runtime.GOOS))
 	}
 	arch := runtime.GOARCH
 	if arch == "x86_64" {
@@ -721,7 +733,7 @@ func updatePlatform() (string, string, error) {
 		arch = "arm64"
 	}
 	if arch != "amd64" && arch != "arm64" {
-		return "", "", fmt.Errorf("update 暂不支持架构 %s", runtime.GOARCH)
+		return "", "", fmt.Errorf("%s", t.T("update_arch_unsupported", runtime.GOARCH))
 	}
 	return osName, arch, nil
 }
@@ -733,7 +745,7 @@ func downloadFile(url string, w io.Writer) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载 %s: %s", url, resp.Status)
+		return fmt.Errorf("%s", t.T("download_failed", url, resp.Status))
 	}
 	_, err = io.Copy(w, resp.Body)
 	return err
@@ -746,7 +758,7 @@ func verifyChecksum(sumsURL, asset, path string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("获取校验和失败: %s", resp.Status)
+		return fmt.Errorf("%s", t.T("download_failed", sumsURL, resp.Status))
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -761,7 +773,7 @@ func verifyChecksum(sumsURL, asset, path string) error {
 		}
 	}
 	if want == "" {
-		return fmt.Errorf("校验和文件里没有 %s", asset)
+		return fmt.Errorf("%s", t.T("checksum_missing", asset))
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
