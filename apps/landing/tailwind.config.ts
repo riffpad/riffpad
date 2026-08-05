@@ -43,7 +43,12 @@ const config: Config = {
           "Menlo",
           "Monaco",
           "Consolas",
-          "monospace",
+          "PingFang SC",
+          "Hiragino Sans GB",
+          "Microsoft YaHei",
+          "Noto Sans CJK SC",
+          "WenQuanYi Micro Hei",
+          "sans-serif",
         ],
       },
       maxWidth: {
