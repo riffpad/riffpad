@@ -62,6 +62,17 @@ cp Caddyfile /etc/caddy/Caddyfile   # 把 relay.example.com 换成你的域名
 systemctl reload caddy
 ```
 
+## Docker Compose（relay + Postgres 一体）
+
+如果不想用托管数据库，可以在单机上用 compose 把 relay 和 Postgres 一起跑：
+
+```bash
+docker compose -f infra/docker-compose.yml up -d --build
+```
+
+relay 会自动通过 `DATABASE_URL` 连接 Postgres 并建表（AutoMigrate）。
+想回到 SQLite 模式，去掉 `DATABASE_URL` 环境变量即可。
+
 ## 同 WiFi 真机测试（零部署）
 
 relay 默认监听所有网卡（`:9090`）。电脑和手机连同一 WiFi 后：

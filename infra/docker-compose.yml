@@ -1,0 +1,34 @@
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: infra/relay/Dockerfile
+    ports:
+      - "9090:9090"
+    environment:
+      RELAY_PORT: "9090"
+      RELAY_DATA_DIR: /data
+      DATABASE_URL: postgres://riffpad:riffpad@postgres:5432/riffpad?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - relay-data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: riffpad
+      POSTGRES_PASSWORD: riffpad
+      POSTGRES_DB: riffpad
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U riffpad"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  relay-data:
+  postgres-data:
