@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #fafaf7;
+  --surface: #ffffff;
+  --surface-muted: #f2f1ec;
+
+  --ink: #191917;
+  --body: #46463f;
+  --mute: #73736a;
+  --hairline: rgba(25, 25, 23, 0.12);
+  --hairline-strong: #191917;
+
+  --accent: #f7a501;
+  --accent-hover: #dd9001;
+  --accent-ink: #191917;
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+
+  --console: #ffffff;
+  --console-elevated: #ecebe6;
+  --on-console: #2b2b26;
+  --on-console-mute: #8a887f;
+}
+
+[data-theme="dark"] {
+  --canvas: #0d0d0c;
+  --surface: #151514;
+  --surface-muted: #1d1d1b;
+
+  --ink: #f5f4f0;
+  --body: #b9b7b0;
+  --mute: #8a887f;
+  --hairline: rgba(245, 244, 240, 0.1);
+  --hairline-strong: #f5f4f0;
+
+  --accent: #ffb224;
+  --accent-hover: #f7a501;
+  --accent-ink: #191917;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+
+  --console: #080807;
+  --console-elevated: #151514;
+  --on-console: #f5f4f0;
+  --on-console-mute: #8a887f;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas font-mono text-ink antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-bold leading-none transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-accent-ink hover:bg-accent-hover;
+  }
+
+  .btn-secondary {
+    @apply border border-hairline-strong bg-surface text-ink hover:border-ink;
+  }
+
+  .btn-ghost {
+    @apply text-body transition-colors hover:text-ink;
+  }
+
+  .card {
+    @apply rounded-md border border-hairline bg-surface shadow-card;
+  }
+
+  .console-card {
+    @apply rounded-md border border-hairline bg-console text-on-console;
+  }
+
+  .label {
+    @apply text-xs font-bold uppercase tracking-[0.12em] text-mute;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

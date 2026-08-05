@@ -1,8 +1,11 @@
 node_modules/
+.agents/
 .next/
 out/
 bin/
 apps/relay/dist/
+__pycache__/
+*.pyc
 .env
 *.log
 .DS_Store
