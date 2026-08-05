@@ -260,7 +260,7 @@ function MacTerminal({
         )}
       </div>
 
-      <div className="border-t border-on-console/10 px-4 py-2 text-[11px] text-on-console-mute sm:px-5">
+      <div className="border-t border-hairline px-4 py-2 text-[11px] text-on-console-mute sm:px-5">
         {status}
       </div>
     </div>

@@ -33,7 +33,7 @@ export function InstallCommand() {
   return (
     <div className="mx-auto mt-10 w-full max-w-[560px]">
       <div className="border border-hairline bg-console text-on-console shadow-card transition-colors duration-200 hover:border-accent">
-        <div className="flex items-stretch border-b border-on-console/10">
+        <div className="flex items-stretch border-b border-hairline">
           {tabs.map((tab) => (
             <button
               key={tab.id}
