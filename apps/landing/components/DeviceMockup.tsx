@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { useLanguage } from "./LanguageProvider";
 import type { Messages } from "@/lib/i18n";
 
@@ -220,7 +221,7 @@ function MacTerminal({
   typing: boolean;
   syncing: boolean;
   syncLabel: string;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: RefObject<HTMLDivElement>;
 }) {
   return (
     <div className="w-full overflow-hidden rounded-[10px] border border-hairline bg-console text-on-console shadow-[0_18px_50px_-12px_rgba(0,0,0,0.28)]">
@@ -314,7 +315,7 @@ function PhoneApp({
   syncing: boolean;
   onSend: (preset: Preset) => void;
   onResolve: (verdict: Exclude<Approval, "pending">) => void;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: RefObject<HTMLDivElement>;
 }) {
   return (
     <div className="w-full rounded-[40px] bg-[#1b1b19] p-[10px] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/60">
