@@ -84,9 +84,10 @@ type relayClient struct {
 
 	onJoin func(RelayJoin)
 
-	mu      sync.Mutex
-	conn    *websocket.Conn
-	viewers map[string]*relayViewer
+	mu           sync.Mutex
+	conn         *websocket.Conn
+	viewers      map[string]*relayViewer
+	lastSessions []RelaySession
 }
 
 func newRelayClient(baseURL, hostID, secret string, logger *log.Logger, onJoin func(RelayJoin)) *relayClient {
@@ -127,6 +128,12 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 	c.conn = conn
 	c.mu.Unlock()
 	c.log.Printf("relay connected %s host=%s", c.baseURL, c.hostID)
+	c.mu.Lock()
+	sessions := append([]RelaySession(nil), c.lastSessions...)
+	c.mu.Unlock()
+	if len(sessions) > 0 {
+		c.announce(sessions)
+	}
 
 	for {
 		_, data, err := conn.ReadMessage()
@@ -296,6 +303,9 @@ func (c *relayClient) closeViewer(id string) {
 }
 
 func (c *relayClient) announce(sessions []RelaySession) {
+	c.mu.Lock()
+	c.lastSessions = append([]RelaySession(nil), sessions...)
+	c.mu.Unlock()
 	c.sendFrame(relayFrame{Kind: "sessions", Sessions: sessions})
 }
 

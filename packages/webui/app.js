@@ -319,8 +319,13 @@ async function init() {
       const res = await api("/api/auth/me");
       if (res.ok) {
         $("logout-btn").classList.remove("hidden");
-        $("sessions-view").classList.remove("hidden");
-        await refreshSessions();
+        const dev = await ensureIdentity();
+        if (!dev.deviceId) {
+          $("pair-view").classList.remove("hidden");
+        } else {
+          $("sessions-view").classList.remove("hidden");
+          await refreshSessions();
+        }
         return;
       }
       relayStore.clear();
