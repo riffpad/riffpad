@@ -58,4 +58,3 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: apps/daemon/dist/*
-          generate_release_notes: true
