@@ -1,0 +1,8 @@
+# 示例：VPS + Caddy 自动 HTTPS
+# 把 relay.example.com 换成你的域名，然后：
+#   caddy adapt --config Caddyfile   # 校验
+#   systemctl restart caddy
+relay.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:9090
+}

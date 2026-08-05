@@ -1,0 +1,16 @@
+[Unit]
+Description=Riffpad relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=riffpad
+Group=riffpad
+EnvironmentFile=/etc/riffpad-relay.env
+ExecStart=/usr/local/bin/relay --port 9090 --token ${RELAY_TOKEN}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
