@@ -17,10 +17,10 @@
   --accent-hover: #dd9001;
   --accent-ink: #191917;
 
-  --success: #16a34a;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --info: #2563eb;
+  --success: 22 163 74;
+  --warning: 217 119 6;
+  --danger: 220 38 38;
+  --info: 37 99 235;
 
   --console: #ffffff;
   --console-elevated: #ecebe6;
@@ -43,10 +43,10 @@
   --accent-hover: #f7a501;
   --accent-ink: #191917;
 
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
+  --success: 74 222 128;
+  --warning: 251 191 36;
+  --danger: 248 113 113;
+  --info: 96 165 250;
 
   --console: #080807;
   --console-elevated: #151514;
