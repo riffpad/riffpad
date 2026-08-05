@@ -14,6 +14,7 @@ type Session interface {
 	Meta() protocol.SessionStartPayload
 	SendApproval(requestID, decision string) error
 	SendPrompt(text string) error
+	Alive() bool
 	Stop() error
 }
 

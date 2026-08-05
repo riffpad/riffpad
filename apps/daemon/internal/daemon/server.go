@@ -59,6 +59,8 @@ type Server struct {
 	log     *log.Logger
 	factory adapter.Factory
 	httpSrv *http.Server
+	startedAt time.Time
+	sweepDone chan struct{}
 
 	mu           sync.Mutex
 	devices      map[string]Device
@@ -75,6 +77,8 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		dataDir:      dataDir,
 		log:          logger,
 		factory:      factory,
+		startedAt:    time.Now(),
+		sweepDone:    make(chan struct{}),
 		devices:      map[string]Device{},
 		pending:      map[string]pendingPair{},
 		sessions:     map[string]*session{},
@@ -121,6 +125,7 @@ func (s *Server) Start() error {
 	addr := fmt.Sprintf("127.0.0.1:%d", s.cfg.Port)
 	s.httpSrv = &http.Server{Addr: addr, Handler: s.Handler()}
 	s.log.Printf("riffpad daemon %s listening on http://%s", version, addr)
+	go s.sweepLoop()
 	if err := s.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -129,6 +134,11 @@ func (s *Server) Start() error {
 
 // Shutdown stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	select {
+	case <-s.sweepDone:
+	default:
+		close(s.sweepDone)
+	}
 	if s.httpSrv == nil {
 		return nil
 	}
@@ -162,7 +172,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"version":  version,
 		"port":     s.cfg.Port,
 		"sessions": n,
-		"uptime":   time.Now().Format(time.RFC3339),
+		"startedAt": s.startedAt.Format(time.RFC3339),
 	})
 }
 
@@ -350,6 +360,9 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		status:  protocol.StatusRunning,
 		clients: map[*client]struct{}{},
 	}
+	if req.Prompt == "" {
+		sess.status = protocol.StatusWaitingInput
+	}
 	s.mu.Lock()
 	s.sessions[id] = sess
 	s.mu.Unlock()
@@ -430,6 +443,38 @@ func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
 	}
 	sess.addEvent(ev)
 	sess.broadcast(ev)
+}
+
+func (s *Server) sweepLoop() {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-s.sweepDone:
+			return
+		case <-t.C:
+			s.sweepOnce()
+		}
+	}
+}
+
+func (s *Server) sweepOnce() {
+	s.mu.Lock()
+	sessions := make([]*session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		sessions = append(sessions, sess)
+	}
+	s.mu.Unlock()
+	for _, sess := range sessions {
+		if sess.status != protocol.StatusRunning {
+			continue
+		}
+		if !sess.adapter.Alive() {
+			ev, _ := protocol.NewEvent(sess.id, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: "process_exit"})
+			s.pumpEvent(sess, ev)
+			s.log.Printf("session %s marked ended (process gone)", sess.id)
+		}
+	}
 }
 
 func (s *Server) getSession(id string) *session {

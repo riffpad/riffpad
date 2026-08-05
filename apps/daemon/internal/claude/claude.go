@@ -45,6 +45,7 @@ type Claude struct {
 	mu               sync.Mutex
 	ctx              context.Context
 	launched         bool
+	exited           bool
 	pendingTools     map[string]pendingTool
 	pendingApprovals map[string]chan string
 }
@@ -200,6 +201,17 @@ func (c *Claude) SendApproval(requestID, decision string) error {
 	return nil
 }
 
+// Alive reports whether the wrapped process exists and has not exited.
+// Sessions that were never launched (lazy start) report false.
+func (c *Claude) Alive() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.launched {
+		return false
+	}
+	return !c.exited
+}
+
 // SendPrompt writes a user message into the stream-json stdin.
 func (c *Claude) SendPrompt(text string) error {
 	if err := c.ensureStarted(); err != nil {
@@ -269,6 +281,12 @@ func (c *Claude) readLoop(r io.Reader) {
 		}
 		c.handleLine(line)
 	}
+	if c.cmd != nil && c.cmd.Process != nil {
+		_ = c.cmd.Wait()
+	}
+	c.mu.Lock()
+	c.exited = true
+	c.mu.Unlock()
 	_ = c.emit(protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: "process_exit"})
 }
 

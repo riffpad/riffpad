@@ -61,6 +61,8 @@ func (f *fakeSession) SendPrompt(text string) error {
 	return nil
 }
 
+func (f *fakeSession) Alive() bool { return true }
+
 func (f *fakeSession) Stop() error {
 	f.stopCalled <- struct{}{}
 	return nil
@@ -140,7 +142,8 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sess struct {
-		ID string `json:"id"`
+		ID     string `json:"id"`
+		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&sess); err != nil {
 		t.Fatal(err)
@@ -148,6 +151,9 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	resp.Body.Close()
 	if sess.ID == "" {
 		t.Fatal("session create failed")
+	}
+	if sess.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input for empty prompt, got %s", sess.Status)
 	}
 
 	// 3. Connect WS with an ephemeral P-256 key.
