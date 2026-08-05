@@ -70,6 +70,47 @@
 6. 若审批事件未出现，查看 `~/.config/riffpad/logs/daemon.log` 的 claude stderr；
    stream-json 字段以本机 claude 实际输出为准，差异只改 `apps/daemon/internal/claude/claude.go`
 
+### M0 预期行为清单
+
+**会话状态**
+
+| 状态 | 含义 | 触发 |
+|---|---|---|
+| `waiting_input` | 会话已建、claude 未启动，等待第一条指令 | 创建会话且初始指令为空 |
+| `running` | claude 进程存活并工作 | 收到指令并成功启动 / agent 正在运行 |
+| `done` | 会话结束 | agent 返回 `result`，或进程退出被清理 |
+| `error` | 会话异常结束 | agent 返回 error result |
+
+**网页端行为**
+
+1. 打开页面：右上角显示“服务在线”（每 5 秒探测 daemon）
+2. 未配对：显示配对页；`riffpad pair` 后输入配对码完成配对
+3. 已配对：显示会话列表；新建会话（初始指令可空）
+4. 点击会话进入详情：右上角依次显示 连接中… → 已连接（加密）；最近事件回放出现
+5. 事件以卡片呈现：会话开始、状态、Agent 消息、工具调用、文件变更、命令、通知、审批、会话结束
+6. 审批卡片出现 → 点同意/拒绝 → agent 继续 → 新事件出现
+7. 底部输入指令 → 发送 → agent 响应；未连接时提示“未连接，无法发送：请刷新页面并重新打开会话”
+8. API 限流：出现“API 限流（rate_limit），重试 n/10…”通知卡片，恢复后 agent 继续
+9. 点“停止”：claude 被杀，出现会话结束事件
+10. daemon 重启：连接断开提示；刷新后列表只剩新 daemon 内存中的会话（M0 无持久化）
+11. claude 进程意外退出：30 秒内被存活扫描标记为结束
+
+**CLI 行为**
+
+- `riffpad daemon start`：启动后台 daemon，打印“daemon started at …”
+- `riffpad daemon stop`：优雅停止，打印“daemon stopped”
+- `riffpad status`：输出端口、startedAt、会话数
+- `riffpad pair`：打印 6 位配对码 + 二维码
+- `riffpad run --prompt "…"`：创建会话并打印 id 与网页 URL
+- `riffpad logs`：输出 daemon 日志尾部
+
+**M0 已知边界（非缺陷）**
+
+- 会话在内存中，daemon 重启即丢（M1 引入持久化）
+- 控制只有 stop；pause/resume 未实现
+- 审批只支持同意/拒绝，条件编辑字段预留未用
+- 网页端仅限本机访问；手机远程需要 M1 的 relay
+
 ---
 
 ## 4. M1：MVP
