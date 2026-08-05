@@ -216,6 +216,7 @@
 | M3.8 | daemon 无感化启动：CLI 懒启动 + Linux systemd 自启 | `[x]` | `run/sessions/pair/attach` 自动拉起 daemon（文件锁防双实例）；`riffpad setup` 安装 systemd user service，`--remove` 卸载 | #57 |
 | M3.9 | Web 客户端 React 重写（apps/client-beta）+ app.riffpad.ai 上线 | `[x]` | Vite+React+TS；daemon/relay 内嵌同一产物；app.riffpad.ai HTTPS 已部署 | #59 |
 | M3.10 | 单二进制 + 一键安装：`riffpad _daemon` 内嵌、`scripts/install.sh`、GitHub Releases 工作流 | `[x]` | `riffpad` 一个二进制承载 CLI+daemon；curl 管道安装带 SHA256 校验；tag v* 自动交叉编译 linux/darwin amd64/arm64 | #62 |
+| M3.11 | CLI 命令完善：`login/logout` 主命令 + `riffpad update` 自更新 | `[x]` | `login/logout` 替代 relay 前缀（旧命令保留别名）；update 打印当前/最新版本、SHA256 校验、备份并原子替换自身 | #64 #65 |
 
 ---
 

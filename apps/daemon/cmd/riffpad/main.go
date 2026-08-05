@@ -5,6 +5,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -31,6 +33,8 @@ import (
 )
 
 const version = "0.1.0-m0"
+
+const updateRepo = "riffpad/riffpad"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -76,6 +80,8 @@ func main() {
 		err = relayCmd(os.Args[2:], dataDir)
 	case "setup":
 		err = setupCmd(os.Args[2:], dataDir)
+	case "update":
+		err = updateCmd(os.Args[2:])
 	case "version":
 		fmt.Println("riffpad", version)
 	case "help", "-h", "--help":
@@ -156,6 +162,7 @@ Usage:
   riffpad relay login           log in to the relay (--url wss://… --username …)
   riffpad relay logout          clear the saved relay token
   riffpad setup                 install daemon auto-start (Linux systemd user service)
+  riffpad update                check for updates and replace this binary
   riffpad logs                  tail daemon logs
   riffpad version`)
 }
@@ -586,4 +593,208 @@ func reachable(base string) bool {
 	}
 	resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
+}
+
+// updateCmd checks the latest GitHub release, downloads the binary for the
+// current platform, verifies its SHA256, and atomically replaces this
+// executable (keeping a .riffpad.bak backup).
+func updateCmd(args []string) error {
+	fs := flag.NewFlagSet("update", flag.ExitOnError)
+	force := fs.Bool("force", false, "reinstall even if already up to date")
+	_ = fs.Parse(args)
+
+	fmt.Printf("当前版本: %s\n", version)
+	latest, err := latestReleaseTag()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("最新版本: %s\n", latest)
+	if !*force && compareVersions(version, latest) >= 0 {
+		fmt.Println("已是最新版本。")
+		return nil
+	}
+
+	osName, arch, err := updatePlatform()
+	if err != nil {
+		return err
+	}
+	asset := "riffpad-" + osName + "-" + arch
+	base := "https://github.com/" + updateRepo + "/releases/latest/download/"
+	fmt.Printf("下载 %s …\n", asset)
+
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(exe)
+	tmp, err := os.CreateTemp(dir, ".riffpad-update-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := downloadFile(base+asset, tmp); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := verifyChecksum(base+"sha256sums.txt", asset, tmpPath); err != nil {
+		fmt.Println("校验失败，已中止更新（原文件未改动）。")
+		return err
+	}
+	if err := os.Chmod(tmpPath, 0o755); err != nil {
+		return err
+	}
+
+	backup := exe + ".riffpad.bak"
+	if err := copyFile(exe, backup); err != nil {
+		fmt.Println("备份失败，已中止更新:", err)
+		return err
+	}
+	if err := os.Rename(tmpPath, exe); err != nil {
+		fmt.Println("替换失败:", err)
+		return err
+	}
+	fmt.Printf("已更新到 %s（旧版本备份: %s）\n", latest, backup)
+	fmt.Println("如果 daemon 正在运行，请执行 `riffpad daemon stop && riffpad daemon start` 让新版本生效。")
+	return nil
+}
+
+func latestReleaseTag() (string, error) {
+	resp, err := http.Get("https://api.github.com/repos/" + updateRepo + "/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("获取最新版本失败: %s", resp.Status)
+	}
+	var rel struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+		return "", err
+	}
+	if rel.TagName == "" {
+		return "", fmt.Errorf("release 缺少 tag_name")
+	}
+	return rel.TagName, nil
+}
+
+func updatePlatform() (string, string, error) {
+	osName := strings.ToLower(runtime.GOOS)
+	if osName != "linux" && osName != "darwin" {
+		return "", "", fmt.Errorf("update 暂不支持 %s", runtime.GOOS)
+	}
+	arch := runtime.GOARCH
+	if arch == "x86_64" {
+		arch = "amd64"
+	}
+	if arch == "aarch64" {
+		arch = "arm64"
+	}
+	if arch != "amd64" && arch != "arm64" {
+		return "", "", fmt.Errorf("update 暂不支持架构 %s", runtime.GOARCH)
+	}
+	return osName, arch, nil
+}
+
+func downloadFile(url string, w io.Writer) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载 %s: %s", url, resp.Status)
+	}
+	_, err = io.Copy(w, resp.Body)
+	return err
+}
+
+func verifyChecksum(sumsURL, asset, path string) error {
+	resp, err := http.Get(sumsURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("获取校验和失败: %s", resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	want := ""
+	for _, line := range strings.Split(string(body), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[1] == asset {
+			want = fields[0]
+			break
+		}
+	}
+	if want == "" {
+		return fmt.Errorf("校验和文件里没有 %s", asset)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(data)
+	got := hex.EncodeToString(sum[:])
+	if got != want {
+		return fmt.Errorf("SHA256 不匹配（期望 %s，实际 %s）", want, got)
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
+}
+
+// compareVersions compares semver-ish versions, ignoring "v" prefixes and
+// prerelease/build suffixes (e.g. 0.1.0-m0 == v0.1.0).
+func compareVersions(a, b string) int {
+	a = strings.TrimPrefix(a, "v")
+	b = strings.TrimPrefix(b, "v")
+	if i := strings.IndexAny(a, "-+"); i >= 0 {
+		a = a[:i]
+	}
+	if i := strings.IndexAny(b, "-+"); i >= 0 {
+		b = b[:i]
+	}
+	as := strings.Split(a, ".")
+	bs := strings.Split(b, ".")
+	for i := 0; i < 3; i++ {
+		av, bv := 0, 0
+		if i < len(as) {
+			av, _ = strconv.Atoi(as[i])
+		}
+		if i < len(bs) {
+			bv, _ = strconv.Atoi(bs[i])
+		}
+		if av < bv {
+			return -1
+		}
+		if av > bv {
+			return 1
+		}
+	}
+	return 0
 }
