@@ -11,6 +11,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -66,11 +67,21 @@ type Store struct {
 	db *gorm.DB
 }
 
-func OpenStore(dataDir string) (*Store, error) {
-	if err := os.MkdirAll(dataDir, 0o700); err != nil {
-		return nil, err
+// OpenStore opens the metadata store. When databaseURL is non-empty it uses
+// Postgres; otherwise it falls back to a SQLite file in dataDir.
+func OpenStore(dataDir, databaseURL string) (*Store, error) {
+	var (
+		db  *gorm.DB
+		err error
+	)
+	if databaseURL != "" {
+		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+	} else {
+		if err := os.MkdirAll(dataDir, 0o700); err != nil {
+			return nil, err
+		}
+		db, err = gorm.Open(sqlite.Open(filepath.Join(dataDir, "relay.db")+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"), &gorm.Config{})
 	}
-	db, err := gorm.Open(sqlite.Open(filepath.Join(dataDir, "relay.db")), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}

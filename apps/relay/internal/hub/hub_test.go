@@ -16,7 +16,7 @@ import (
 
 func newTestHub(t *testing.T) (*Hub, *httptest.Server) {
 	t.Helper()
-	h, err := New(log.New(io.Discard, "", 0), t.TempDir())
+	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestPersistenceAcrossRestart(t *testing.T) {
 	token := registerUser(t, ts, "carol")
 	hostID, hostSecret := registerHost(t, ts, token, "laptop")
 
-	h2, err := New(log.New(io.Discard, "", 0), h.dataDir)
+	h2, err := New(log.New(io.Discard, "", 0), h.dataDir, "")
 	if err != nil {
 		t.Fatal(err)
 	}

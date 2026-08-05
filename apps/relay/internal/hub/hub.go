@@ -71,8 +71,8 @@ type ipCounter struct {
 	windowStart time.Time
 }
 
-func New(logger *log.Logger, dataDir string) (*Hub, error) {
-	store, err := OpenStore(dataDir)
+func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
+	store, err := OpenStore(dataDir, databaseURL)
 	if err != nil {
 		return nil, err
 	}

@@ -20,10 +20,11 @@ import (
 func main() {
 	port := flag.String("port", envOr("RELAY_PORT", "9090"), "listen port")
 	dataDir := flag.String("data-dir", envOr("RELAY_DATA_DIR", "./relay-data"), "persistent data directory")
+	databaseURL := flag.String("database-url", os.Getenv("DATABASE_URL"), "Postgres DSN (empty = SQLite in data-dir)")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "relay: ", log.LstdFlags|log.LUTC)
-	h, err := hub.New(logger, *dataDir)
+	h, err := hub.New(logger, *dataDir, *databaseURL)
 	if err != nil {
 		logger.Fatalf("init hub: %v", err)
 	}

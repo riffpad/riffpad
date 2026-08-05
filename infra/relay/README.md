@@ -1,8 +1,9 @@
 # Riffpad Relay 部署
 
 relay 是云端 WebSocket 中继：用户电脑上的 daemon（host）和手机（viewer）都主动连接它，
-不需要端口转发。用户/主机/设备/会话元数据持久化到 SQLite（GORM 建模，生产可换 Postgres），
-relay 重启不丢。
+不需要端口转发。用户/主机/设备/会话元数据默认持久化到 SQLite
+（`RELAY_DATA_DIR/relay.db`，WAL 模式），设置 `DATABASE_URL`（Postgres DSN）后自动切换
+Postgres——代码已支持双驱动，relay 重启不丢。
 
 ## 方案对比
 
@@ -75,6 +76,7 @@ relay 默认监听所有网卡（`:9090`）。电脑和手机连同一 WiFi 后�
 
 - 密码用 bcrypt 哈希存储；登录 token 30 天过期，登出即失效
 - daemon 首次注册后使用专属 hostSecret 连接，不再共享密钥
-- relay 数据目录（SQLite）必须持久化；生产建议挂载独立卷
+- relay 数据目录（SQLite）必须持久化；生产建议挂载独立卷。单实例早期 SQLite 够用；
+  多实例扩容或需要托管备份时切 Postgres（`DATABASE_URL`）
 - relay 零知识：只转发加密信封，不落内容；但元数据（设备/会话）可见，公网部署建议尽早接 Postgres 与审计
 - 生产多实例需要共享会话路由（Redis pub/sub 或粘性连接），单实例阶段不需要

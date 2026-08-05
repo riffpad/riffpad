@@ -7,6 +7,8 @@ primary_region = "hkg"
 [env]
   RELAY_PORT = "9090"
   RELAY_DATA_DIR = "/data"
+  # 可选：设了就用 Postgres，否则用 /data 卷上的 SQLite
+  # DATABASE_URL = "postgres://..."
 
 [mounts]
   source = "data"
