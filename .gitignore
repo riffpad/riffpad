@@ -3,6 +3,8 @@ node_modules/
 out/
 bin/
 apps/relay/dist/
+__pycache__/
+*.pyc
 .env
 *.log
 .DS_Store
