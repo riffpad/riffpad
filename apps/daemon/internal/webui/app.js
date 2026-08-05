@@ -97,7 +97,8 @@ async function refreshSessions() {
   for (const s of (data.sessions || [])) {
     const li = document.createElement("li");
     const name = document.createElement("span");
-    name.textContent = s.name || s.id;
+    name.textContent = (s.name || s.id) + " · " + String(s.id).slice(0, 8);
+    name.title = s.id;
     const st = document.createElement("span");
     st.className = "status " + s.status;
     st.textContent = s.status;
@@ -127,7 +128,8 @@ async function createSession(ev) {
 
 async function openDetail(sid, name) {
   currentSession = sid;
-  $("d-title").textContent = name || sid;
+  $("d-title").textContent = (name || "会话") + " · " + String(sid).slice(0, 8);
+  $("d-title").title = sid;
   $("events").innerHTML = "";
   $("detail").classList.remove("hidden");
   const dev = await ensureIdentity();
