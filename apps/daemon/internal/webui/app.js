@@ -188,7 +188,7 @@ async function sendEvent(type, payload) {
 
 const LABELS = {
   session_start: "会话开始", session_end: "会话结束", agent_status: "状态",
-  agent_message: "Agent", tool_call: "工具调用", file_change: "文件变更",
+  agent_message: "Agent", user_message: "你", tool_call: "工具调用", file_change: "文件变更",
   command: "命令", approval_request: "审批", approval_response: "审批回复",
   prompt: "指令", control: "控制", notify: "通知"
 };
@@ -203,6 +203,7 @@ function eventText(ev) {
   const p = ev.payload || {};
   switch (ev.type) {
     case "agent_message": return p.text || "";
+    case "user_message": return p.text || "";
     case "tool_call": return (p.tool || "") + " " + (p.summary || "");
     case "file_change": return p.path || "";
     case "command": return p.command || "";

@@ -36,6 +36,10 @@ type hookPayload struct {
 	ToolUse       map[string]any `json:"tool_use"`
 	Input         map[string]any `json:"input"`
 	Message       string         `json:"message"`
+	Prompt        string         `json:"prompt"`
+	Delta         string         `json:"delta"`
+	Final         bool           `json:"final"`
+	MessageID     string         `json:"message_id"`
 	Notification  *struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
@@ -196,6 +200,58 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ev, err := protocol.NewEvent(p.SessionID, protocol.EventToolCall, protocol.ToolCallPayload{Tool: name, Status: "completed"})
+	if err == nil {
+		s.pumpEvent(sess, ev)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{})
+}
+
+func (s *Server) handleHookUserPromptSubmit(w http.ResponseWriter, r *http.Request) {
+	p, ok := decodeHook(r)
+	if !ok || p.SessionID == "" {
+		writeError(w, http.StatusBadRequest, "invalid hook payload")
+		return
+	}
+	if p.Prompt == "" {
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	sess := s.attachSession(p.SessionID, p.CWD)
+	ev, err := protocol.NewEvent(p.SessionID, protocol.EventUserMessage, protocol.PromptPayload{Text: p.Prompt})
+	if err == nil {
+		s.pumpEvent(sess, ev)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{})
+}
+
+func (s *Server) handleHookMessageDisplay(w http.ResponseWriter, r *http.Request) {
+	p, ok := decodeHook(r)
+	if !ok || p.SessionID == "" {
+		writeError(w, http.StatusBadRequest, "invalid hook payload")
+		return
+	}
+	sess := s.attachSession(p.SessionID, p.CWD)
+	// Accumulate per message_id; emit once when the final batch arrives so the
+	// timeline shows whole assistant messages instead of many partial cards.
+	if p.MessageID != "" && !p.Final {
+		s.mu.Lock()
+		s.messageBuf[p.MessageID] += p.Delta
+		s.mu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	text := p.Delta
+	if p.MessageID != "" {
+		s.mu.Lock()
+		text = s.messageBuf[p.MessageID] + p.Delta
+		delete(s.messageBuf, p.MessageID)
+		s.mu.Unlock()
+	}
+	if text == "" {
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	ev, err := protocol.NewEvent(p.SessionID, protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: text})
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}

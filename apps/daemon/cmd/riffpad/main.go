@@ -291,12 +291,14 @@ func attachCmd(base string) error {
 		}
 	}
 	settings["hooks"] = map[string]any{
-		"SessionStart":      []any{httpHook("/hooks/claude/session-start", 10)},
-		"SessionEnd":        []any{httpHook("/hooks/claude/session-end", 10)},
-		"PreToolUse":        []any{httpHook("/hooks/claude/pre-tool-use", 10)},
-		"PostToolUse":       []any{httpHook("/hooks/claude/post-tool-use", 10)},
-		"PermissionRequest": []any{httpHook("/hooks/claude/permission", 600)},
-		"Notification":      []any{httpHook("/hooks/claude/notification", 10)},
+		"SessionStart":       []any{httpHook("/hooks/claude/session-start", 10)},
+		"SessionEnd":         []any{httpHook("/hooks/claude/session-end", 10)},
+		"UserPromptSubmit":   []any{httpHook("/hooks/claude/user-prompt-submit", 30)},
+		"MessageDisplay":     []any{httpHook("/hooks/claude/message-display", 10)},
+		"PreToolUse":         []any{httpHook("/hooks/claude/pre-tool-use", 10)},
+		"PostToolUse":        []any{httpHook("/hooks/claude/post-tool-use", 10)},
+		"PermissionRequest":  []any{httpHook("/hooks/claude/permission", 600)},
+		"Notification":       []any{httpHook("/hooks/claude/notification", 10)},
 	}
 	raw, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {

@@ -15,6 +15,7 @@ const (
 	EventSessionEnd     = "session_end"
 	EventAgentStatus    = "agent_status"
 	EventAgentMessage   = "agent_message"
+	EventUserMessage    = "user_message"
 	EventToolCall       = "tool_call"
 	EventFileChange     = "file_change"
 	EventCommand        = "command"

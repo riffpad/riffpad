@@ -147,6 +147,28 @@ func TestAttachHookFlow(t *testing.T) {
 		t.Fatalf("expected tool_call, got %s", ev.Type)
 	}
 
+	// 3b. User prompt and assistant message hooks flow into the timeline.
+	resp = post("/hooks/claude/user-prompt-submit", `{"hook_event_name":"UserPromptSubmit","session_id":"claude-sess-1","prompt":"你好"}`)
+	resp.Body.Close()
+	ev = readEvent()
+	if ev.Type != protocol.EventUserMessage {
+		t.Fatalf("expected user_message, got %s", ev.Type)
+	}
+	var up protocol.PromptPayload
+	if err := ev.DecodePayload(&up); err != nil {
+		t.Fatal(err)
+	}
+	if up.Text != "你好" {
+		t.Fatalf("unexpected prompt %q", up.Text)
+	}
+
+	resp = post("/hooks/claude/message-display", `{"hook_event_name":"MessageDisplay","session_id":"claude-sess-1","message_id":"m1","delta":"你好！","final":true}`)
+	resp.Body.Close()
+	ev = readEvent()
+	if ev.Type != protocol.EventAgentMessage {
+		t.Fatalf("expected agent_message, got %s", ev.Type)
+	}
+
 	// 4. PermissionRequest hook blocks until the phone approves.
 	permDone := make(chan string, 1)
 	go func() {

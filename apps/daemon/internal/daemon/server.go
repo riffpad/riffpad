@@ -67,6 +67,7 @@ type Server struct {
 	pending      map[string]pendingPair
 	sessions     map[string]*session
 	pendingHooks map[string]chan string
+	messageBuf   map[string]string
 }
 
 // New creates a daemon server.
@@ -83,6 +84,7 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		pending:      map[string]pendingPair{},
 		sessions:     map[string]*session{},
 		pendingHooks: map[string]chan string{},
+		messageBuf:   map[string]string{},
 	}
 	s.loadDevices()
 	return s
@@ -121,6 +123,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/hooks/claude/session-end", s.handleHookSessionEnd)
 	mux.HandleFunc("/hooks/claude/pre-tool-use", s.handleHookPreToolUse)
 	mux.HandleFunc("/hooks/claude/post-tool-use", s.handleHookPostToolUse)
+	mux.HandleFunc("/hooks/claude/user-prompt-submit", s.handleHookUserPromptSubmit)
+	mux.HandleFunc("/hooks/claude/message-display", s.handleHookMessageDisplay)
 	return mux
 }
 
