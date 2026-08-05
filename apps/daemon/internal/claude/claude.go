@@ -254,9 +254,14 @@ func (c *Claude) writeSettings() error {
 	if c.hookBase != "" {
 		hooks["Notification"] = []any{
 			map[string]any{
-				"type":    "http",
-				"url":     c.hookBase + "/hooks/claude/notification?session=" + c.id,
-				"timeout": 10,
+				"matcher": "",
+				"hooks": []any{
+					map[string]any{
+						"type":    "http",
+						"url":     c.hookBase + "/hooks/claude/notification?session=" + c.id,
+						"timeout": 10,
+					},
+				},
 			},
 		}
 	}

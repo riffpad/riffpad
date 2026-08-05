@@ -282,13 +282,21 @@ func attachCmd(base string) error {
 		}
 	}
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	httpHook := func(path string, timeout int) map[string]any {
+		return map[string]any{
+			"matcher": "",
+			"hooks": []any{
+				map[string]any{"type": "http", "url": baseURL + path, "timeout": timeout},
+			},
+		}
+	}
 	settings["hooks"] = map[string]any{
-		"SessionStart":     []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/session-start", "timeout": 10}},
-		"SessionEnd":       []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/session-end", "timeout": 10}},
-		"PreToolUse":       []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/pre-tool-use", "timeout": 10}},
-		"PostToolUse":      []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/post-tool-use", "timeout": 10}},
-		"PermissionRequest": []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/permission", "timeout": 600}},
-		"Notification":     []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/notification", "timeout": 10}},
+		"SessionStart":      []any{httpHook("/hooks/claude/session-start", 10)},
+		"SessionEnd":        []any{httpHook("/hooks/claude/session-end", 10)},
+		"PreToolUse":        []any{httpHook("/hooks/claude/pre-tool-use", 10)},
+		"PostToolUse":       []any{httpHook("/hooks/claude/post-tool-use", 10)},
+		"PermissionRequest": []any{httpHook("/hooks/claude/permission", 600)},
+		"Notification":      []any{httpHook("/hooks/claude/notification", 10)},
 	}
 	raw, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {

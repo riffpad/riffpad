@@ -1,6 +1,8 @@
 package claude
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -91,5 +93,32 @@ func TestSystemApiRetryBecomesNotify(t *testing.T) {
 	}
 	if p.Level != "waiting" || !strings.Contains(p.Message, "rate_limit") {
 		t.Fatalf("unexpected notify: %+v", p)
+	}
+}
+
+func TestWriteSettingsHookShape(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1", DataDir: t.TempDir(), HookBase: "http://127.0.0.1:8787"})
+	if err := c.writeSettings(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(c.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s struct {
+		Hooks map[string][]struct {
+			Matcher string           `json:"matcher"`
+			Hooks   []map[string]any `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatalf("settings not valid JSON: %v\n%s", err, data)
+	}
+	n := s.Hooks["Notification"]
+	if len(n) != 1 {
+		t.Fatalf("expected 1 Notification hook entry, got %d", len(n))
+	}
+	if len(n[0].Hooks) != 1 {
+		t.Fatalf("expected hooks array with 1 entry, got %d", len(n[0].Hooks))
 	}
 }
