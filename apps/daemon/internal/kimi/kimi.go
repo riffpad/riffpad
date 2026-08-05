@@ -1,0 +1,603 @@
+// Package kimi implements the Kimi Code adapter over the Agent Client
+// Protocol (ACP). The daemon spawns `kimi acp` (a stdio JSON-RPC server) and
+// acts as an ACP client: initialize -> session/new -> session/prompt, with
+// streamed session/update notifications and session/request_permission
+// approvals. No tmux is required.
+package kimi
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"os/exec"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
+	"github.com/riffpad/riffpad/packages/protocol"
+)
+
+type pendingApproval struct {
+	sessionID string
+	action    string
+	summary   string
+	options   map[string]string // optionId -> name
+}
+
+// Kimi is a Kimi Code session driven through the ACP stdio server.
+type Kimi struct {
+	id      string
+	name    string
+	cwd     string
+	prompt  string
+	binary  string
+	events  chan protocol.Event
+	stopCh  chan struct{}
+	doneCh  chan struct{}
+	readyCh chan struct{}
+
+	mu            sync.Mutex
+	ctx           context.Context
+	cmd           *exec.Cmd
+	stdin         io.WriteCloser
+	launched      bool
+	exited        bool
+	sessionID     string
+	initError     error
+	nextRequestID int
+	pending       map[string]pendingApproval
+	msgBuf        strings.Builder
+	msgActive     bool
+}
+
+// New creates a Kimi Code ACP session adapter.
+func New(req adapter.CreateRequest) *Kimi {
+	binary := req.Binary
+	if binary == "" {
+		binary = "kimi"
+	}
+	return &Kimi{
+		id:            req.ID,
+		name:          req.Name,
+		cwd:           req.Cwd,
+		prompt:        req.Prompt,
+		binary:        binary,
+		events:        make(chan protocol.Event, 256),
+		stopCh:        make(chan struct{}),
+		doneCh:        make(chan struct{}),
+		readyCh:       make(chan struct{}),
+		nextRequestID: 1,
+		pending:       make(map[string]pendingApproval),
+	}
+}
+
+func (k *Kimi) ID() string                    { return k.id }
+func (k *Kimi) Events() <-chan protocol.Event { return k.events }
+func (k *Kimi) Meta() protocol.SessionStartPayload {
+	return protocol.SessionStartPayload{Name: k.name, CLI: "kimi", Cwd: k.cwd}
+}
+
+// Start records the context and spawns `kimi acp`. The initial prompt is sent
+// once the ACP session is ready.
+func (k *Kimi) Start(ctx context.Context) error {
+	k.mu.Lock()
+	k.ctx = ctx
+	k.mu.Unlock()
+	if err := k.ensureStarted(); err != nil {
+		return err
+	}
+	if k.prompt != "" {
+		if err := k.waitReady(); err != nil {
+			return err
+		}
+		return k.SendPrompt(k.prompt)
+	}
+	return nil
+}
+
+func (k *Kimi) ensureStarted() error {
+	k.mu.Lock()
+	if k.launched {
+		k.mu.Unlock()
+		return nil
+	}
+	if k.ctx == nil {
+		k.mu.Unlock()
+		return fmt.Errorf("session not started")
+	}
+	k.launched = true
+	ctx := k.ctx
+	k.mu.Unlock()
+	return k.spawn(ctx)
+}
+
+func (k *Kimi) spawn(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, k.binary, "acp")
+	if k.cwd != "" {
+		cmd.Dir = k.cwd
+	}
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start %s acp: %w", k.binary, err)
+	}
+	k.mu.Lock()
+	k.cmd = cmd
+	k.stdin = stdin
+	k.mu.Unlock()
+	go k.readLoop(stdout)
+	go k.copyStderr(stderr)
+	go func() {
+		<-k.stopCh
+		if k.cmd != nil && k.cmd.Process != nil {
+			_ = k.cmd.Process.Kill()
+		}
+	}()
+	// ACP initialization: protocol negotiation, then session creation.
+	_ = k.request("initialize", map[string]any{
+		"protocolVersion": 1,
+		"clientCapabilities": map[string]any{
+			"fs":       map[string]any{"readTextFile": false, "writeTextFile": false},
+			"terminal": false,
+		},
+		"clientInfo": map[string]any{"name": "riffpad", "version": "0.1.0"},
+	})
+	return nil
+}
+
+// Stop terminates the ACP server.
+func (k *Kimi) Stop() error {
+	k.mu.Lock()
+	launched := k.launched
+	k.mu.Unlock()
+	select {
+	case <-k.stopCh:
+		return nil
+	default:
+		close(k.stopCh)
+	}
+	if !launched {
+		return nil
+	}
+	if k.cmd != nil && k.cmd.Process != nil {
+		_ = k.cmd.Process.Kill()
+	}
+	<-k.doneCh
+	return nil
+}
+
+// Alive reports whether the ACP server process is running.
+func (k *Kimi) Alive() bool {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.launched && !k.exited
+}
+
+// SendPrompt sends a text prompt to the current ACP session.
+func (k *Kimi) SendPrompt(text string) error {
+	if err := k.ensureStarted(); err != nil {
+		return err
+	}
+	if err := k.waitReady(); err != nil {
+		return err
+	}
+	return k.request("session/prompt", map[string]any{
+		"sessionId": k.sessionID,
+		"prompt":    []any{map[string]any{"type": "text", "text": text}},
+	})
+}
+
+// SendApproval resolves a pending session/request_permission.
+func (k *Kimi) SendApproval(requestID, decision string) error {
+	k.mu.Lock()
+	p, ok := k.pending[requestID]
+	if ok {
+		delete(k.pending, requestID)
+	}
+	k.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("no pending approval %s", requestID)
+	}
+	kind := "allow_once"
+	if decision == "reject" {
+		kind = "reject_once"
+	}
+	optionID := ""
+	for id, name := range p.options {
+		if decision == "reject" && strings.Contains(name, "Reject") {
+			optionID = id
+			break
+		}
+		if decision == "approve" && !strings.Contains(name, "Reject") {
+			optionID = id
+			break
+		}
+		_ = kind
+	}
+	if optionID == "" {
+		// Fall back to the first option id.
+		for id := range p.options {
+			optionID = id
+			break
+		}
+	}
+	if optionID == "" {
+		return fmt.Errorf("approval %s has no selectable option", requestID)
+	}
+	return k.writeJSON(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      requestID,
+		"result": map[string]any{
+			"outcome": map[string]any{"outcome": "selected", "optionId": optionID},
+		},
+	})
+}
+
+func (k *Kimi) waitReady() error {
+	select {
+	case <-k.readyCh:
+		k.mu.Lock()
+		err := k.initError
+		sid := k.sessionID
+		k.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		if sid == "" {
+			return fmt.Errorf("kimi session not initialized")
+		}
+		return nil
+	case <-k.stopCh:
+		return fmt.Errorf("session stopped")
+	case <-time.After(30 * time.Second):
+		return fmt.Errorf("kimi ACP initialization timed out")
+	}
+}
+
+func (k *Kimi) request(method string, params map[string]any) error {
+	k.mu.Lock()
+	id := k.nextRequestID
+	k.nextRequestID++
+	k.mu.Unlock()
+	return k.writeJSON(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"method":  method,
+		"params":  params,
+	})
+}
+
+func (k *Kimi) writeJSON(v any) error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.stdin == nil {
+		return fmt.Errorf("stdin not ready")
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(k.stdin, string(data)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k *Kimi) readLoop(r io.Reader) {
+	defer close(k.doneCh)
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		k.handleLine(line)
+	}
+	if k.cmd != nil && k.cmd.Process != nil {
+		_ = k.cmd.Wait()
+	}
+	k.flushMessage()
+	k.mu.Lock()
+	k.exited = true
+	k.mu.Unlock()
+	_ = k.emit(protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: "process_exit"})
+}
+
+func (k *Kimi) copyStderr(r io.Reader) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		log.Printf("kimi[%s] stderr: %s", k.id, scanner.Text())
+	}
+}
+
+// handleLine processes one JSON-RPC line from the ACP server.
+func (k *Kimi) handleLine(line []byte) {
+	var msg struct {
+		JSONRPC string          `json:"jsonrpc"`
+		ID      json.RawMessage `json:"id"`
+		Method  string          `json:"method"`
+		Result  json.RawMessage `json:"result"`
+		Error   json.RawMessage `json:"error"`
+		Params  json.RawMessage `json:"params"`
+	}
+	if err := json.Unmarshal(line, &msg); err != nil {
+		return
+	}
+	if len(msg.Error) > 0 && string(msg.Error) != "null" {
+		var e struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(msg.Error, &e)
+		k.mu.Lock()
+		k.initError = fmt.Errorf("kimi ACP error: %s", e.Message)
+		k.mu.Unlock()
+		k.closeReady()
+		_ = k.emit(protocol.EventNotify, protocol.NotifyPayload{Level: "error", Message: e.Message})
+		return
+	}
+	if msg.Method != "" {
+		k.handleNotification(msg.Method, msg.ID, msg.Params)
+		return
+	}
+	k.handleResponse(msg.ID, msg.Result)
+}
+
+func (k *Kimi) closeReady() {
+	select {
+	case <-k.readyCh:
+	default:
+		close(k.readyCh)
+	}
+}
+
+func (k *Kimi) handleResponse(id json.RawMessage, result json.RawMessage) {
+	var rid int
+	if err := json.Unmarshal(id, &rid); err != nil {
+		return
+	}
+	var res struct {
+		SessionID  string `json:"sessionId"`
+		StopReason string `json:"stopReason"`
+	}
+	_ = json.Unmarshal(result, &res)
+	switch rid {
+	case 1:
+		// initialize response; session/new follows immediately.
+		_ = k.request("session/new", map[string]any{
+			"cwd":        k.cwd,
+			"mcpServers": []any{},
+		})
+	case 2:
+		k.mu.Lock()
+		k.sessionID = res.SessionID
+		k.mu.Unlock()
+		if res.SessionID == "" {
+			k.mu.Lock()
+			k.initError = fmt.Errorf("kimi session/new returned no sessionId")
+			k.mu.Unlock()
+		}
+		k.closeReady()
+	default:
+		// A session/prompt response ends the current turn.
+		k.flushMessage()
+		status := protocol.StatusDone
+		if res.StopReason == "error" || res.StopReason == "max_turns" {
+			status = protocol.StatusError
+		}
+		_ = k.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: status})
+	}
+}
+
+func (k *Kimi) handleNotification(method string, id json.RawMessage, params json.RawMessage) {
+	switch method {
+	case "session/update":
+		k.handleSessionUpdate(params)
+	case "session/request_permission":
+		k.handlePermissionRequest(id, params)
+	default:
+		log.Printf("kimi[%s] unhandled ACP notification %s", k.id, method)
+	}
+}
+
+func (k *Kimi) handleSessionUpdate(params json.RawMessage) {
+	var n struct {
+		SessionID string `json:"sessionId"`
+		Update    struct {
+			SessionUpdate string          `json:"sessionUpdate"`
+			Content       json.RawMessage `json:"content"`
+			ToolCall      json.RawMessage `json:"toolCall"`
+			Title         string          `json:"title"`
+		} `json:"update"`
+	}
+	if err := json.Unmarshal(params, &n); err != nil {
+		return
+	}
+	switch n.Update.SessionUpdate {
+	case "user_message_chunk":
+		var c struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(n.Update.Content, &c) == nil && c.Type == "text" && c.Text != "" {
+			_ = k.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: c.Text})
+		}
+	case "agent_message_chunk":
+		var c struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(n.Update.Content, &c) == nil && c.Type == "text" {
+			k.mu.Lock()
+			k.msgBuf.WriteString(c.Text)
+			k.msgActive = true
+			k.mu.Unlock()
+		}
+	case "tool_call":
+		k.handleToolCall(n.Update.ToolCall, "started")
+	case "tool_call_update":
+		k.handleToolCallUpdate(n.Update.ToolCall)
+	}
+}
+
+func (k *Kimi) handleToolCall(raw json.RawMessage, status string) {
+	var tc struct {
+		ToolCallID string          `json:"toolCallId"`
+		Title      string          `json:"title"`
+		Kind       string          `json:"kind"`
+		RawInput   json.RawMessage `json:"rawInput"`
+	}
+	if err := json.Unmarshal(raw, &tc); err != nil {
+		return
+	}
+	args := map[string]any{}
+	_ = json.Unmarshal(tc.RawInput, &args)
+	_ = k.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+		Tool:    firstNonEmpty(tc.Title, tc.Kind),
+		Status:  status,
+		Summary: summarizeTool(tc.Title, args),
+		Args:    args,
+	})
+}
+
+func (k *Kimi) handleToolCallUpdate(raw json.RawMessage) {
+	var tc struct {
+		ToolCallID string          `json:"toolCallId"`
+		Status     string          `json:"status"`
+		Title      string          `json:"title"`
+		RawOutput  json.RawMessage `json:"rawOutput"`
+	}
+	if err := json.Unmarshal(raw, &tc); err != nil {
+		return
+	}
+	if tc.Status == "" {
+		return
+	}
+	status := "completed"
+	if strings.Contains(tc.Status, "fail") || strings.Contains(tc.Status, "error") {
+		status = "failed"
+	}
+	_ = k.emit(protocol.EventToolCall, protocol.ToolCallPayload{Tool: tc.Title, Status: status})
+}
+
+func (k *Kimi) handlePermissionRequest(id json.RawMessage, params json.RawMessage) {
+	var req struct {
+		SessionID string `json:"sessionId"`
+		ToolCall  struct {
+			ToolCallID string          `json:"toolCallId"`
+			Title      string          `json:"title"`
+			Kind       string          `json:"kind"`
+			RawInput   json.RawMessage `json:"rawInput"`
+		} `json:"toolCall"`
+		Options []struct {
+			OptionID string `json:"optionId"`
+			Name     string `json:"name"`
+			Kind     string `json:"kind"`
+		} `json:"options"`
+	}
+	if err := json.Unmarshal(params, &req); err != nil {
+		return
+	}
+	requestID := ""
+	if json.Unmarshal(id, &requestID) != nil {
+		var n int
+		if json.Unmarshal(id, &n) != nil {
+			return
+		}
+		requestID = strconv.Itoa(n)
+	}
+	options := map[string]string{}
+	optionNames := []string{}
+	for _, o := range req.Options {
+		options[o.OptionID] = o.Name
+		optionNames = append(optionNames, o.Name)
+	}
+	args := map[string]any{}
+	_ = json.Unmarshal(req.ToolCall.RawInput, &args)
+	k.mu.Lock()
+	k.pending[requestID] = pendingApproval{
+		sessionID: req.SessionID,
+		action:    firstNonEmpty(req.ToolCall.Title, req.ToolCall.Kind),
+		summary:   summarizeTool(req.ToolCall.Title, args),
+		options:   options,
+	}
+	k.mu.Unlock()
+	_ = k.emit(protocol.EventApprovalReq, protocol.ApprovalRequestPayload{
+		RequestID: requestID,
+		Action:    firstNonEmpty(req.ToolCall.Title, req.ToolCall.Kind),
+		Summary:   summarizeTool(req.ToolCall.Title, args),
+		Options:   optionNames,
+		Args:      args,
+	})
+}
+
+func (k *Kimi) flushMessage() {
+	k.mu.Lock()
+	if !k.msgActive {
+		k.mu.Unlock()
+		return
+	}
+	text := k.msgBuf.String()
+	k.msgBuf.Reset()
+	k.msgActive = false
+	k.mu.Unlock()
+	if strings.TrimSpace(text) != "" {
+		_ = k.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: text})
+	}
+}
+
+func (k *Kimi) emit(typ string, payload any) error {
+	ev, err := protocol.NewEvent(k.id, typ, payload)
+	if err != nil {
+		return err
+	}
+	select {
+	case k.events <- ev:
+		return nil
+	case <-k.stopCh:
+		return nil
+	default:
+		return nil
+	}
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func summarizeTool(title string, args map[string]any) string {
+	if title != "" {
+		return title
+	}
+	if cmd, ok := args["command"].(string); ok {
+		return cmd
+	}
+	if p, ok := args["filePath"].(string); ok {
+		return "file: " + p
+	}
+	if p, ok := args["file_path"].(string); ok {
+		return "file: " + p
+	}
+	return ""
+}

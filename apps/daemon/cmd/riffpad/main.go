@@ -88,7 +88,7 @@ Usage:
   riffpad status                show daemon status
   riffpad pair                  print a pairing code and QR
   riffpad sessions              list sessions
-  riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude]
+  riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
   riffpad relay login           log in to the relay (--url wss://… --username …)
@@ -227,7 +227,7 @@ func runCmd(args []string, base string) error {
 	name := fs.String("name", "", "session name")
 	prompt := fs.String("prompt", "", "initial prompt")
 	cwd := fs.String("cwd", "", "working directory")
-	cli := fs.String("cli", "claude", "agent CLI (claude)")
+	cli := fs.String("cli", "claude", "agent CLI (claude|kimi|codex)")
 	_ = fs.Parse(args)
 	body, _ := json.Marshal(map[string]string{
 		"name": *name, "prompt": *prompt, "cwd": *cwd, "cli": *cli,
@@ -296,14 +296,14 @@ func attachCmd(base string) error {
 		}
 	}
 	settings["hooks"] = map[string]any{
-		"SessionStart":       []any{httpHook("/hooks/claude/session-start", 10)},
-		"SessionEnd":         []any{httpHook("/hooks/claude/session-end", 10)},
-		"UserPromptSubmit":   []any{httpHook("/hooks/claude/user-prompt-submit", 30)},
-		"MessageDisplay":     []any{httpHook("/hooks/claude/message-display", 10)},
-		"PreToolUse":         []any{httpHook("/hooks/claude/pre-tool-use", 10)},
-		"PostToolUse":        []any{httpHook("/hooks/claude/post-tool-use", 10)},
-		"PermissionRequest":  []any{httpHook("/hooks/claude/permission", 600)},
-		"Notification":       []any{httpHook("/hooks/claude/notification", 10)},
+		"SessionStart":      []any{httpHook("/hooks/claude/session-start", 10)},
+		"SessionEnd":        []any{httpHook("/hooks/claude/session-end", 10)},
+		"UserPromptSubmit":  []any{httpHook("/hooks/claude/user-prompt-submit", 30)},
+		"MessageDisplay":    []any{httpHook("/hooks/claude/message-display", 10)},
+		"PreToolUse":        []any{httpHook("/hooks/claude/pre-tool-use", 10)},
+		"PostToolUse":       []any{httpHook("/hooks/claude/post-tool-use", 10)},
+		"PermissionRequest": []any{httpHook("/hooks/claude/permission", 600)},
+		"Notification":      []any{httpHook("/hooks/claude/notification", 10)},
 	}
 	raw, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {

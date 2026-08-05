@@ -45,7 +45,14 @@
           <input id="s-prompt" placeholder="初始指令（可选）">
         </div>
         <div class="row">
+          <select id="s-cli">
+            <option value="claude">Claude Code</option>
+            <option value="kimi">Kimi Code</option>
+            <option value="codex">Codex</option>
+          </select>
           <input id="s-cwd" placeholder="工作目录（默认 daemon 当前目录）">
+        </div>
+        <div class="row">
           <button type="submit">启动会话</button>
         </div>
       </form>

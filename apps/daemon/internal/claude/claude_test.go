@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
 	"github.com/riffpad/riffpad/packages/protocol"
@@ -67,16 +68,21 @@ func TestHandleControlRequest(t *testing.T) {
 	}
 }
 
-func TestResultEndsSession(t *testing.T) {
+func TestResultEmitsStatusOnly(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	c.handleLine([]byte(`{"type":"result","subtype":"success","result":"done"}`))
-	ev := <-c.Events()
-	if ev.Type != protocol.EventAgentStatus {
-		t.Fatalf("expected agent_status, got %s", ev.Type)
+	select {
+	case ev := <-c.Events():
+		if ev.Type != protocol.EventAgentStatus {
+			t.Fatalf("expected agent_status, got %s", ev.Type)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected agent_status event")
 	}
-	ev2 := <-c.Events()
-	if ev2.Type != protocol.EventSessionEnd {
-		t.Fatalf("expected session_end, got %s", ev2.Type)
+	select {
+	case ev := <-c.Events():
+		t.Fatalf("expected no session_end after turn result in host mode, got %s", ev.Type)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 
@@ -120,5 +126,15 @@ func TestWriteSettingsHookShape(t *testing.T) {
 	}
 	if len(n[0].Hooks) != 1 {
 		t.Fatalf("expected hooks array with 1 entry, got %d", len(n[0].Hooks))
+	}
+}
+
+func TestHookCallbackAutoAllowed(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"type":"control_request","request_id":"r2","request":{"subtype":"hook_callback","callback_id":"hook_user_prompt","input":{"hook_event_name":"UserPromptSubmit"}}}`))
+	select {
+	case ev := <-c.Events():
+		t.Fatalf("expected no approval event for hook callback, got %s", ev.Type)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
