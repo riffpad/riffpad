@@ -130,11 +130,8 @@ export function DeviceMockup() {
           <MacTerminal
             title={t.mockup.mac.title}
             prompt={t.mockup.mac.prompt}
-            status={t.mockup.mac.status}
             lines={termLines}
             typing={typing}
-            syncing={syncing}
-            syncLabel={syncing ? t.mockup.sync.syncing : t.mockup.phone.synced}
             scrollRef={termScrollRef}
           />
         </div>
@@ -162,10 +159,12 @@ export function DeviceMockup() {
   );
 }
 
+// The terminal keeps its own neutral dark palette in both page themes,
+// like a real terminal window on a light desktop.
 function TermLineView({ line }: { line: TermLine }) {
   if (line.tone === "warn") {
     return (
-      <div className="text-warning">
+      <div className="text-term-yellow">
         <span className="mr-2" aria-hidden="true">
           !
         </span>
@@ -174,14 +173,14 @@ function TermLineView({ line }: { line: TermLine }) {
     );
   }
   return (
-    <div className={line.tone === "cmd" ? "text-accent" : undefined}>
+    <div className={line.tone === "cmd" ? "text-term-orange" : undefined}>
       {line.tone === "ok" && (
-        <span className="mr-2 text-success" aria-hidden="true">
+        <span className="mr-2 text-term-green" aria-hidden="true">
           ✓
         </span>
       )}
       {line.tone === "info" && (
-        <span className="mr-2 text-info" aria-hidden="true">
+        <span className="mr-2 text-term-blue" aria-hidden="true">
           ▸
         </span>
       )}
@@ -207,61 +206,54 @@ function TypingDots() {
 function MacTerminal({
   title,
   prompt,
-  status,
   lines,
   typing,
-  syncing,
-  syncLabel,
   scrollRef,
 }: {
   title: string;
   prompt: string;
-  status: string;
   lines: TermLine[];
   typing: boolean;
-  syncing: boolean;
-  syncLabel: string;
   scrollRef: RefObject<HTMLDivElement>;
 }) {
+  const [promptDir, promptCmd] = prompt.split(" % ");
   return (
-    <div className="w-full overflow-hidden rounded-[10px] border border-hairline bg-console text-on-console shadow-[0_18px_50px_-12px_rgba(0,0,0,0.28)]">
+    <div className="w-full overflow-hidden rounded-[10px] border border-term-border bg-term-bg text-term-fg shadow-terminal">
       {/* macOS title bar */}
-      <div className="relative flex items-center bg-console-elevated px-4 py-2.5">
+      <div className="relative flex items-center border-b border-black/25 bg-term-bar px-4 py-2.5">
         <div className="flex items-center gap-2" aria-hidden="true">
-          <span className="h-3 w-3 rounded-full bg-[#ff5f57] ring-1 ring-inset ring-black/15" />
-          <span className="h-3 w-3 rounded-full bg-[#febc2e] ring-1 ring-inset ring-black/15" />
-          <span className="h-3 w-3 rounded-full bg-[#28c840] ring-1 ring-inset ring-black/15" />
+          <span className="h-3 w-3 rounded-full bg-mac-red ring-1 ring-inset ring-black/15" />
+          <span className="h-3 w-3 rounded-full bg-mac-yellow ring-1 ring-inset ring-black/15" />
+          <span className="h-3 w-3 rounded-full bg-mac-green ring-1 ring-inset ring-black/15" />
         </div>
-        <span className="absolute left-1/2 max-w-[55%] -translate-x-1/2 truncate text-xs text-on-console-mute">
+        <span className="absolute left-1/2 max-w-[55%] -translate-x-1/2 truncate text-xs text-term-mute">
           {title}
-        </span>
-        <span
-          className={`ml-auto flex items-center gap-1.5 text-[11px] ${
-            syncing ? "text-accent" : "text-success"
-          }`}
-        >
-          <span aria-hidden="true">●</span>
-          {syncLabel}
         </span>
       </div>
 
       <div
         ref={scrollRef}
-        className="no-scrollbar h-[240px] overflow-y-auto px-4 py-4 text-[13px] leading-[1.9] sm:px-5"
+        className="no-scrollbar h-[240px] overflow-y-auto px-4 py-4 text-[13px] leading-[1.8] sm:px-5"
       >
-        <div className="text-on-console-mute">{prompt}</div>
+        <div>
+          {promptCmd ? (
+            <>
+              <span className="text-term-cyan">{promptDir}</span>{" "}
+              <span className="text-term-mute">%</span>{" "}
+              <span>{promptCmd}</span>
+            </>
+          ) : (
+            <span className="text-term-mute">{prompt}</span>
+          )}
+        </div>
         {lines.map((line) => (
           <TermLineView key={line.id} line={line} />
         ))}
         {typing && (
-          <div className="text-on-console-mute">
+          <div className="text-term-mute">
             <TypingDots />
           </div>
         )}
-      </div>
-
-      <div className="border-t border-hairline px-4 py-2 text-[11px] text-on-console-mute sm:px-5">
-        {status}
       </div>
     </div>
   );
@@ -318,7 +310,7 @@ function PhoneApp({
   scrollRef: RefObject<HTMLDivElement>;
 }) {
   return (
-    <div className="w-full rounded-[40px] bg-[#1b1b19] p-[10px] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/60">
+    <div className="w-full rounded-[40px] bg-device-frame p-[10px] shadow-device ring-1 ring-black/60">
       <div className="relative flex h-[560px] flex-col overflow-hidden rounded-[30px] bg-surface">
         {/* dynamic island */}
         <div

@@ -4,7 +4,7 @@ name: Riffpad-design-system
 description: |
   Riffpad's own "Console-Mobile" design language. A terminal console and a
   mobile remote control fused into one system: monospace-first type, warm
-  paper / deep console color pair, brand-amber accents, square geometry,
+  paper / dark-minimal color pair, GitHub-green accents, square geometry,
   minimal glyphs (>, //, ●) and a hero that shows the product as a live
   session on your phone. Deliberately distinct from manpage-style terminal
   marketing: no cream-only manpage canvas, no ASCII bracket bullets, no
@@ -24,8 +24,8 @@ that in one sentence: **a terminal console and a phone, fused**.
   Codex/Claude Code and the Riffpad phone app, syncing the same session.
   The terminal waits for approval; the phone shows the approval card — the
   product, not a metaphor.
-- The brand color is Riffpad amber (`#F7A501`), used on marketing surfaces
-  as the single warm accent against cool neutral ink.
+- The brand color is GitHub green (`#1A7F37` light / `#7EE787` dark),
+  used on marketing surfaces as the single accent against neutral ink.
 - Geometry is square. Nothing floats; every card earns its place with a
   1px hairline and a very soft shadow.
 
@@ -49,8 +49,8 @@ flavor is kept through type, console surfaces, and a single product mockup
 | `--mute` | `#73736A` | Metadata, captions |
 | `--hairline` | `rgba(25,25,23,0.12)` | 1px borders/dividers |
 | `--hairline-strong` | `#191917` | Focused/active borders |
-| `--accent` | `#F7A501` | Brand CTA, highlights |
-| `--accent-ink` | `#191917` | Text on accent fills |
+| `--accent` | `#1A7F37` | Brand CTA, highlights (GitHub light green; the bright `#7EE787` fails contrast on warm paper) |
+| `--accent-ink` | `#FFFFFF` | Text on accent fills |
 | `--success` | `#16A34A` | Running / connected states |
 | `--warning` | `#D97706` | Approval request states |
 | `--danger` | `#DC2626` | Reject / destructive states |
@@ -62,34 +62,63 @@ flavor is kept through type, console surfaces, and a single product mockup
 
 ### Dark theme
 
+The dark theme uses the "Dark Minimal Terminal" palette from the author's
+site (projs/me): neutral near-black surfaces plus GitHub green. Status
+colors come from the GitHub dark scale. The hero's terminal mockup uses
+the same neutral dark family, kept dark in both page themes (see "Mockup
+palette" below).
+
 | Token | Hex | Usage |
 |---|---|---|
-| `--canvas` | `#0D0D0C` | Page background |
-| `--surface` | `#151514` | Cards, header |
-| `--surface-muted` | `#1D1D1B` | Hover fills |
-| `--ink` | `#F5F4F0` | Headlines, primary text |
-| `--body` | `#B9B7B0` | Paragraph text |
-| `--mute` | `#8A887F` | Metadata, captions |
-| `--hairline` | `rgba(245,244,240,0.10)` | 1px borders/dividers |
-| `--hairline-strong` | `#F5F4F0` | Focused/active borders |
-| `--accent` | `#FFB224` | Brand CTA, highlights |
+| `--canvas` | `#0B0B0C` | Page background |
+| `--surface` | `#121214` | Cards, header |
+| `--surface-muted` | `#1A1A1D` | Hover fills |
+| `--ink` | `#E8E6E3` | Headlines, primary text |
+| `--body` | `#A8A8AD` | Paragraph text |
+| `--mute` | `#7C7C82` | Metadata, captions |
+| `--hairline` | `rgba(255,255,255,0.10)` | 1px borders/dividers |
+| `--hairline-strong` | `rgba(255,255,255,0.22)` | Focused/active borders |
+| `--accent` | `#7EE787` | Brand CTA, highlights (GitHub green, shared with the author's site) |
 | `--accent-ink` | `#191917` | Text on accent fills |
-| `--success` | `#4ADE80` | Running / connected states |
-| `--warning` | `#FBBF24` | Approval request states |
-| `--danger` | `#F87171` | Reject / destructive states |
-| `--info` | `#60A5FA` | Informational states |
-| `--console` | `#080807` | Terminal/console surfaces |
-| `--console-elevated` | `#151514` | Console inner cards |
-| `--on-console` | `#F5F4F0` | Text on console |
-| `--on-console-mute` | `#8A887F` | Secondary text on console |
+| `--success` | `#7EE787` | Running / connected states |
+| `--warning` | `#D29922` | Approval request states |
+| `--danger` | `#F85149` | Reject / destructive states |
+| `--info` | `#58A6FB` | Informational states |
+| `--console` | `#060607` | Terminal/console surfaces |
+| `--console-elevated` | `#0B0B0C` | Console inner cards |
+| `--on-console` | `#E8E6E3` | Text on console |
+| `--on-console-mute` | `#7C7C82` | Secondary text on console |
 
 Rules:
 
-- Amber is the only marketing accent. Use it for the primary CTA, hero
-  highlights, focus rings, and status dots. Never tint whole sections.
+- GitHub green is the only marketing accent: deep `#1A7F37` in light,
+  bright `#7EE787` in dark. Use it for the primary CTA, hero highlights,
+  focus rings, and status dots. Never tint whole sections.
 - Status colors (success/warning/danger/info) live inside console
   surfaces and approval UI, not on marketing chrome.
 - Both themes must keep text contrast ≥ 4.5:1 (WCAG AA).
+
+### Mockup palette (theme-invariant)
+
+The device mockups keep their own colors in both page themes, like real
+devices on any desktop. The terminal uses the same neutral dark family as
+the page dark theme, with GitHub-scale accent colors; the phone frame and
+macOS traffic lights are fixed realism colors.
+
+| Token | Hex | Usage |
+|---|---|---|
+| `--term-bg` | `#121214` | Terminal body |
+| `--term-bar` | `#0B0B0C` | Terminal title bar |
+| `--term-border` | `#2A2A2E` | Terminal outer border |
+| `--term-fg` | `#E8E6E3` | Terminal text |
+| `--term-mute` | `#7C7C82` | Terminal secondary text |
+| `--term-green` | `#7EE787` | `✓` success lines |
+| `--term-blue` | `#58A6FB` | `▸` tool-call lines |
+| `--term-yellow` | `#D29922` | `!` waiting lines |
+| `--term-orange` | `#F0883E` | Commands sent from phone |
+| `--term-cyan` | `#76E3EA` | Prompt path |
+| `--device-frame` | `#1B1B19` | Phone bezel |
+| `--mac-red` / `--mac-yellow` / `--mac-green` | `#FF5F57` / `#FEBC2E` / `#28C840` | macOS traffic lights |
 
 ## 3. Typography
 
@@ -184,16 +213,27 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 ### Feature bento
 
-- `// features` label, then a 2×2 grid of cards (`surface`, `md` radius,
-  1px hairline).
-- Each card: `>` glyph, bold title, body description.
+- `// features` label, then a bento grid: `md:grid-cols-12` with 7/5
+  column spans (`surface`, `md` radius, 1px hairline).
+- Two cards, each with bold title, body description, and a small
+  product-flavored visual pinned to the card bottom (`mt-auto`):
+  - *Real-time sync, both ways*: a two-column visual showing both
+    directions — an `agent → phone` event tail with a blinking accent
+    cursor, and a `phone → agent` chat bubble pair.
+  - *Approve from anywhere*: a mini approval card.
+  Visuals sit in hairline boxes on `surface-muted`; status colors appear
+  only inside these approval/log artifacts.
 - Hover: border turns `hairline-strong`, transition 200ms.
 
 ### How it works
 
 - Three cards with large mono numbers `01 / 02 / 03`.
 - Desktop: connected by a dashed 1px line through the row.
-- Each card: number, title, description.
+- Each card: number, title, description, and a step visual pinned to the
+  bottom: a row of coding-CLI brand icons (vendored single-color SVG
+  paths in `components/brand-icons.ts`, mute → ink on hover), a
+  pseudo-QR pairing pattern (ink cells, accent finder blocks), and a
+  push-notification card.
 
 ### Security console
 
@@ -254,9 +294,9 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 | Breakpoint | Behavior |
 |---|---|
-| ≥1024px | Two-column hero, 3-step row with dashed connector, bento 2×2 |
-| 768–1023px | Hero stacks; bento stays 2×2 |
-| <768px | Single column; hero display 28px; bento 1×1; nav collapses |
+| ≥1024px | Two-column hero, 3-step row with dashed connector, bento 7/5 spans |
+| 768–1023px | Hero stacks; bento keeps 7/5 spans |
+| <768px | Single column; hero display 28px; bento stacks 1×1; nav collapses |
 
 Touch targets ≥ 44px; focus rings visible in accent color; no horizontal
 scroll.

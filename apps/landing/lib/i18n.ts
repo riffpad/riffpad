@@ -27,7 +27,6 @@ const en = {
         { text: "run_tests  go test ./...", tone: "info" },
         { text: "waiting for approval · delete src/old.ts", tone: "warn" },
       ],
-      status: "riffpad daemon · e2ee ●",
       fromPhone: "⏎ phone",
       approvedLine: "approved from phone · resuming agent",
       rejectedLine: "rejected from phone · agent paused",
@@ -104,24 +103,14 @@ const en = {
     subtitle: "No more camping next to the laptop while a long task runs.",
     items: [
       {
-        title: "Real-time supervision",
+        title: "Real-time sync, both ways",
         description:
-          "Structured events for status, tool calls, file changes and commands — with a terminal fallback when a CLI doesn't expose them.",
+          "Status, tool calls and file changes stream to your phone as they happen — and you can talk back: send a new instruction to a running session and your agent changes direction mid-flight.",
       },
       {
         title: "Approve from anywhere",
         description:
           "Approval requests become push notifications. One tap to allow, deny, or edit the condition before saying yes.",
-      },
-      {
-        title: "Steer mid-flight",
-        description:
-          "Send a new instruction to a running session from your phone. Your agent changes direction while you stay away from the desk.",
-      },
-      {
-        title: "Privacy by construction",
-        description:
-          "Agents run on your machine with your keys and your repos. The relay is zero-knowledge: it routes ciphertext and stores nothing.",
       },
     ],
   },
@@ -133,7 +122,7 @@ const en = {
       {
         title: "Install the daemon",
         description:
-          "One binary on macOS or Linux. It wraps or attaches to your CLI sessions and owns the keys locally.",
+          "One binary with adaptors for the coding CLIs you already use. It wraps or attaches to your sessions and owns the keys locally.",
       },
       {
         title: "Pair your phone",
@@ -247,7 +236,6 @@ const zh: typeof en = {
         { text: "run_tests  go test ./...", tone: "info" },
         { text: "等待审批 · 删除 src/old.ts", tone: "warn" },
       ],
-      status: "riffpad daemon · 端到端加密 ●",
       fromPhone: "⏎ 手机",
       approvedLine: "手机端已批准 · 继续执行",
       rejectedLine: "手机端已拒绝 · agent 暂停",
@@ -324,24 +312,14 @@ const zh: typeof en = {
     subtitle: "长任务跑着的时候，不用再守着电脑。",
     items: [
       {
-        title: "实时监督",
+        title: "双向实时同步",
         description:
-          "状态、工具调用、文件变更与命令都有结构化事件；CLI 不提供结构化输出时，自动降级到终端视图。",
+          "状态、工具调用、文件变更实时推送到手机；你也可以随时发回新指令，agent 不中断任务就能改变方向。",
       },
       {
         title: "随时随地审批",
         description:
           "审批请求变成推送通知。手机上同意、拒绝，或先修改条件再放行。",
-      },
-      {
-        title: "远程转向",
-        description:
-          "给正在运行的会话发一条新指令，agent 在不碰电脑的情况下改变方向。",
-      },
-      {
-        title: "安全是默认项",
-        description:
-          "Agent 跑在你自己的电脑上，用自己的 key 和仓库；中继只转发密文，不落盘。",
       },
     ],
   },
@@ -353,7 +331,7 @@ const zh: typeof en = {
       {
         title: "安装 daemon",
         description:
-          "macOS / Linux 单二进制，包装或附着你的 CLI 会话，密钥只留在本机。",
+          "单二进制，内置各主流 coding CLI 的适配器；包装或附着你的会话，密钥只留在本机。",
       },
       {
         title: "手机扫码配对",

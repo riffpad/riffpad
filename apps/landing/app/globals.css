@@ -13,9 +13,9 @@
   --hairline: rgba(25, 25, 23, 0.1);
   --hairline-strong: rgba(25, 25, 23, 0.42);
 
-  --accent: #f7a501;
-  --accent-hover: #dd9001;
-  --accent-ink: #191917;
+  --accent: #1a7f37;
+  --accent-hover: #146c2e;
+  --accent-ink: #ffffff;
 
   --success: 22 163 74;
   --warning: 217 119 6;
@@ -26,32 +26,53 @@
   --console-elevated: #ecebe6;
   --on-console: #2b2b26;
   --on-console-mute: #8a887f;
+
+  /* Terminal mockup — neutral dark (same family as the page dark theme),
+     kept dark in both page themes like a real terminal window. */
+  --term-bg: #121214;
+  --term-bar: #0b0b0c;
+  --term-border: #2a2a2e;
+  --term-fg: #e8e6e3;
+  --term-mute: #7c7c82;
+  --term-green: #7ee787;
+  --term-blue: #58a6fb;
+  --term-yellow: #d29922;
+  --term-orange: #f0883e;
+  --term-cyan: #76e3ea;
+
+  /* Device frame + macOS traffic lights — same in both themes. */
+  --device-frame: #1b1b19;
+  --mac-red: #ff5f57;
+  --mac-yellow: #febc2e;
+  --mac-green: #28c840;
 }
 
 [data-theme="dark"] {
-  --canvas: #0d0d0c;
-  --surface: #151514;
-  --surface-muted: #1d1d1b;
+  /* Dark Minimal Terminal — same palette as the author's site (projs/me).
+     Status colors use the GitHub dark scale to match the accent. */
+  --canvas: #0b0b0c;
+  --surface: #121214;
+  --surface-muted: #1a1a1d;
 
-  --ink: #f5f4f0;
-  --body: #b9b7b0;
-  --mute: #8a887f;
-  --hairline: rgba(245, 244, 240, 0.05);
-  --hairline-strong: rgba(245, 244, 240, 0.12);
+  --ink: #e8e6e3;
+  --body: #a8a8ad;
+  --mute: #7c7c82;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --hairline-strong: rgba(255, 255, 255, 0.22);
 
-  --accent: #ffb224;
-  --accent-hover: #f7a501;
+  --accent: #7ee787;
+  --accent-hover: #a4f0ba;
   --accent-ink: #191917;
 
-  --success: 74 222 128;
-  --warning: 251 191 36;
-  --danger: 248 113 113;
-  --info: 96 165 250;
+  --success: 126 231 135;
+  --warning: 210 153 34;
+  --danger: 248 81 73;
+  --info: 88 166 251;
 
-  --console: #080807;
-  --console-elevated: #151514;
-  --on-console: #f5f4f0;
-  --on-console-mute: #8a887f;
+  --console: #060607;
+  --console-elevated: #0b0b0c;
+  --on-console: #e8e6e3;
+  --on-console-mute: #7c7c82;
 }
 
 @layer base {
