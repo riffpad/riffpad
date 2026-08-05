@@ -27,31 +27,32 @@ function getSystemTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    return stored === "light" || stored === "dark" ? stored : getSystemTheme();
-  });
+  const [theme, setThemeState] = useState<Theme>("light");
 
   useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    const initial =
+      stored === "light" || stored === "dark" ? stored : getSystemTheme();
+    setThemeState(initial);
+    document.documentElement.dataset.theme = initial;
+
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
       const storedNow = localStorage.getItem(STORAGE_KEY);
       if (storedNow !== "light" && storedNow !== "dark") {
-        setThemeState(media.matches ? "dark" : "light");
+        const next = media.matches ? "dark" : "light";
+        setThemeState(next);
+        document.documentElement.dataset.theme = next;
       }
     };
     media.addEventListener("change", handler);
     return () => media.removeEventListener("change", handler);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
   const setTheme = (next: Theme) => {
     setThemeState(next);
     localStorage.setItem(STORAGE_KEY, next);
+    document.documentElement.dataset.theme = next;
   };
 
   return (
