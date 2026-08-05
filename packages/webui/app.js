@@ -146,12 +146,14 @@ async function createSession(ev) {
     body: JSON.stringify({
       name: $("s-name").value,
       prompt: $("s-prompt").value,
+      cli: $("s-cli").value,
       cwd: $("s-cwd").value
     })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "启动失败");
   $("s-name").value = ""; $("s-prompt").value = ""; $("s-cwd").value = "";
+  $("s-cli").value = "claude";
   await refreshSessions();
   openDetail(data.id, data.name);
 }

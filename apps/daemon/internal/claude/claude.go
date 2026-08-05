@@ -72,7 +72,7 @@ func New(req adapter.CreateRequest) *Claude {
 	}
 }
 
-func (c *Claude) ID() string              { return c.id }
+func (c *Claude) ID() string                    { return c.id }
 func (c *Claude) Events() <-chan protocol.Event { return c.events }
 func (c *Claude) Meta() protocol.SessionStartPayload {
 	return protocol.SessionStartPayload{Name: c.name, CLI: "claude", Cwd: c.cwd}
@@ -116,7 +116,6 @@ func (c *Claude) spawn(ctx context.Context) error {
 		return fmt.Errorf("write settings: %w", err)
 	}
 	args := []string{
-		"-p",
 		"--input-format", "stream-json",
 		"--output-format", "stream-json",
 		"--verbose",
@@ -147,6 +146,15 @@ func (c *Claude) spawn(ctx context.Context) error {
 	c.stdin = stdin
 	go c.readLoop(stdout)
 	go c.copyStderr(stderr)
+	// Host-mode control protocol: register hooks so the daemon can answer
+	// UserPromptSubmit callbacks. Without this, prompts still work, but hook
+	// notifications would be missing and future approval events would not
+	// reach the adapter.
+	go func() {
+		if err := c.initControl(); err != nil {
+			log.Printf("claude[%s] control initialize: %v", c.id, err)
+		}
+	}()
 	go func() {
 		<-c.stopCh
 		if c.cmd != nil && c.cmd.Process != nil {
@@ -154,6 +162,28 @@ func (c *Claude) spawn(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+// initControl sends the stream-json control-protocol initialize frame.
+// Claude 2.1.x requires camelCase matchers/hookCallbackIds arrays.
+func (c *Claude) initControl() error {
+	msg := map[string]any{
+		"type": "control_request",
+		"request": map[string]any{
+			"subtype":    "initialize",
+			"request_id": "riffpad_init_1",
+			"hooks": map[string]any{
+				"UserPromptSubmit": []any{
+					map[string]any{
+						"matchers":        []any{""},
+						"hookCallbackIds": []any{"hook_user_prompt"},
+					},
+				},
+			},
+			"sdk_mcp_servers": []any{},
+		},
+	}
+	return c.writeLine(msg)
 }
 
 // Stop terminates the wrapped process.
@@ -308,6 +338,7 @@ func (c *Claude) handleLine(line []byte) {
 		Subtype   string          `json:"subtype"`
 		RequestID string          `json:"request_id"`
 		Message   json.RawMessage `json:"message"`
+		Request   json.RawMessage `json:"request"`
 	}
 	if err := json.Unmarshal(line, &raw); err != nil {
 		return
@@ -315,19 +346,24 @@ func (c *Claude) handleLine(line []byte) {
 	switch raw.Type {
 	case "system":
 		c.handleSystem(raw.Subtype, line)
+	case "control_response":
+		// initialize ack; nothing to do.
 	case "assistant":
 		c.handleAssistant(raw.Message)
 	case "user":
 		c.handleUser(raw.Message)
-	case "control_request":
-		c.handleControlRequest(raw.RequestID, raw.Message)
+	case "control_request", "sdk_control_request":
+		body := raw.Message
+		if len(body) == 0 {
+			body = raw.Request
+		}
+		c.handleControlRequest(raw.RequestID, body)
 	case "result":
 		status := protocol.StatusDone
 		if raw.Subtype == "error" || raw.Subtype == "error_max_turns" {
 			status = protocol.StatusError
 		}
 		_ = c.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: status})
-		_ = c.emit(protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: raw.Subtype})
 	}
 }
 
@@ -425,7 +461,12 @@ func (c *Claude) handleUser(msg json.RawMessage) {
 
 func (c *Claude) handleControlRequest(requestID string, msg json.RawMessage) {
 	var cr struct {
-		Type      string `json:"type"`
+		Type     string `json:"type"`
+		Subtype  string `json:"subtype"`
+		Callback string `json:"callback_id"`
+		Input    struct {
+			HookEventName string `json:"hook_event_name"`
+		} `json:"input"`
 		ToolUseID string `json:"tool_use_id"`
 		ToolUse   struct {
 			Name  string         `json:"name"`
@@ -433,6 +474,16 @@ func (c *Claude) handleControlRequest(requestID string, msg json.RawMessage) {
 		} `json:"tool_use"`
 	}
 	if err := json.Unmarshal(msg, &cr); err != nil {
+		return
+	}
+	if cr.Subtype == "hook_callback" {
+		c.replyHook(requestID, cr.Input.HookEventName)
+		return
+	}
+	// Old SDK format used message.type == "request_permission"; the control
+	// protocol may also emit subtype == "permission". Everything else (e.g.
+	// mcp_message) is ignored.
+	if cr.Subtype == "" && cr.Type != "request_permission" {
 		return
 	}
 	ch := make(chan string, 1)
@@ -461,6 +512,30 @@ func (c *Claude) handleControlRequest(requestID string, msg json.RawMessage) {
 			log.Printf("claude[%s] write control_response: %v", c.id, err)
 		}
 	}()
+}
+
+// replyHook answers a control-protocol hook callback. Prompt-related hooks are
+// allowed immediately; the daemon already forwarded the prompt to the user.
+func (c *Claude) replyHook(requestID, hookEventName string) {
+	if hookEventName == "" {
+		hookEventName = "UserPromptSubmit"
+	}
+	resp := map[string]any{
+		"type": "control_response",
+		"response": map[string]any{
+			"subtype":    "success",
+			"request_id": requestID,
+			"response": map[string]any{
+				"hookSpecificOutput": map[string]any{
+					"hookEventName": hookEventName,
+					"decision":      map[string]any{"behavior": "allow"},
+				},
+			},
+		},
+	}
+	if err := c.writeLine(resp); err != nil {
+		log.Printf("claude[%s] write hook response: %v", c.id, err)
+	}
 }
 
 func (c *Claude) emit(typ string, payload any) error {

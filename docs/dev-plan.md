@@ -212,7 +212,7 @@
 | M3.4 | 局域网直连 / WebRTC（relay 退化信令） | `[ ]` | 局域网内无中继可用 | — |
 | M3.5 | Windows daemon | `[ ]` | 安装包 + 自启动 | — |
 | M3.6 | 团队版（多人共享设备/会话） | `[ ]` | 权限模型可用 | — |
-| M3.7 | 无 tmux 注入：Kimi ACP / Codex app-server / Claude host 控制协议 | `[ ]` | 调研完成（见 agent-injection-research.md），三个通道均已实测可行；实现按 Kimi → Codex → Claude 排序 | #52 |
+| M3.7 | 无 tmux 注入：Kimi ACP / Codex app-server / Claude host 控制协议 | `[x]` | 三个适配器已实现并真机实测（回复/事件流/审批协议均通）：`riffpad run --cli kimi/codex/claude` | #55 #52 |
 
 ---
 
