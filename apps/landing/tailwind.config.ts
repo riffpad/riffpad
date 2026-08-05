@@ -29,6 +29,20 @@ const config: Config = {
         "console-elevated": "var(--console-elevated)",
         "on-console": "var(--on-console)",
         "on-console-mute": "var(--on-console-mute)",
+        "term-bg": "var(--term-bg)",
+        "term-bar": "var(--term-bar)",
+        "term-border": "var(--term-border)",
+        "term-fg": "var(--term-fg)",
+        "term-mute": "var(--term-mute)",
+        "term-green": "var(--term-green)",
+        "term-blue": "var(--term-blue)",
+        "term-yellow": "var(--term-yellow)",
+        "term-orange": "var(--term-orange)",
+        "term-cyan": "var(--term-cyan)",
+        "device-frame": "var(--device-frame)",
+        "mac-red": "var(--mac-red)",
+        "mac-yellow": "var(--mac-yellow)",
+        "mac-green": "var(--mac-green)",
       },
       fontFamily: {
         mono: [
@@ -55,6 +69,8 @@ const config: Config = {
       },
       boxShadow: {
         card: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
+        terminal: "0 18px 50px -12px rgba(0,0,0,0.28)",
+        device: "0 24px 60px -20px rgba(0,0,0,0.45)",
       },
       maxWidth: {
         content: "960px",
