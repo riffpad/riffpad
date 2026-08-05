@@ -98,7 +98,7 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 				hostID = "riffpad-host"
 			}
 		}
-		s.rc = newRelayClient(cfg.RelayURL, hostID, cfg.HostToken, logger, s.handleRelayJoin)
+		s.rc = newRelayClient(cfg.RelayURL, hostID, cfg.HostSecret, logger, s.handleRelayJoin)
 	}
 	return s
 }
@@ -150,8 +150,19 @@ func (s *Server) Start() error {
 	if s.rc != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.relayCancel = cancel
-		go s.rc.run(ctx)
-		s.announceSessions()
+		if err := s.rc.ensureRegistered(ctx, s.cfg.RegistrationKey, func(hostID, secret string) {
+			s.cfg.HostID = hostID
+			s.cfg.HostSecret = secret
+			if err := config.Save(s.dataDir, s.cfg); err != nil {
+				s.log.Printf("save host credentials: %v", err)
+			}
+		}); err != nil {
+			s.log.Printf("relay registration failed: %v", err)
+			cancel()
+		} else {
+			go s.rc.run(ctx)
+			s.announceSessions()
+		}
 	}
 	if err := s.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err

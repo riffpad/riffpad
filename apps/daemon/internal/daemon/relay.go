@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -77,7 +78,7 @@ func (t *relayViewerTransport) Close() error {
 type relayClient struct {
 	baseURL string
 	hostID  string
-	token   string
+	secret  string
 	log     *log.Logger
 
 	onJoin func(RelayJoin)
@@ -87,11 +88,11 @@ type relayClient struct {
 	viewers map[string]*relayViewer
 }
 
-func newRelayClient(baseURL, hostID, token string, logger *log.Logger, onJoin func(RelayJoin)) *relayClient {
+func newRelayClient(baseURL, hostID, secret string, logger *log.Logger, onJoin func(RelayJoin)) *relayClient {
 	return &relayClient{
 		baseURL: baseURL,
 		hostID:  hostID,
-		token:   token,
+		secret:  secret,
 		log:     logger,
 		onJoin:  onJoin,
 		viewers: map[string]*relayViewer{},
@@ -116,7 +117,7 @@ func (c *relayClient) run(ctx context.Context) {
 
 func (c *relayClient) runOnce(ctx context.Context) error {
 	wsURL := strings.TrimSuffix(c.baseURL, "/") + "/ws/host?hostId=" +
-		url.QueryEscape(c.hostID) + "&token=" + url.QueryEscape(c.token)
+		url.QueryEscape(c.hostID) + "&token=" + url.QueryEscape(c.secret)
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
 		return fmt.Errorf("dial relay: %w", err)
@@ -162,6 +163,53 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 	c.mu.Unlock()
 	_ = conn.Close()
 	return fmt.Errorf("relay connection closed")
+}
+
+// ensureRegistered registers this host with the relay when no per-host secret
+// is stored yet, then persists the issued credentials.
+func (c *relayClient) ensureRegistered(ctx context.Context, regKey string, persist func(hostID, secret string)) error {
+	c.mu.Lock()
+	haveSecret := c.secret != ""
+	c.mu.Unlock()
+	if haveSecret {
+		return nil
+	}
+	httpURL := strings.TrimSuffix(c.baseURL, "/")
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+	body, _ := json.Marshal(map[string]string{
+		"name":            c.hostID,
+		"registrationKey": regKey,
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, httpURL+"/api/hosts/register", strings.NewReader(string(body)))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("register with relay: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("register with relay: status %d", resp.StatusCode)
+	}
+	var out struct {
+		HostID     string `json:"hostId"`
+		HostSecret string `json:"hostSecret"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.hostID = out.HostID
+	c.secret = out.HostSecret
+	c.mu.Unlock()
+	c.log.Printf("registered with relay host=%s", out.HostID)
+	if persist != nil {
+		persist(out.HostID, out.HostSecret)
+	}
+	return nil
 }
 
 func (c *relayClient) viewerTransport(id string) viewerTransport {

@@ -6,7 +6,12 @@ primary_region = "hkg"
 
 [env]
   RELAY_PORT = "9090"
-  RELAY_TOKEN = "change-me-to-a-long-random-token"
+  REGISTRATION_KEY = "change-me-to-a-long-random-key"
+  RELAY_DATA_DIR = "/data"
+
+[mounts]
+  source = "data"
+  destination = "/data"
 
 [http_service]
   internal_port = 9090

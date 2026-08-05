@@ -8,7 +8,7 @@ Type=simple
 User=riffpad
 Group=riffpad
 EnvironmentFile=/etc/riffpad-relay.env
-ExecStart=/usr/local/bin/relay --port 9090 --token ${RELAY_TOKEN}
+ExecStart=/usr/local/bin/relay --port 9090 --registration-key ${REGISTRATION_KEY} --data-dir ${RELAY_DATA_DIR}
 Restart=always
 RestartSec=3
 

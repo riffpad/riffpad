@@ -17,6 +17,8 @@ type Config struct {
 	RelayURL  string `json:"relayUrl,omitempty"`
 	HostID    string `json:"hostId,omitempty"`
 	HostToken string `json:"hostToken,omitempty"`
+	HostSecret string `json:"hostSecret,omitempty"`
+	RegistrationKey string `json:"-"`
 }
 
 // Default returns the default configuration.
@@ -76,6 +78,21 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("RIFFPAD_HOST_TOKEN"); v != "" {
 		cfg.HostToken = v
 	}
+	if v := os.Getenv("RIFFPAD_HOST_SECRET"); v != "" {
+		cfg.HostSecret = v
+	}
+	if v := os.Getenv("RIFFPAD_REGISTRATION_KEY"); v != "" {
+		cfg.RegistrationKey = v
+	}
+}
+
+// Save persists the configuration back to config.json.
+func Save(dir string, cfg *Config) error {
+	raw, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o600)
 }
 
 // Keys holds the daemon's long-lived identity key pairs.

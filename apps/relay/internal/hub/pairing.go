@@ -2,6 +2,7 @@ package hub
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"math/big"
 	"strings"
 )
@@ -18,4 +19,12 @@ func newCode() string {
 		b.WriteByte(codeAlphabet[n.Int64()])
 	}
 	return b.String()
+}
+
+func newSecret() string {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
 }

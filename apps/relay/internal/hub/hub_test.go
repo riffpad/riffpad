@@ -15,12 +15,26 @@ import (
 )
 
 func TestRelayRoutesViewerToHost(t *testing.T) {
-	h := New(log.New(io.Discard, "", 0), "secret")
+	h := New(log.New(io.Discard, "", 0), "regkey", t.TempDir())
 	ts := httptest.NewServer(h.Handler())
 	defer ts.Close()
 
+	// 0. Register a host and connect with its per-host secret.
+	resp, err := http.Post(ts.URL+"/api/hosts/register", "application/json", strings.NewReader(`{"name":"laptop","registrationKey":"regkey"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reg struct {
+		HostID     string `json:"hostId"`
+		HostSecret string `json:"hostSecret"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&reg); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
 	// 1. Host connects and announces a session.
-	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=h1&token=secret"
+	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + reg.HostID + "&token=" + reg.HostSecret
 	hostConn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +47,7 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 	}
 
 	// 2. Create pairing and pair a device.
-	resp, err := http.Post(ts.URL+"/api/pairings", "application/json", strings.NewReader(`{"hostId":"h1","curve":"p256","publicKey":"AAA"}`))
+	resp, err = http.Post(ts.URL+"/api/pairings", "application/json", strings.NewReader(`{"hostId":"`+reg.HostID+`","curve":"p256","publicKey":"AAA"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +130,7 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 }
 
 func TestPairingRequiresOnlineHost(t *testing.T) {
-	h := New(log.New(io.Discard, "", 0), "")
+	h := New(log.New(io.Discard, "", 0), "", t.TempDir())
 	ts := httptest.NewServer(h.Handler())
 	defer ts.Close()
 	resp, err := http.Post(ts.URL+"/api/pairings", "application/json", strings.NewReader(`{"hostId":"offline","curve":"p256","publicKey":"AAA"}`))
@@ -126,5 +140,72 @@ func TestPairingRequiresOnlineHost(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404 for offline host, got %d", resp.StatusCode)
+	}
+}
+
+func TestHostRegistrationAndPersistence(t *testing.T) {
+	dir := t.TempDir()
+	h := New(log.New(io.Discard, "", 0), "regkey", dir)
+	ts := httptest.NewServer(h.Handler())
+
+	resp, err := http.Post(ts.URL+"/api/hosts/register", "application/json", strings.NewReader(`{"name":"laptop","registrationKey":"wrong"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for wrong registration key, got %d", resp.StatusCode)
+	}
+
+	resp, err = http.Post(ts.URL+"/api/hosts/register", "application/json", strings.NewReader(`{"name":"laptop","registrationKey":"regkey"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reg struct {
+		HostID     string `json:"hostId"`
+		HostSecret string `json:"hostSecret"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&reg); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if reg.HostID == "" || reg.HostSecret == "" {
+		t.Fatal("registration returned empty credentials")
+	}
+
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + reg.HostID + "&token=" + reg.HostSecret
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("host ws with secret should connect: %v", err)
+	}
+	conn.Close()
+
+	badURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + reg.HostID + "&token=wrong"
+	if _, _, err := websocket.DefaultDialer.Dial(badURL, nil); err == nil {
+		t.Fatal("host ws with wrong secret should be rejected")
+	}
+
+	// A fresh hub on the same data dir must still know the host.
+	h2 := New(log.New(io.Discard, "", 0), "regkey", dir)
+	if _, ok := h2.hostRecords[reg.HostID]; !ok {
+		t.Fatal("host record not persisted across relay restart")
+	}
+}
+
+func TestPairingRateLimit(t *testing.T) {
+	h := New(log.New(io.Discard, "", 0), "regkey", t.TempDir())
+	ts := httptest.NewServer(h.Handler())
+	defer ts.Close()
+
+	var got429 bool
+	for i := 0; i < 11; i++ {
+		resp, _ := http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(`{"code":"WRONG","name":"x","curve":"p256","publicKey":"BBB"}`))
+		if resp.StatusCode == http.StatusTooManyRequests {
+			got429 = true
+		}
+		resp.Body.Close()
+	}
+	if !got429 {
+		t.Fatal("expected a 429 after exceeding the per-IP rate limit")
 	}
 }

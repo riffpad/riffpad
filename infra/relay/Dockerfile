@@ -9,6 +9,7 @@ RUN cd apps/relay && CGO_ENABLED=0 go build -o /out/relay .
 FROM alpine:3.20
 RUN adduser -D -H riffpad
 COPY --from=build /out/relay /usr/local/bin/relay
+RUN mkdir -p /data && chown riffpad /data
 USER riffpad
 EXPOSE 9090
 ENTRYPOINT ["relay"]

@@ -1,7 +1,8 @@
 # Riffpad Relay 部署
 
 relay 是云端 WebSocket 中继：用户电脑上的 daemon（host）和手机（viewer）都主动连接它，
-不需要端口转发。当前为单实例、内存态（元数据不落库），适合开发/小规模；Postgres 持久化在 M1.8。
+不需要端口转发。host 与已配对设备会持久化到数据目录，relay 重启不丢；会话路由为内存态。
+Postgres 持久化在 M1.8。
 
 ## 方案对比
 
@@ -20,10 +21,10 @@ relay 是云端 WebSocket 中继：用户电脑上的 daemon（host）和手机�
 curl -L https://fly.io/install.sh | sh
 fly auth login
 
-# 2. 改 infra/relay/fly.toml：app 名 + RELAY_TOKEN（强随机串）
+# 2. 改 infra/relay/fly.toml：app 名 + REGISTRATION_KEY（强随机串）
 # 3. 在仓库根目录部署
 fly launch --no-deploy --name riffpad-relay --dockerfile infra/relay/Dockerfile
-fly secrets set RELAY_TOKEN="$(openssl rand -hex 24)"
+fly secrets set REGISTRATION_KEY="$(openssl rand -hex 24)"
 fly deploy
 
 # 4. 拿到公网地址（自动 HTTPS）
@@ -34,11 +35,12 @@ fly open
 
 ```bash
 export RIFFPAD_RELAY_URL=wss://riffpad-relay.fly.dev
-export RIFFPAD_HOST_ID=my-laptop
-export RIFFPAD_HOST_TOKEN=<与 RELAY_TOKEN 一致>
+export RIFFPAD_REGISTRATION_KEY=<与 REGISTRATION_KEY 一致>
 ```
 
-`riffpad pair` 会返回 relay 页面地址（https://…/?pair=CODE），手机扫码/输码即可。
+首次启动 daemon 会自动向 relay 注册，获得专属 hostId + hostSecret 并保存到
+`~/.config/riffpad/config.json`；之后无需再带注册密钥。`riffpad pair` 会返回 relay
+页面地址（https://…/?pair=CODE），手机扫码/输码即可。
 
 ## VPS + Caddy 部署
 
@@ -47,7 +49,7 @@ export RIFFPAD_HOST_TOKEN=<与 RELAY_TOKEN 一致>
 useradd -r -m riffpad
 cp riffpad-relay.service /etc/systemd/system/
 cat > /etc/riffpad-relay.env <<EOF
-RELAY_TOKEN=$(openssl rand -hex 24)
+REGISTRATION_KEY=$(openssl rand -hex 24)
 EOF
 systemctl daemon-reload && systemctl enable --now riffpad-relay
 
@@ -69,6 +71,7 @@ relay 默认监听所有网卡（`:9090`）。电脑和手机连同一 WiFi 后�
 
 ## 安全提醒
 
-- `RELAY_TOKEN` 必须改强随机值，daemon 端 `RIFFPAD_HOST_TOKEN` 与之一致
+- `REGISTRATION_KEY` 必须改强随机值；daemon 首次注册后使用专属 hostSecret，不再共享密钥
+- relay 数据目录（hosts/devices）要持久化；生产建议挂载独立卷
 - relay 零知识：只转发加密信封，不落内容；但元数据（设备/会话）可见，公网部署建议尽早接 Postgres 与审计
 - 生产多实例需要共享会话路由（Redis pub/sub 或粘性连接），单实例阶段不需要

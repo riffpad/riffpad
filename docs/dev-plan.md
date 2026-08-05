@@ -149,7 +149,7 @@
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
 | M1.6 | WebSocket Hub + 房间路由 + 心跳重连 | `[x]` | Host/Viewer 路由、join/leave、会话同步（本地 E2E 验证通过） | — |
-| M1.7 | 配对 API + 设备 token | `[~]` | relay 配对 API 已实现（daemon 转发）；JWT/刷新留到部署阶段 | — |
+| M1.7 | 配对 API + 设备 token + per-host 注册密钥 | `[~]` | relay 配对 API + per-host 注册已实现（daemon 自动注册并持久化密钥）；JWT/账号体系 M2 | — |
 | M1.8 | 元数据存储（Postgres） | `[ ]` | 当前 relay 为内存态，内容不落库 | — |
 | M1.9 | 部署：Fly.io / Railway + 域名 + TLS + 基础监控 | `[ ]` | 待人工/运维：需要域名与部署平台 | — |
 
@@ -179,6 +179,7 @@
 | daemon 以主机身份接入 relay，attach 会话自动广播 | ✅ |
 | relay 配对：daemon 转发创建码，网页在 relay 端认领 | ✅ |
 | 端到端经 relay：配对 → 会话回放 → 实时消息 → 审批 allow | ✅ Node WebCrypto 客户端实测 |
+| per-host 注册密钥、relay 重启持久化、daemon 免密钥重连、配对 IP 限流 | ✅ 单测 + 本地实测 |
 | 公网部署（域名/TLS/Fly/Railway） | ⏳ 待人工 |
 
 ---

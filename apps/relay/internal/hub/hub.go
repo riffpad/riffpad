@@ -44,6 +44,13 @@ type Device struct {
 	CreatedAt time.Time      `json:"createdAt"`
 }
 
+type HostRecord struct {
+	ID        string    `json:"id"`
+	Secret    string    `json:"secret"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type hostConn struct {
 	id   string
 	conn *websocket.Conn
@@ -61,29 +68,42 @@ type viewerConn struct {
 }
 
 type Hub struct {
-	log   *log.Logger
-	token string
+	log     *log.Logger
+	regKey  string
+	dataDir string
 
 	mu           sync.Mutex
 	hosts        map[string]*hostConn
+	hostRecords  map[string]HostRecord
 	sessions     map[string]SessionMeta
 	sessionHosts map[string]string
 	viewers      map[string]*viewerConn
 	pairings     map[string]Pairing
 	devices      map[string]Device
+	rateLimits   map[string]ipCounter
 }
 
-func New(logger *log.Logger, token string) *Hub {
-	return &Hub{
+type ipCounter struct {
+	count       int
+	windowStart time.Time
+}
+
+func New(logger *log.Logger, regKey, dataDir string) *Hub {
+	h := &Hub{
 		log:          logger,
-		token:        token,
+		regKey:       regKey,
+		dataDir:      dataDir,
 		hosts:        map[string]*hostConn{},
+		hostRecords:  map[string]HostRecord{},
 		sessions:     map[string]SessionMeta{},
 		sessionHosts: map[string]string{},
 		viewers:      map[string]*viewerConn{},
 		pairings:     map[string]Pairing{},
 		devices:      map[string]Device{},
+		rateLimits:   map[string]ipCounter{},
 	}
+	h.loadStore()
+	return h
 }
 
 var upgrader = websocket.Upgrader{
@@ -96,6 +116,7 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/app.js", h.handleAsset)
 	mux.HandleFunc("/style.css", h.handleAsset)
 	mux.HandleFunc("/api/status", h.handleStatus)
+	mux.HandleFunc("/api/hosts/register", h.handleRegisterHost)
 	mux.HandleFunc("/api/pairings", h.handleCreatePairing)
 	mux.HandleFunc("/api/pair", h.handlePair)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
@@ -141,9 +162,47 @@ func (h *Hub) handleStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Hub) handleRegisterHost(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	var req struct {
+		Name            string `json:"name"`
+		RegistrationKey string `json:"registrationKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if h.regKey != "" && req.RegistrationKey != h.regKey {
+		writeError(w, http.StatusUnauthorized, "invalid registration key")
+		return
+	}
+	rec := HostRecord{
+		ID:        "h-" + protocol.NewID()[:12],
+		Secret:    newSecret(),
+		Name:      req.Name,
+		CreatedAt: time.Now(),
+	}
+	h.mu.Lock()
+	h.hostRecords[rec.ID] = rec
+	h.mu.Unlock()
+	h.saveHosts()
+	h.log.Printf("host registered id=%s name=%s", rec.ID, req.Name)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"hostId":     rec.ID,
+		"hostSecret": rec.Secret,
+	})
+}
+
 func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		methodNotAllowed(w)
+		return
+	}
+	if !h.allowRate("pairings", clientIP(r), 30, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
 	var req struct {
@@ -185,6 +244,10 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
+	if !h.allowRate("pair", clientIP(r), 10, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
 	var req struct {
 		Code      string         `json:"code"`
 		Name      string         `json:"name"`
@@ -198,9 +261,6 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 	code := strings.ToUpper(strings.TrimSpace(req.Code))
 	h.mu.Lock()
 	p, ok := h.pairings[code]
-	if ok {
-		delete(h.pairings, code)
-	}
 	h.mu.Unlock()
 	if !ok || time.Now().After(p.Expires) {
 		writeError(w, http.StatusUnauthorized, "invalid or expired pairing code")
@@ -215,13 +275,43 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.Lock()
 	h.devices[dev.ID] = dev
+	delete(h.pairings, code)
 	h.mu.Unlock()
+	h.saveDevices()
 	h.log.Printf("paired device=%s host=%s", dev.ID, p.HostID)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"deviceId":        dev.ID,
 		"serverPublicKey": p.PublicKey,
 		"hostId":          p.HostID,
 	})
+}
+
+func (h *Hub) allowRate(scope, ip string, limit int, window time.Duration) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	key := scope + "|" + ip
+	c, ok := h.rateLimits[key]
+	now := time.Now()
+	if !ok || now.Sub(c.windowStart) > window {
+		c = ipCounter{windowStart: now}
+	}
+	c.count++
+	if c.count > limit {
+		return false
+	}
+	h.rateLimits[key] = c
+	return true
+}
+
+func clientIP(r *http.Request) string {
+	ip := r.Header.Get("X-Forwarded-For")
+	if i := strings.Index(ip, ","); i >= 0 {
+		ip = ip[:i]
+	}
+	if ip == "" {
+		ip = strings.SplitN(r.RemoteAddr, ":", 2)[0]
+	}
+	return strings.TrimSpace(ip)
 }
 
 func (h *Hub) handleSessions(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +344,10 @@ func (h *Hub) handleHostWS(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	hostID := q.Get("hostId")
 	token := q.Get("token")
-	if hostID == "" || (h.token != "" && token != h.token) {
+	h.mu.Lock()
+	rec, ok := h.hostRecords[hostID]
+	h.mu.Unlock()
+	if !ok || token != rec.Secret {
 		writeError(w, http.StatusUnauthorized, "bad host credentials")
 		return
 	}
