@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const enc = new TextEncoder();
 const dec = new TextDecoder();
+const isRelay = typeof window.RIFFPAD_RELAY !== "undefined" && window.RIFFPAD_RELAY;
 
 const store = {
   get() {
@@ -294,6 +295,10 @@ function setConn(s) {
 }
 
 async function init() {
+  if (isRelay) {
+    $("create-form").classList.add("hidden");
+    $("stop-btn").classList.add("hidden");
+  }
   const dev = await ensureIdentity();
   refreshConn();
   setInterval(refreshConn, 5000);

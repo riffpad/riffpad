@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/mdp/qrterminal/v3 v3.0.0
 	github.com/riffpad/riffpad/packages/protocol v0.0.0
+	github.com/riffpad/riffpad/packages/webui v0.0.0
 )
 
 require (
@@ -14,3 +15,5 @@ require (
 )
 
 replace github.com/riffpad/riffpad/packages/protocol => ../../packages/protocol
+
+replace github.com/riffpad/riffpad/packages/webui => ../../packages/webui

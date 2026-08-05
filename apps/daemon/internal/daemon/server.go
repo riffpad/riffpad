@@ -16,19 +16,19 @@ import (
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
 	"github.com/riffpad/riffpad/apps/daemon/internal/claude"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
-	"github.com/riffpad/riffpad/apps/daemon/internal/webui"
 	"github.com/riffpad/riffpad/packages/protocol"
+	"github.com/riffpad/riffpad/packages/webui"
 )
 
 const version = "0.1.0-m0"
 
 // Device is a paired client (phone or web UI).
 type Device struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Curve     protocol.Curve  `json:"curve"`
-	PublicKey string          `json:"publicKey"`
-	CreatedAt time.Time       `json:"createdAt"`
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Curve     protocol.Curve `json:"curve"`
+	PublicKey string         `json:"publicKey"`
+	CreatedAt time.Time      `json:"createdAt"`
 }
 
 func (d Device) PublicKeyBytes() ([]byte, error) {
@@ -53,14 +53,16 @@ type session struct {
 
 // Server is the local daemon HTTP/WS server.
 type Server struct {
-	cfg     *config.Config
-	keys    *config.Keys
-	dataDir string
-	log     *log.Logger
-	factory adapter.Factory
-	httpSrv *http.Server
-	startedAt time.Time
-	sweepDone chan struct{}
+	cfg         *config.Config
+	keys        *config.Keys
+	dataDir     string
+	log         *log.Logger
+	factory     adapter.Factory
+	httpSrv     *http.Server
+	startedAt   time.Time
+	sweepDone   chan struct{}
+	rc          *relayClient
+	relayCancel context.CancelFunc
 
 	mu           sync.Mutex
 	devices      map[string]Device
@@ -87,6 +89,17 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		messageBuf:   map[string]string{},
 	}
 	s.loadDevices()
+	if cfg.RelayURL != "" {
+		hostID := cfg.HostID
+		if hostID == "" {
+			if hn, err := os.Hostname(); err == nil {
+				hostID = hn
+			} else {
+				hostID = "riffpad-host"
+			}
+		}
+		s.rc = newRelayClient(cfg.RelayURL, hostID, cfg.HostToken, logger, s.handleRelayJoin)
+	}
 	return s
 }
 
@@ -134,6 +147,12 @@ func (s *Server) Start() error {
 	s.httpSrv = &http.Server{Addr: addr, Handler: s.Handler()}
 	s.log.Printf("riffpad daemon %s listening on http://%s", version, addr)
 	go s.sweepLoop()
+	if s.rc != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.relayCancel = cancel
+		go s.rc.run(ctx)
+		s.announceSessions()
+	}
 	if err := s.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -142,6 +161,9 @@ func (s *Server) Start() error {
 
 // Shutdown stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.relayCancel != nil {
+		s.relayCancel()
+	}
 	select {
 	case <-s.sweepDone:
 	default:
@@ -178,9 +200,9 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	n := len(s.sessions)
 	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version":  version,
-		"port":     s.cfg.Port,
-		"sessions": n,
+		"version":   version,
+		"port":      s.cfg.Port,
+		"sessions":  n,
 		"startedAt": s.startedAt.Format(time.RFC3339),
 	})
 }
@@ -188,6 +210,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		methodNotAllowed(w)
+		return
+	}
+	if s.rc != nil {
+		s.createRemotePairing(w)
 		return
 	}
 	code := newPairingCode()
@@ -200,6 +226,33 @@ func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 		"url":       url,
 		"expiresAt": time.Now().Add(10 * time.Minute).Format(time.RFC3339),
 	})
+}
+
+func (s *Server) createRemotePairing(w http.ResponseWriter) {
+	httpURL := s.cfg.RelayURL
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+	body, _ := json.Marshal(map[string]string{
+		"hostId":    s.rc.hostID,
+		"curve":     "p256",
+		"publicKey": s.keys.P256Public,
+	})
+	resp, err := http.Post(strings.TrimSuffix(httpURL, "/")+"/api/pairings", "application/json", strings.NewReader(string(body)))
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "relay unreachable: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Code      string `json:"code"`
+		URL       string `json:"url"`
+		ExpiresAt string `json:"expiresAt"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		writeError(w, http.StatusBadGateway, "invalid relay response")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"code": out.Code, "url": out.URL, "expiresAt": out.ExpiresAt})
 }
 
 func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
@@ -259,8 +312,8 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"deviceId":         dev.ID,
-		"serverPublicKey":  protocol.EncodeKey(identity.PublicKey),
+		"deviceId":        dev.ID,
+		"serverPublicKey": protocol.EncodeKey(identity.PublicKey),
 	})
 }
 
@@ -375,6 +428,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.sessions[id] = sess
 	s.mu.Unlock()
+	s.announceSessions()
 	startEv, err := protocol.NewEvent(id, protocol.EventSessionStart, sess.meta)
 	if err == nil {
 		s.pumpEvent(sess, startEv)
@@ -482,8 +536,42 @@ func (s *Server) sweepOnce() {
 			ev, _ := protocol.NewEvent(sess.id, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: "process_exit"})
 			s.pumpEvent(sess, ev)
 			s.log.Printf("session %s marked ended (process gone)", sess.id)
+			s.announceSessions()
 		}
 	}
+}
+
+func (s *Server) handleRelayJoin(ji RelayJoin) {
+	ephPub, err := protocol.DecodeKey(ji.Eph)
+	if err != nil {
+		s.log.Printf("relay join invalid eph session=%s", ji.SessionID)
+		return
+	}
+	devPub, err := protocol.DecodeKey(ji.Pub)
+	if err != nil {
+		s.log.Printf("relay join invalid pub session=%s", ji.SessionID)
+		return
+	}
+	tr := s.rc.viewerTransport(ji.ViewerID)
+	if err := s.attachViewer(tr, ji.DeviceID, ji.SessionID, ephPub, ji.Curve, devPub); err != nil {
+		s.log.Printf("relay join rejected session=%s device=%s: %v", ji.SessionID, ji.DeviceID, err)
+	}
+}
+
+func (s *Server) announceSessions() {
+	if s.rc == nil {
+		return
+	}
+	s.mu.Lock()
+	list := make([]RelaySession, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		list = append(list, RelaySession{
+			ID: sess.id, Name: sess.meta.Name, CLI: sess.meta.CLI,
+			Cwd: sess.meta.Cwd, Status: sess.status,
+		})
+	}
+	s.mu.Unlock()
+	s.rc.announce(list)
 }
 
 func (s *Server) getSession(id string) *session {

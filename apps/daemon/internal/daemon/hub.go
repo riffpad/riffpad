@@ -4,26 +4,33 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/gorilla/websocket"
 	"github.com/riffpad/riffpad/packages/protocol"
 )
 
+// viewerTransport abstracts the connection to a viewer (local WebSocket or a
+// viewer routed through the relay).
+type viewerTransport interface {
+	Send(data []byte) error
+	Recv() ([]byte, error)
+	Close() error
+}
+
 // client is one connected mobile/web session viewer.
 type client struct {
-	deviceID string
-	session  *session
-	key      *[32]byte
-	conn     *websocket.Conn
-	send     chan []byte
-	done     chan struct{}
-	log      *log.Logger
+	deviceID  string
+	session   *session
+	key       *[32]byte
+	transport viewerTransport
+	send      chan []byte
+	done      chan struct{}
+	log       *log.Logger
 }
 
 func (c *client) writeLoop() {
 	for {
 		select {
 		case data := <-c.send:
-			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			if err := c.transport.Send(data); err != nil {
 				c.log.Printf("ws write error device=%s: %v", c.deviceID, err)
 				close(c.done)
 				return

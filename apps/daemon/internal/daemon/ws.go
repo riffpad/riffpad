@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -10,6 +11,23 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(*http.Request) bool { return true },
+}
+
+type wsTransport struct {
+	conn *websocket.Conn
+}
+
+func (t *wsTransport) Send(data []byte) error {
+	return t.conn.WriteMessage(websocket.TextMessage, data)
+}
+
+func (t *wsTransport) Recv() ([]byte, error) {
+	_, data, err := t.conn.ReadMessage()
+	return data, err
+}
+
+func (t *wsTransport) Close() error {
+	return t.conn.Close()
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -23,14 +41,9 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	dev, devOK := s.devices[deviceID]
-	sess, sessOK := s.sessions[sid]
 	s.mu.Unlock()
 	if !devOK {
 		writeError(w, http.StatusUnauthorized, "device not paired")
-		return
-	}
-	if !sessOK {
-		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
 	ephPub, err := protocol.DecodeKey(ephRaw)
@@ -38,50 +51,60 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid ephemeral key")
 		return
 	}
-	identity, err := s.keys.Identity(dev.Curve)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "server identity unavailable")
-		return
-	}
 	devPub, err := dev.PublicKeyBytes()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "device key unavailable")
-		return
-	}
-	deviceSecret, err := protocol.NewDeviceSecret(identity, devPub)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "device secret failed")
-		return
-	}
-	serverEph, err := protocol.GenerateKeyPair(dev.Curve)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "ephemeral key failed")
-		return
-	}
-	ephSecret, err := protocol.ECDH(serverEph, ephPub)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "ephemeral exchange failed")
-		return
-	}
-	key, err := protocol.DeriveSessionKey(deviceSecret, ephSecret, sid)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "session key derivation failed")
 		return
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
-	c := &client{
-		deviceID: deviceID,
-		session:  sess,
-		key:      key,
-		conn:     conn,
-		send:     make(chan []byte, 256),
-		done:     make(chan struct{}),
-		log:      s.log,
+	if err := s.attachViewer(&wsTransport{conn: conn}, deviceID, sid, ephPub, dev.Curve, devPub); err != nil {
+		_ = conn.Close()
+		writeError(w, http.StatusNotFound, err.Error())
 	}
-	s.log.Printf("ws connect device=%s session=%s curve=%s", deviceID, sid, dev.Curve)
+}
+
+// attachViewer performs the E2EE handshake for a viewer (local or relay) and
+// starts event streaming. devicePubKey is the viewer's paired identity key.
+func (s *Server) attachViewer(tr viewerTransport, deviceID, sid string, ephPub []byte, curve protocol.Curve, devicePubKey []byte) error {
+	s.mu.Lock()
+	sess, sessOK := s.sessions[sid]
+	s.mu.Unlock()
+	if !sessOK {
+		return fmt.Errorf("session not found")
+	}
+	identity, err := s.keys.Identity(curve)
+	if err != nil {
+		return fmt.Errorf("server identity unavailable: %w", err)
+	}
+	deviceSecret, err := protocol.NewDeviceSecret(identity, devicePubKey)
+	if err != nil {
+		return fmt.Errorf("device secret failed: %w", err)
+	}
+	serverEph, err := protocol.GenerateKeyPair(curve)
+	if err != nil {
+		return fmt.Errorf("ephemeral key failed: %w", err)
+	}
+	ephSecret, err := protocol.ECDH(serverEph, ephPub)
+	if err != nil {
+		return fmt.Errorf("ephemeral exchange failed: %w", err)
+	}
+	key, err := protocol.DeriveSessionKey(deviceSecret, ephSecret, sid)
+	if err != nil {
+		return fmt.Errorf("session key derivation failed: %w", err)
+	}
+	c := &client{
+		deviceID:  deviceID,
+		session:   sess,
+		key:       key,
+		transport: tr,
+		send:      make(chan []byte, 256),
+		done:      make(chan struct{}),
+		log:       s.log,
+	}
+	s.log.Printf("viewer connect device=%s session=%s curve=%s", deviceID, sid, curve)
 	sess.addClient(c)
 	hello := protocol.Hello{
 		V:            1,
@@ -91,22 +114,23 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	helloData, _ := json.Marshal(hello)
 	c.sendRaw(helloData)
-	s.log.Printf("ws hello queued device=%s session=%s replay=%d", deviceID, sid, len(sess.snapshot()))
+	s.log.Printf("hello queued device=%s session=%s replay=%d", deviceID, sid, len(sess.snapshot()))
 	for _, ev := range sess.snapshot() {
 		c.sendEvent(ev)
 	}
 	go c.writeLoop()
 	go c.readLoop(s)
+	return nil
 }
 
 func (c *client) readLoop(s *Server) {
 	defer func() {
 		close(c.done)
 		c.session.removeClient(c)
-		_ = c.conn.Close()
+		_ = c.transport.Close()
 	}()
 	for {
-		_, data, err := c.conn.ReadMessage()
+		data, err := c.transport.Recv()
 		if err != nil {
 			return
 		}

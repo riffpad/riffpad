@@ -1,4 +1,4 @@
-.PHONY: dev-daemon dev-relay dev-mobile build-daemon build-relay build install-daemon test
+.PHONY: dev-daemon dev-relay dev-mobile build-daemon build-relay build install-daemon install-relay test
 
 PREFIX ?= $(HOME)/.local/bin
 
@@ -21,6 +21,11 @@ install-daemon: build-daemon
 	cp -f apps/daemon/bin/riffpad $(PREFIX)/riffpad
 	cp -f apps/daemon/bin/riffpadd $(PREFIX)/riffpadd
 	@echo "installed: $(PREFIX)/riffpad $(PREFIX)/riffpadd"
+
+install-relay:
+	cd apps/relay && mkdir -p bin && go build -o bin/relay .
+	cp -f apps/relay/bin/relay $(PREFIX)/relay
+	@echo "installed: $(PREFIX)/relay"
 
 build-relay:
 	cd apps/relay && go build -o bin/relay .

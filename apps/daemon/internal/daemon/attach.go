@@ -103,8 +103,8 @@ func (p *hookPayload) summary() string {
 // lazily on first hook activity.
 func (s *Server) attachSession(claudeSID, cwd string) *session {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if sess, ok := s.sessions[claudeSID]; ok {
+		s.mu.Unlock()
 		return sess
 	}
 	name := claudeSID
@@ -119,11 +119,13 @@ func (s *Server) attachSession(claudeSID, cwd string) *session {
 		clients: map[*client]struct{}{},
 	}
 	s.sessions[claudeSID] = sess
+	s.mu.Unlock()
 	s.log.Printf("attached session %s cwd=%s", claudeSID, cwd)
 	ev, err := protocol.NewEvent(claudeSID, protocol.EventSessionStart, sess.meta)
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}
+	s.announceSessions()
 	return sess
 }
 
@@ -150,6 +152,7 @@ func (s *Server) handleHookSessionEnd(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			s.pumpEvent(sess, ev)
 		}
+		s.announceSessions()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{})
 }
