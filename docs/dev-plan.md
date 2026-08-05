@@ -58,6 +58,18 @@
 
 **M0 出口条件**：8 个任务全部完成；至少 3 个外部用户跑通一次完整闭环。
 
+### M0 验证记录（2026-08-05）
+
+| 项 | 结果 |
+|---|---|
+| daemon 构建/安装到 PATH、tmux 托管、优雅停止 | ✅ |
+| `riffpad attach` 注入 hooks（matcher+hooks 格式），`detach` 还原 | ✅ |
+| 用户消息（UserPromptSubmit）与 Agent 消息（MessageDisplay）进入时间线 | ✅ |
+| 多 claude 会话按 session_id 区分显示 | ✅ |
+| 配对、E2EE 握手、事件回放 | ✅ |
+| **审批闭环**（PermissionRequest hook → 网页审批卡 → 同意/拒绝 → claude 继续） | ⏳ 待人工验证 |
+| 3 个外部用户跑通完整闭环 | ⏳ 并入 M1 种子用户 |
+
 ### M0 人工验证步骤（M0.8，附着模式）
 
 前置：本机已安装并登录 Claude Code（`claude --version`，当前 2.1.220）。
