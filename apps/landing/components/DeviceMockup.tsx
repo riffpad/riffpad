@@ -384,7 +384,7 @@ function PhoneApp({
 
           {/* approval card */}
           {approval === "pending" ? (
-            <div className="mt-3 border border-warning/30 bg-warning/10 p-3">
+            <div className="mt-3 border border-warning/20 bg-warning/10 p-3">
               <div className="text-[11px] text-warning">
                 {t.mockup.phone.approval}
               </div>
