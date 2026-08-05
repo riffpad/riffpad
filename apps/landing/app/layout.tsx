@@ -13,7 +13,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://riffpad.ai"),
-  title: "Riffpad — The pocket remote for your AI coding agents",
+  title: "Riffpad - The pocket remote for your AI coding agents",
   description:
     "Watch, approve and steer Claude Code, Codex and other AI coding CLIs from your phone. Local daemon, end-to-end encryption, zero-knowledge relay.",
   keywords: [
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "Riffpad — The pocket remote for your AI coding agents",
+    title: "Riffpad - The pocket remote for your AI coding agents",
     description:
       "Watch, approve and steer AI coding CLIs from your phone. Local daemon, end-to-end encryption, zero-knowledge relay.",
     url: "https://riffpad.ai",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Riffpad — The pocket remote for your AI coding agents",
+    title: "Riffpad - The pocket remote for your AI coding agents",
     description:
       "Watch, approve and steer AI coding CLIs from your phone. Local daemon, end-to-end encryption, zero-knowledge relay.",
   },
