@@ -21,6 +21,7 @@ func main() {
 	port := flag.String("port", envOr("RELAY_PORT", "9090"), "listen port")
 	dataDir := flag.String("data-dir", envOr("RELAY_DATA_DIR", "./relay-data"), "persistent data directory")
 	databaseURL := flag.String("database-url", os.Getenv("DATABASE_URL"), "Postgres DSN (empty = SQLite in data-dir)")
+	listen := flag.String("listen", envOr("RELAY_LISTEN", "0.0.0.0"), "listen address")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "relay: ", log.LstdFlags|log.LUTC)
@@ -28,8 +29,9 @@ func main() {
 	if err != nil {
 		logger.Fatalf("init hub: %v", err)
 	}
-	srv := &http.Server{Addr: ":" + *port, Handler: h.Handler()}
-	logger.Printf("riffpad relay listening on :%s (data dir: %s)", *port, *dataDir)
+	addr := *listen + ":" + *port
+	srv := &http.Server{Addr: addr, Handler: h.Handler()}
+	logger.Printf("riffpad relay listening on %s (data dir: %s)", addr, *dataDir)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -51,10 +51,18 @@ export RIFFPAD_RELAY_PASSWORD=<你的密码>
 useradd -r -m riffpad
 cp riffpad-relay.service /etc/systemd/system/
 cat > /etc/riffpad-relay.env <<EOF
+RELAY_PORT=9090
+RELAY_LISTEN=127.0.0.1
 RELAY_DATA_DIR=/var/lib/riffpad-relay
 EOF
 mkdir -p /var/lib/riffpad-relay && chown riffpad:riffpad /var/lib/riffpad-relay
 systemctl daemon-reload && systemctl enable --now riffpad-relay
+
+# nginx 反代（域名 api.riffpad.ai 解析到本机后）
+cp nginx-api-riffpad-ai.conf /etc/nginx/sites-available/api-riffpad-ai
+ln -sf /etc/nginx/sites-available/api-riffpad-ai /etc/nginx/sites-enabled/api-riffpad-ai
+nginx -t && systemctl reload nginx
+# 然后 certbot --nginx -d api.riffpad.ai 自动签发 HTTPS
 
 # Caddy（域名解析到服务器后自动签发证书）
 apt install caddy   # 或 docker 跑 caddy
