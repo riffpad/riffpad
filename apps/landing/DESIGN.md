@@ -20,8 +20,10 @@ that in one sentence: **a terminal console and a phone, fused**.
 
 - The page keeps a quiet terminal tone: `//` comment labels, status dots,
   and a console hero — without prompt-string chrome in the navigation.
-- The hero is a console window showing a session, and inside that console
-  sits a phone with an approval card — the product, not a metaphor.
+- The hero is a two-device scene: a macOS terminal running
+  Codex/Claude Code and the Riffpad phone app, syncing the same session.
+  The terminal waits for approval; the phone shows the approval card — the
+  product, not a metaphor.
 - The brand color is Riffpad amber (`#F7A501`), used on marketing surfaces
   as the single warm accent against cool neutral ink.
 - Geometry is square. Nothing floats; every card earns its place with a
@@ -165,17 +167,20 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
   primary (amber) + secondary (outline) CTAs, and a one-line trust note.
   Right: console window.
 
-### Console window
+### Device scene (hero)
 
-- `console` background, `md` radius, 1px hairline border.
-- Header: three status dots (neutral/amber), `riffpad://session/s_9f2a`,
-  and `e2ee ●`.
-- Body: one session row (`running`), one approval card
-  (`console-elevated` surface, amber warning label, action chips),
-  one status line (`aes-256-gcm · zero-knowledge · 84ms`).
-- Inside the console sits the **phone mockup**: a square dark phone frame
-  with a status bar (`09:41`) and the same approval card repeated in phone
-  proportions.
+- Left: macOS-style terminal window (`console` surface, square corners,
+  1px hairline): traffic-light dots, `codex — riffpad` title,
+  `codex exec --json` prompt, tool-call lines with `✓` / `▸` / `!` states,
+  and a daemon status line.
+- Right: Riffpad phone app (`surface`, square corners, hairline): status
+  bar, `riffpad` header with `● synced`, session card
+  (`s_9f2a · claude · running · 2 tool calls`), approval card with
+  Approve / Reject chips, message input, bottom tabs.
+- Between them: a sync connector — hairline line, pulsing amber dot,
+  `e2ee / synced / 84ms`.
+- Both devices mirror the same session: the terminal waits for approval,
+  the phone shows the approval card. This is the product story.
 
 ### Feature bento
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "./LanguageProvider";
-import { TerminalMockup } from "./TerminalMockup";
+import { DeviceMockup } from "./DeviceMockup";
 
 export function Hero() {
   const { t } = useLanguage();
@@ -39,7 +39,7 @@ export function Hero() {
         </div>
 
         <div className="lg:w-full">
-          <TerminalMockup />
+          <DeviceMockup />
         </div>
       </div>
     </section>
