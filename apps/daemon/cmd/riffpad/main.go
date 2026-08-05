@@ -1,15 +1,20 @@
-// Command riffpad is the user-facing CLI controlling the local riffpadd daemon.
+// Command riffpad is the single Riffpad binary: user-facing CLI plus the
+// hidden `_daemon` subcommand that runs the background daemon.
 package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -21,6 +26,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
+	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
 	"github.com/riffpad/riffpad/apps/daemon/internal/logging"
 )
 
@@ -30,6 +36,9 @@ func main() {
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
+	}
+	if os.Args[1] == "_daemon" {
+		os.Exit(runDaemon(os.Args[2:]))
 	}
 	base := os.Getenv("RIFFPAD_URL")
 	if base == "" {
@@ -81,11 +90,62 @@ func main() {
 	}
 }
 
+// runDaemon is the hidden `riffpad _daemon` entry point used by daemon start
+// and systemd. Keeping the daemon inside the same binary makes installation a
+// single-file affair.
+func runDaemon(args []string) int {
+	fs := flag.NewFlagSet("_daemon", flag.ExitOnError)
+	dataDir := fs.String("data-dir", "", "daemon data directory (default ~/.config/riffpad)")
+	_ = fs.Parse(args)
+	dir := *dataDir
+	if dir == "" {
+		var err error
+		dir, err = config.DefaultDataDir()
+		if err != nil {
+			log.Printf("resolve data dir: %v", err)
+			return 1
+		}
+	}
+	logger, closer, err := logging.New(dir)
+	if err != nil {
+		log.Printf("init logging: %v", err)
+		return 1
+	}
+	defer closer.Close()
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		logger.Fatalf("load config: %v", err)
+	}
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		logger.Fatalf("load keys: %v", err)
+	}
+	srv := daemon.New(cfg, keys, dir, logger, daemon.DefaultFactory())
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatalf("server: %v", err)
+		}
+		stop()
+	}()
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Printf("shutdown: %v", err)
+	}
+	logger.Printf("daemon stopped")
+	return 0
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `riffpad — AI agent remote control (M0)
 
 Usage:
-  riffpad daemon start          start the background daemon (riffpadd)
+  riffpad daemon start          start the background daemon (same binary)
   riffpad daemon stop           stop the daemon
   riffpad status                show daemon status
   riffpad pair                  print a pairing code and QR
@@ -118,7 +178,7 @@ func daemonStart(base, dataDir string) error {
 	if reachable(base) {
 		return fmt.Errorf("daemon already running at %s", base)
 	}
-	bin, err := findRiffpadd()
+	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
@@ -131,14 +191,14 @@ func daemonStart(base, dataDir string) error {
 		return err
 	}
 	defer out.Close()
-	cmd := exec.Command(bin, "--data-dir", dataDir)
+	cmd := exec.Command(exe, "_daemon", "--data-dir", dataDir)
 	cmd.Stdout = out
 	cmd.Stderr = out
 	if runtime.GOOS != "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start riffpadd: %w", err)
+		return fmt.Errorf("start daemon: %w", err)
 	}
 	_ = os.WriteFile(filepath.Join(dataDir, "daemon.pid"), []byte(fmt.Sprintf("%d\n", cmd.Process.Pid)), 0o600)
 	for i := 0; i < 20; i++ {
@@ -214,23 +274,23 @@ func setupCmd(args []string, dataDir string) error {
 		fmt.Println("已移除 riffpad systemd user 服务。")
 		return nil
 	}
-	bin, err := findRiffpadd()
+	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(unitDir, 0o700); err != nil {
 		return err
 	}
-	execStart := bin
-	if strings.Contains(bin, " ") {
-		execStart = `"` + bin + `"`
+	execStart := exe
+	if strings.Contains(exe, " ") {
+		execStart = `"` + exe + `"`
 	}
 	unit := fmt.Sprintf(`[Unit]
 Description=Riffpad daemon (AI agent remote control)
 After=network-online.target
 
 [Service]
-ExecStart=%s --data-dir %s
+ExecStart=%s _daemon --data-dir %s
 Restart=on-failure
 RestartSec=2
 
@@ -516,20 +576,6 @@ func relayCmd(args []string, dataDir string) error {
 	default:
 		return fmt.Errorf("usage: riffpad relay login|logout")
 	}
-}
-
-func findRiffpadd() (string, error) {
-	exe, err := os.Executable()
-	if err == nil {
-		candidate := filepath.Join(filepath.Dir(exe), "riffpadd")
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate, nil
-		}
-	}
-	if p, err := exec.LookPath("riffpadd"); err == nil {
-		return p, nil
-	}
-	return "", fmt.Errorf("riffpadd binary not found next to riffpad or on PATH")
 }
 
 func reachable(base string) bool {

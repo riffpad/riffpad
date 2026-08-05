@@ -16,11 +16,12 @@ build-daemon:
 
 # Build and install riffpad/riffpadd to $(PREFIX) (default ~/.local/bin) so they
 # are available on PATH from any directory. Existing files are overwritten.
+# Build and install the single riffpad binary (CLI + daemon) to $(PREFIX)
+# (default ~/.local/bin) so it is available on PATH from any directory.
 install-daemon: build-daemon
 	mkdir -p $(PREFIX)
 	cp -f apps/daemon/bin/riffpad $(PREFIX)/riffpad
-	cp -f apps/daemon/bin/riffpadd $(PREFIX)/riffpadd
-	@echo "installed: $(PREFIX)/riffpad $(PREFIX)/riffpadd"
+	@echo "installed: $(PREFIX)/riffpad"
 
 install-relay:
 	cd apps/relay && mkdir -p bin && go build -o bin/relay .
