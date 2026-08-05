@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,6 +58,10 @@ func main() {
 		err = runCmd(os.Args[2:], base)
 	case "logs":
 		err = logsCmd(dataDir)
+	case "attach":
+		err = attachCmd(base)
+	case "detach":
+		err = detachCmd()
 	case "version":
 		fmt.Println("riffpad", version)
 	case "help", "-h", "--help":
@@ -80,6 +86,8 @@ Usage:
   riffpad pair                  print a pairing code and QR
   riffpad sessions              list sessions
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude]
+  riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
+  riffpad detach                remove injected hooks
   riffpad logs                  tail daemon logs
   riffpad version`)
 }
@@ -242,6 +250,86 @@ func logsCmd(dataDir string) error {
 	}
 	fmt.Println(out)
 	return nil
+}
+
+// attachCmd injects Claude Code hooks pointing at the local daemon, so a
+// normal interactive `claude` session is captured and approvals can be made
+// from the web UI / mobile.
+func attachCmd(base string) error {
+	if !reachable(base) {
+		return fmt.Errorf("daemon not reachable at %s (run: riffpad daemon start)", base)
+	}
+	port := defaultDaemonPort(base)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o700); err != nil {
+		return err
+	}
+	settings := map[string]any{}
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("parse %s: %w", settingsPath, err)
+		}
+	}
+	backup := settingsPath + ".riffpad.bak"
+	if _, err := os.Stat(backup); os.IsNotExist(err) {
+		raw, _ := json.MarshalIndent(settings, "", "  ")
+		if err := os.WriteFile(backup, raw, 0o600); err != nil {
+			return err
+		}
+	}
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	settings["hooks"] = map[string]any{
+		"SessionStart":     []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/session-start", "timeout": 10}},
+		"SessionEnd":       []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/session-end", "timeout": 10}},
+		"PreToolUse":       []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/pre-tool-use", "timeout": 10}},
+		"PostToolUse":      []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/post-tool-use", "timeout": 10}},
+		"PermissionRequest": []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/permission", "timeout": 600}},
+		"Notification":     []any{map[string]any{"type": "http", "url": baseURL + "/hooks/claude/notification", "timeout": 10}},
+	}
+	raw, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(settingsPath, raw, 0o600); err != nil {
+		return err
+	}
+	fmt.Println("已注入 Claude Code hooks（备份在 settings.json.riffpad.bak）")
+	fmt.Println("现在正常打开你的 claude（建议放在 tmux 里），daemon 会自动捕捉会话与审批。")
+	fmt.Println("验证完运行: riffpad detach")
+	return nil
+}
+
+// detachCmd restores the pre-attach settings file.
+func detachCmd() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	backup := settingsPath + ".riffpad.bak"
+	data, err := os.ReadFile(backup)
+	if err != nil {
+		return fmt.Errorf("no backup found (nothing to detach)")
+	}
+	if err := os.WriteFile(settingsPath, data, 0o600); err != nil {
+		return err
+	}
+	// Keep the backup file; user can remove it manually.
+	fmt.Println("已还原 Claude Code settings，hooks 已移除。")
+	return nil
+}
+
+func defaultDaemonPort(base string) int {
+	if i := strings.LastIndex(base, ":"); i >= 0 {
+		if p, err := strconv.Atoi(base[i+1:]); err == nil {
+			return p
+		}
+	}
+	return 8787
 }
 
 func findRiffpadd() (string, error) {

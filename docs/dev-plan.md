@@ -50,25 +50,27 @@
 | M0.1 | daemon CLI 骨架：`riffpad` / `riffpadd` 命令结构、config、日志、后台运行 | `[x]` | `riffpad daemon start/pair/status/sessions/logs/stop` 可用 | — |
 | M0.2 | 事件协议 v1：`packages/protocol` 定义事件集 + 信封格式 | `[x]` | 事件类型与 TSD §4 一致；Go 类型 + 单测 | — |
 | M0.3 | Claude Code L1 适配器（包装模式） | `[x]` | 解析 `stream-json`（system/assistant/user/result），转 Riffpad 事件 | — |
-| M0.4 | Claude Code L2 hooks：PermissionRequest + Notification → daemon 本地 HTTP | `[x]` | 审批请求可阻塞等待外部决定；通知事件进入事件流 | — |
+| M0.4 | Claude Code L2 hooks（附着模式）：`riffpad attach` 注入 hooks，PermissionRequest/Notification/PreToolUse/PostToolUse → daemon | `[x]` | 审批请求可阻塞等待外部决定；通知与工具事件进入事件流 | — |
 | M0.5 | 设备配对：终端二维码 + 密钥交换 + 本地密钥存储 | `[x]` | 扫码配对成功；私钥 0600；撤销可用 | — |
 | M0.6 | 本地网页端（M0 用浏览器代替 App） | `[x]` | 会话列表 + 事件流 + 审批按钮 + 文字指令注入 | — |
 | M0.7 | E2EE 信封：会话密钥派生 + AES-GCM 加解密 + 单测 | `[x]` | 加解密往返测试通过；中继侧不可读 | — |
-| M0.8 | M0 端到端演示 | `[!]` 待人工验证 | 真实 Claude Code 会话：批准、拒绝、注入指令均生效 | — |
+| M0.8 | M0 端到端演示（附着模式） | `[!]` 待人工验证 | 用户自己在终端开 Claude Code 交互会话，daemon 捕捉事件，网页端批准/拒绝生效 | — |
 
 **M0 出口条件**：8 个任务全部完成；至少 3 个外部用户跑通一次完整闭环。
 
-### M0 人工验证步骤（M0.8）
+### M0 人工验证步骤（M0.8，附着模式）
 
 前置：本机已安装并登录 Claude Code（`claude --version`，当前 2.1.220）。
 
 1. `make build-daemon`
 2. `./apps/daemon/bin/riffpad daemon start`
-3. `./apps/daemon/bin/riffpad pair`，浏览器打开 http://127.0.0.1:8787 输入配对码
-4. 在网页端启动会话，初始指令用一个会触发审批的例子（如“删除 src/test.tmp”）
-5. 验证：事件流可见 → 审批卡片出现 → 点击同意 → agent 继续 → 会话结束
-6. 若审批事件未出现，查看 `~/.config/riffpad/logs/daemon.log` 的 claude stderr；
-   stream-json 字段以本机 claude 实际输出为准，差异只改 `apps/daemon/internal/claude/claude.go`
+3. `./apps/daemon/bin/riffpad attach`（向 `~/.claude/settings.json` 注入 hooks，自动备份）
+4. 另开一个终端（建议 tmux），正常运行 `claude`，让它做一个需要权限的操作（写文件 / 执行命令）
+5. 浏览器打开 http://127.0.0.1:8787，配对后会话列表出现你正在用的 Claude 会话，事件卡片流动
+6. 出现审批卡片 → 点击同意/拒绝 → 终端里的 Claude 继续或被拒绝
+7. 验证完执行 `./apps/daemon/bin/riffpad detach` 还原 settings
+
+> 若 hooks 未触发：查看 `~/.config/riffpad/logs/daemon.log`，并确认 `claude` 是在交互模式（非 `-p`）下运行。
 
 ### M0 预期行为清单
 
@@ -93,7 +95,7 @@
 8. API 限流：出现“API 限流（rate_limit），重试 n/10…”通知卡片，恢复后 agent 继续
 9. 点“停止”：claude 被杀，出现会话结束事件
 10. daemon 重启：连接断开提示；刷新后列表只剩新 daemon 内存中的会话（M0 无持久化）
-11. claude 进程意外退出：30 秒内被存活扫描标记为结束
+11. 附着模式：`riffpad attach` 后，用户照常开自己的 claude 交互会话；SessionStart hook 创建会话，PermissionRequest hook 出审批卡，SessionEnd 结束会话
 
 **CLI 行为**
 
@@ -110,6 +112,8 @@
 - 控制只有 stop；pause/resume 未实现
 - 审批只支持同意/拒绝，条件编辑字段预留未用
 - 网页端仅限本机访问；手机远程需要 M1 的 relay
+- 包装模式（网页端开会话）在 Claude 2.1.220 下无法拦截权限（`--permission-prompt-tool` 已移除，`-p` 下 hooks 不触发），审批走附着模式
+- 附着模式暂不支持远程指令注入与终端画面（M1/M3）
 
 ---
 

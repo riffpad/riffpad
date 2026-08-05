@@ -151,6 +151,8 @@ type Adapter interface {
 - **附着模式**：用户照常启动 TUI（Claude Code 建议在 tmux 内），daemon 通过 L2 hooks 接收结构化事件与审批请求，审批由 hook 阻塞等待手机响应后返回 `permissionDecision`，指令注入走 tmux send-keys；Codex 可复用 `codex app-server`（实验性）让终端与手机共享同一会话（参考 codex-relay 的 `codex resume --remote unix://` 模式）
 - 所有适配器必须能降级到 L3；实验性接口需要 pin CLI 版本
 
+> 实测（2026-08，Claude Code 2.1.220）：`--permission-prompt-tool` 已从 CLI 移除；`-p --output-format stream-json` 下权限请求不会以 `control_request` 出现，且 hooks 不触发，权限一律自动拒绝。因此**审批拦截依赖附着模式**（交互 TUI + PermissionRequest hook），包装模式只做事件与指令。
+
 ### 5.4 tmux / PTY 兜底
 
 - 使用 tmux 控制模式（`tmux -CC`）或 `creack/pty` 挂接任意终端会话

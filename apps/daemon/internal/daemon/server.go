@@ -117,6 +117,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/hooks/claude/notification", s.handleHookNotification)
 	mux.HandleFunc("/hooks/claude/permission", s.handleHookPermission)
+	mux.HandleFunc("/hooks/claude/session-start", s.handleHookSessionStart)
+	mux.HandleFunc("/hooks/claude/session-end", s.handleHookSessionEnd)
+	mux.HandleFunc("/hooks/claude/pre-tool-use", s.handleHookPreToolUse)
+	mux.HandleFunc("/hooks/claude/post-tool-use", s.handleHookPostToolUse)
 	return mux
 }
 
