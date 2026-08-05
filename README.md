@@ -19,7 +19,7 @@ curl -fsSL https://riffpad.ai/install.sh | sh
 **Windows PowerShell**
 
 ```powershell
-irm https://riffpad.ai/install.ps1 | iex
+# Coming soon — build from source for now.
 ```
 
 Then start the daemon and attach to your CLI:
