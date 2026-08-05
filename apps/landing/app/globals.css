@@ -96,7 +96,7 @@
   }
 
   .btn-secondary {
-    @apply border border-hairline-strong bg-surface text-ink hover:border-ink;
+    @apply border border-hairline-strong bg-surface text-ink hover:border-hairline-strong hover:bg-surface-muted;
   }
 
   .btn-ghost {
