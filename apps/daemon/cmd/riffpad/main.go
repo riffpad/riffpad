@@ -52,19 +52,21 @@ func main() {
 	case "status":
 		err = statusCmd(base)
 	case "pair":
-		err = pairCmd(base)
+		err = withDaemon(func() error { return pairCmd(base) }, base, dataDir)
 	case "sessions":
-		err = sessionsCmd(base)
+		err = withDaemon(func() error { return sessionsCmd(base) }, base, dataDir)
 	case "run":
-		err = runCmd(os.Args[2:], base)
+		err = withDaemon(func() error { return runCmd(os.Args[2:], base) }, base, dataDir)
 	case "logs":
 		err = logsCmd(dataDir)
 	case "attach":
-		err = attachCmd(base)
+		err = withDaemon(func() error { return attachCmd(base) }, base, dataDir)
 	case "detach":
 		err = detachCmd()
 	case "relay":
 		err = relayCmd(os.Args[2:], dataDir)
+	case "setup":
+		err = setupCmd(os.Args[2:], dataDir)
 	case "version":
 		fmt.Println("riffpad", version)
 	case "help", "-h", "--help":
@@ -93,6 +95,7 @@ Usage:
   riffpad detach                remove injected hooks
   riffpad relay login           log in to the relay (--url wss://… --username …)
   riffpad relay logout          clear the saved relay token
+  riffpad setup                 install daemon auto-start (Linux systemd user service)
   riffpad logs                  tail daemon logs
   riffpad version`)
 }
@@ -146,6 +149,106 @@ func daemonStart(base, dataDir string) error {
 		}
 	}
 	return fmt.Errorf("daemon did not become reachable; check %s", filepath.Join(logDir, "daemon.out.log"))
+}
+
+// startDaemonFn is indirection so tests can observe/emulate lazy starts.
+var startDaemonFn = daemonStart
+
+// withDaemon ensures the daemon is running before executing an operation that
+// needs it. Only reachable checks and daemon start are guarded by a file lock,
+// so concurrent riffpad invocations start at most one daemon.
+func withDaemon(fn func() error, base, dataDir string) error {
+	if err := ensureDaemon(base, dataDir); err != nil {
+		return err
+	}
+	return fn()
+}
+
+func ensureDaemon(base, dataDir string) error {
+	if reachable(base) {
+		return nil
+	}
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return err
+	}
+	lockPath := filepath.Join(dataDir, "daemon.lock")
+	lf, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("open daemon lock: %w", err)
+	}
+	defer lf.Close()
+	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("lock daemon start: %w", err)
+	}
+	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
+	// Another process may have started the daemon while we waited for the lock.
+	if reachable(base) {
+		return nil
+	}
+	if err := startDaemonFn(base, dataDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+// setupCmd installs (or removes) a Linux systemd user service so the daemon
+// starts at login and restarts after crashes.
+func setupCmd(args []string, dataDir string) error {
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	remove := fs.Bool("remove", false, "stop and remove the systemd user service")
+	_ = fs.Parse(args)
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("setup currently supports Linux systemd only")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	unitDir := filepath.Join(home, ".config", "systemd", "user")
+	unitPath := filepath.Join(unitDir, "riffpad.service")
+	if *remove {
+		_ = exec.Command("systemctl", "--user", "disable", "--now", "riffpad.service").Run()
+		if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		fmt.Println("已移除 riffpad systemd user 服务。")
+		return nil
+	}
+	bin, err := findRiffpadd()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(unitDir, 0o700); err != nil {
+		return err
+	}
+	execStart := bin
+	if strings.Contains(bin, " ") {
+		execStart = `"` + bin + `"`
+	}
+	unit := fmt.Sprintf(`[Unit]
+Description=Riffpad daemon (AI agent remote control)
+After=network-online.target
+
+[Service]
+ExecStart=%s --data-dir %s
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+`, execStart, dataDir)
+	if err := os.WriteFile(unitPath, []byte(unit), 0o600); err != nil {
+		return err
+	}
+	if out, err := exec.Command("systemctl", "--user", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl daemon-reload: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("systemctl", "--user", "enable", "--now", "riffpad.service").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl enable riffpad: %v\n%s", err, out)
+	}
+	fmt.Printf("已安装并启用 %s\n", unitPath)
+	fmt.Println("daemon 将随登录自启，崩溃后自动重启；以后可直接运行 riffpad run/attach/pair。")
+	return nil
 }
 
 func daemonStop(base string) error {
