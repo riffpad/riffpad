@@ -19,14 +19,16 @@ import (
 
 func main() {
 	port := flag.String("port", envOr("RELAY_PORT", "9090"), "listen port")
-	regKey := flag.String("registration-key", envOr("REGISTRATION_KEY", ""), "registration key for new hosts (empty = open registration)")
 	dataDir := flag.String("data-dir", envOr("RELAY_DATA_DIR", "./relay-data"), "persistent data directory")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "relay: ", log.LstdFlags|log.LUTC)
-	h := hub.New(logger, *regKey, *dataDir)
+	h, err := hub.New(logger, *dataDir)
+	if err != nil {
+		logger.Fatalf("init hub: %v", err)
+	}
 	srv := &http.Server{Addr: ":" + *port, Handler: h.Handler()}
-	logger.Printf("riffpad relay listening on :%s (registration key required: %v, data dir: %s)", *port, *regKey != "", *dataDir)
+	logger.Printf("riffpad relay listening on :%s (data dir: %s)", *port, *dataDir)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

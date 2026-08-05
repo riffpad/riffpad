@@ -13,12 +13,14 @@ const defaultPort = 8787
 
 // Config is the daemon configuration persisted to config.json.
 type Config struct {
-	Port      int    `json:"port"`
-	RelayURL  string `json:"relayUrl,omitempty"`
-	HostID    string `json:"hostId,omitempty"`
-	HostToken string `json:"hostToken,omitempty"`
-	HostSecret string `json:"hostSecret,omitempty"`
-	RegistrationKey string `json:"-"`
+	Port         int    `json:"port"`
+	RelayURL     string `json:"relayUrl,omitempty"`
+	HostID       string `json:"hostId,omitempty"`
+	HostToken    string `json:"hostToken,omitempty"`
+	HostSecret   string `json:"hostSecret,omitempty"`
+	RelayToken   string `json:"relayToken,omitempty"`
+	RelayUser    string `json:"-"`
+	RelayPassword string `json:"-"`
 }
 
 // Default returns the default configuration.
@@ -81,8 +83,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("RIFFPAD_HOST_SECRET"); v != "" {
 		cfg.HostSecret = v
 	}
-	if v := os.Getenv("RIFFPAD_REGISTRATION_KEY"); v != "" {
-		cfg.RegistrationKey = v
+	if v := os.Getenv("RIFFPAD_RELAY_USER"); v != "" {
+		cfg.RelayUser = v
+	}
+	if v := os.Getenv("RIFFPAD_RELAY_PASSWORD"); v != "" {
+		cfg.RelayPassword = v
 	}
 }
 

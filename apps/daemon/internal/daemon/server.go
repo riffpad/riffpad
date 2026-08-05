@@ -150,18 +150,35 @@ func (s *Server) Start() error {
 	if s.rc != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.relayCancel = cancel
-		if err := s.rc.ensureRegistered(ctx, s.cfg.RegistrationKey, func(hostID, secret string) {
+		persistCreds := func(hostID, secret string) {
 			s.cfg.HostID = hostID
 			s.cfg.HostSecret = secret
 			if err := config.Save(s.dataDir, s.cfg); err != nil {
 				s.log.Printf("save host credentials: %v", err)
 			}
-		}); err != nil {
-			s.log.Printf("relay registration failed: %v", err)
-			cancel()
+		}
+		persistToken := func(token string) {
+			s.cfg.RelayToken = token
+			if err := config.Save(s.dataDir, s.cfg); err != nil {
+				s.log.Printf("save relay token: %v", err)
+			}
+		}
+		if s.cfg.RelayToken == "" && s.cfg.RelayUser != "" && s.cfg.RelayPassword != "" {
+			if err := s.rc.login(ctx, s.cfg.RelayUser, s.cfg.RelayPassword, persistToken); err != nil {
+				s.log.Printf("relay login failed: %v", err)
+				cancel()
+			}
 		} else {
-			go s.rc.run(ctx)
-			s.announceSessions()
+			s.rc.setToken(s.cfg.RelayToken)
+		}
+		if s.rc != nil && s.relayCancel != nil {
+			if err := s.rc.ensureRegistered(ctx, persistCreds); err != nil {
+				s.log.Printf("relay registration failed: %v", err)
+				cancel()
+			} else {
+				go s.rc.run(ctx)
+				s.announceSessions()
+			}
 		}
 	}
 	if err := s.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -248,7 +265,16 @@ func (s *Server) createRemotePairing(w http.ResponseWriter) {
 		"curve":     "p256",
 		"publicKey": s.keys.P256Public,
 	})
-	resp, err := http.Post(strings.TrimSuffix(httpURL, "/")+"/api/pairings", "application/json", strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, strings.TrimSuffix(httpURL, "/")+"/api/pairings", strings.NewReader(string(body)))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "pairing request failed")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if s.cfg.RelayToken != "" {
+		req.Header.Set("Authorization", "Bearer "+s.cfg.RelayToken)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "relay unreachable: "+err.Error())
 		return

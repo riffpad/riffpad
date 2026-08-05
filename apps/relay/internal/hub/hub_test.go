@@ -14,40 +14,86 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func TestRelayRoutesViewerToHost(t *testing.T) {
-	h := New(log.New(io.Discard, "", 0), "regkey", t.TempDir())
-	ts := httptest.NewServer(h.Handler())
-	defer ts.Close()
-
-	// 0. Register a host and connect with its per-host secret.
-	resp, err := http.Post(ts.URL+"/api/hosts/register", "application/json", strings.NewReader(`{"name":"laptop","registrationKey":"regkey"}`))
+func newTestHub(t *testing.T) (*Hub, *httptest.Server) {
+	t.Helper()
+	h, err := New(log.New(io.Discard, "", 0), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	var reg struct {
+	ts := httptest.NewServer(h.Handler())
+	t.Cleanup(ts.Close)
+	return h, ts
+}
+
+func registerUser(t *testing.T, ts *httptest.Server, username string) string {
+	t.Helper()
+	resp, err := http.Post(ts.URL+"/api/auth/register", "application/json",
+		strings.NewReader(`{"username":"`+username+`","password":"secret123"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Token == "" {
+		t.Fatalf("register returned no token (status %d)", resp.StatusCode)
+	}
+	return out.Token
+}
+
+func registerHost(t *testing.T, ts *httptest.Server, token, name string) (string, string) {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/hosts/register", strings.NewReader(`{"name":"`+name+`"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
 		HostID     string `json:"hostId"`
 		HostSecret string `json:"hostSecret"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&reg); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	if out.HostID == "" || out.HostSecret == "" {
+		t.Fatalf("register host failed (status %d)", resp.StatusCode)
+	}
+	return out.HostID, out.HostSecret
+}
 
-	// 1. Host connects and announces a session.
-	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + reg.HostID + "&token=" + reg.HostSecret
+func authPost(ts *httptest.Server, path, token, body string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	return http.DefaultClient.Do(req)
+}
+
+func TestRelayRoutesViewerToHost(t *testing.T) {
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "alice")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+
+	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + hostID + "&token=" + hostSecret
 	hostConn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer hostConn.Close()
-	sessions := []SessionMeta{{ID: "s1", Name: "demo", CLI: "claude", Cwd: "/tmp", Status: "running"}}
-	fr, _ := json.Marshal(hostFrame{Kind: "sessions", Sessions: sessions})
+	fr, _ := json.Marshal(hostFrame{Kind: "sessions", Sessions: []SessionMeta{{ID: "s1", Name: "demo", CLI: "claude", Cwd: "/tmp", Status: "running"}}})
 	if err := hostConn.WriteMessage(websocket.TextMessage, fr); err != nil {
 		t.Fatal(err)
 	}
 
-	// 2. Create pairing and pair a device.
-	resp, err = http.Post(ts.URL+"/api/pairings", "application/json", strings.NewReader(`{"hostId":"`+reg.HostID+`","curve":"p256","publicKey":"AAA"}`))
+	resp, err := authPost(ts, "/api/pairings", token, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +104,8 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	resp, err = http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(`{"code":"`+pr.Code+`","name":"phone","curve":"p256","publicKey":"BBB"}`))
+
+	resp, err = authPost(ts, "/api/pair", token, `{"code":"`+pr.Code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,8 +117,7 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	// 3. Viewer connects; host must receive a join frame.
-	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH"
+	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	viewerConn, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +137,6 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 		t.Fatalf("unexpected join frame: %+v", join)
 	}
 
-	// 4. Host sends hello data; viewer receives it.
 	helloData := []byte(`{"kind":"hello"}`)
 	hf, _ := json.Marshal(hostFrame{Kind: "viewer", ViewerID: join.ViewerID, Data: base64.RawStdEncoding.EncodeToString(helloData)})
 	if err := hostConn.WriteMessage(websocket.TextMessage, hf); err != nil {
@@ -106,7 +151,6 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 		t.Fatalf("viewer got %q, want %q", got, helloData)
 	}
 
-	// 5. Viewer sends an envelope; host receives it wrapped.
 	envelope := []byte(`{"v":1,"ciphertext":"xyz"}`)
 	if err := viewerConn.WriteMessage(websocket.TextMessage, envelope); err != nil {
 		t.Fatal(err)
@@ -127,79 +171,55 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 	if vf.Kind != "viewer" || string(decoded) != string(envelope) {
 		t.Fatalf("unexpected viewer frame: %+v %q", vf, decoded)
 	}
+	_ = h
 }
 
-func TestPairingRequiresOnlineHost(t *testing.T) {
-	h := New(log.New(io.Discard, "", 0), "", t.TempDir())
-	ts := httptest.NewServer(h.Handler())
-	defer ts.Close()
-	resp, err := http.Post(ts.URL+"/api/pairings", "application/json", strings.NewReader(`{"hostId":"offline","curve":"p256","publicKey":"AAA"}`))
+func TestPairingRequiresOnlineAndOwnedHost(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "bob")
+	hostID, _ := registerHost(t, ts, token, "laptop")
+	resp, err := authPost(ts, "/api/pairings", token, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404 for offline host, got %d", resp.StatusCode)
 	}
+
+	// A different user cannot pair against alice's host either.
+	other := registerUser(t, ts, "mallory")
+	resp, err = authPost(ts, "/api/pairings", other, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 for foreign host, got %d", resp.StatusCode)
+	}
 }
 
-func TestHostRegistrationAndPersistence(t *testing.T) {
-	dir := t.TempDir()
-	h := New(log.New(io.Discard, "", 0), "regkey", dir)
-	ts := httptest.NewServer(h.Handler())
+func TestPersistenceAcrossRestart(t *testing.T) {
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "carol")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
 
-	resp, err := http.Post(ts.URL+"/api/hosts/register", "application/json", strings.NewReader(`{"name":"laptop","registrationKey":"wrong"}`))
+	h2, err := New(log.New(io.Discard, "", 0), h.dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for wrong registration key, got %d", resp.StatusCode)
-	}
-
-	resp, err = http.Post(ts.URL+"/api/hosts/register", "application/json", strings.NewReader(`{"name":"laptop","registrationKey":"regkey"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var reg struct {
-		HostID     string `json:"hostId"`
-		HostSecret string `json:"hostSecret"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&reg); err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if reg.HostID == "" || reg.HostSecret == "" {
-		t.Fatal("registration returned empty credentials")
-	}
-
-	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + reg.HostID + "&token=" + reg.HostSecret
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-	if err != nil {
-		t.Fatalf("host ws with secret should connect: %v", err)
-	}
-	conn.Close()
-
-	badURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + reg.HostID + "&token=wrong"
-	if _, _, err := websocket.DefaultDialer.Dial(badURL, nil); err == nil {
-		t.Fatal("host ws with wrong secret should be rejected")
-	}
-
-	// A fresh hub on the same data dir must still know the host.
-	h2 := New(log.New(io.Discard, "", 0), "regkey", dir)
-	if _, ok := h2.hostRecords[reg.HostID]; !ok {
-		t.Fatal("host record not persisted across relay restart")
+	rec, err := h2.store.GetHost(hostID)
+	if err != nil || rec.Secret != hostSecret {
+		t.Fatalf("host not persisted across restart: %v", err)
 	}
 }
 
 func TestPairingRateLimit(t *testing.T) {
-	h := New(log.New(io.Discard, "", 0), "regkey", t.TempDir())
-	ts := httptest.NewServer(h.Handler())
-	defer ts.Close()
-
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "dave")
 	var got429 bool
 	for i := 0; i < 11; i++ {
-		resp, _ := http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(`{"code":"WRONG","name":"x","curve":"p256","publicKey":"BBB"}`))
+		resp, _ := authPost(ts, "/api/pair", token, `{"code":"WRONG","name":"x","curve":"p256","publicKey":"BBB"}`)
 		if resp.StatusCode == http.StatusTooManyRequests {
 			got429 = true
 		}
@@ -207,5 +227,17 @@ func TestPairingRateLimit(t *testing.T) {
 	}
 	if !got429 {
 		t.Fatal("expected a 429 after exceeding the per-IP rate limit")
+	}
+}
+
+func TestAuthProtection(t *testing.T) {
+	_, ts := newTestHub(t)
+	resp, err := http.Get(ts.URL + "/api/sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without token, got %d", resp.StatusCode)
 	}
 }

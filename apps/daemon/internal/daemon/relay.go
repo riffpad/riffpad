@@ -79,6 +79,7 @@ type relayClient struct {
 	baseURL string
 	hostID  string
 	secret  string
+	token   string
 	log     *log.Logger
 
 	onJoin func(RelayJoin)
@@ -165,27 +166,66 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 	return fmt.Errorf("relay connection closed")
 }
 
+func (c *relayClient) setToken(token string) {
+	c.mu.Lock()
+	c.token = token
+	c.mu.Unlock()
+}
+
+// login obtains a user session token from the relay and persists it.
+func (c *relayClient) login(ctx context.Context, username, password string, persist func(token string)) error {
+	httpURL := relayHTTPURL(c.baseURL)
+	body, _ := json.Marshal(map[string]string{"username": username, "password": password})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, httpURL+"/api/auth/login", strings.NewReader(string(body)))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("login: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("login: status %d", resp.StatusCode)
+	}
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return err
+	}
+	c.setToken(out.Token)
+	c.log.Printf("logged in to relay as %s", username)
+	if persist != nil {
+		persist(out.Token)
+	}
+	return nil
+}
+
 // ensureRegistered registers this host with the relay when no per-host secret
 // is stored yet, then persists the issued credentials.
-func (c *relayClient) ensureRegistered(ctx context.Context, regKey string, persist func(hostID, secret string)) error {
+func (c *relayClient) ensureRegistered(ctx context.Context, persist func(hostID, secret string)) error {
 	c.mu.Lock()
 	haveSecret := c.secret != ""
+	token := c.token
 	c.mu.Unlock()
 	if haveSecret {
 		return nil
 	}
-	httpURL := strings.TrimSuffix(c.baseURL, "/")
-	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
-	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+	if token == "" {
+		return fmt.Errorf("not logged in to relay (set RIFFPAD_RELAY_USER/PASSWORD or run: riffpad relay login)")
+	}
+	httpURL := relayHTTPURL(c.baseURL)
 	body, _ := json.Marshal(map[string]string{
-		"name":            c.hostID,
-		"registrationKey": regKey,
+		"name": c.hostID,
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, httpURL+"/api/hosts/register", strings.NewReader(string(body)))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("register with relay: %w", err)
@@ -210,6 +250,13 @@ func (c *relayClient) ensureRegistered(ctx context.Context, regKey string, persi
 		persist(out.HostID, out.HostSecret)
 	}
 	return nil
+}
+
+func relayHTTPURL(wsURL string) string {
+	u := strings.TrimSuffix(wsURL, "/")
+	u = strings.ReplaceAll(u, "wss://", "https://")
+	u = strings.ReplaceAll(u, "ws://", "http://")
+	return u
 }
 
 func (c *relayClient) viewerTransport(id string) viewerTransport {

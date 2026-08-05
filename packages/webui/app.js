@@ -5,6 +5,23 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isRelay = typeof window.RIFFPAD_RELAY !== "undefined" && window.RIFFPAD_RELAY;
 
+const relayStore = {
+  get() {
+    try { return JSON.parse(localStorage.getItem("riffpad.relay")); }
+    catch { return null; }
+  },
+  set(v) { localStorage.setItem("riffpad.relay", JSON.stringify(v)); },
+  clear() { localStorage.removeItem("riffpad.relay"); }
+};
+
+async function api(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  const tok = relayStore.get()?.token;
+  if (tok) headers["Authorization"] = "Bearer " + tok;
+  if (opts.body) headers["Content-Type"] = "application/json";
+  return fetch(path, { ...opts, headers });
+}
+
 const store = {
   get() {
     try { return JSON.parse(localStorage.getItem("riffpad.device")); }
@@ -78,9 +95,8 @@ async function refreshConn() {
 async function pair(code) {
   const dev = await ensureIdentity();
   const raw = jwkToRaw(dev.jwk);
-  const res = await fetch("/api/pair", {
+  const res = await api("/api/pair", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, name: "web", curve: "p256", publicKey: b64u(raw) })
   });
   const data = await res.json();
@@ -91,7 +107,7 @@ async function pair(code) {
 }
 
 async function refreshSessions() {
-  const res = await fetch("/api/sessions");
+  const res = await api("/api/sessions");
   const data = await res.json();
   const list = $("session-list");
   list.innerHTML = "";
@@ -111,9 +127,8 @@ async function refreshSessions() {
 
 async function createSession(ev) {
   ev.preventDefault();
-  const res = await fetch("/api/sessions", {
+  const res = await api("/api/sessions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: $("s-name").value,
       prompt: $("s-prompt").value,
@@ -142,7 +157,8 @@ async function openDetail(sid, name) {
   const eph = await genPair();
   const ephPub = b64u(await crypto.subtle.exportKey("raw", eph.publicKey));
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws?device=${dev.deviceId}&session=${sid}&eph=${ephPub}`);
+  const tok = isRelay ? (relayStore.get()?.token || "") : "";
+  ws = new WebSocket(`${proto}://${location.host}/ws?device=${dev.deviceId}&session=${sid}&eph=${ephPub}${tok ? "&token=" + encodeURIComponent(tok) : ""}`);
   ws.onopen = () => setConn("连接中…");
   ws.onclose = () => {
     sessionKey = null;
@@ -298,6 +314,19 @@ async function init() {
   if (isRelay) {
     $("create-form").classList.add("hidden");
     $("stop-btn").classList.add("hidden");
+    const rel = relayStore.get();
+    if (rel && rel.token) {
+      const res = await api("/api/auth/me");
+      if (res.ok) {
+        $("logout-btn").classList.remove("hidden");
+        $("sessions-view").classList.remove("hidden");
+        await refreshSessions();
+        return;
+      }
+      relayStore.clear();
+    }
+    $("auth-view").classList.remove("hidden");
+    return;
   }
   const dev = await ensureIdentity();
   refreshConn();
@@ -317,6 +346,36 @@ async function init() {
     $("pair-view").classList.remove("hidden");
   }
 }
+
+async function doAuth(path) {
+  $("auth-err").textContent = "";
+  try {
+    const res = await api(path, {
+      method: "POST",
+      body: JSON.stringify({ username: $("auth-username").value.trim(), password: $("auth-password").value })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "请求失败");
+    relayStore.set({ token: data.token, username: data.user.username });
+    $("auth-password").value = "";
+    $("auth-view").classList.add("hidden");
+    $("logout-btn").classList.remove("hidden");
+    $("sessions-view").classList.remove("hidden");
+    await refreshSessions();
+  } catch (e) {
+    $("auth-err").textContent = e.message;
+  }
+}
+
+$("auth-login").onclick = () => doAuth("/api/auth/login");
+$("auth-register").onclick = () => doAuth("/api/auth/register");
+$("logout-btn").onclick = async () => {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+  relayStore.clear();
+  $("sessions-view").classList.add("hidden");
+  $("logout-btn").classList.add("hidden");
+  $("auth-view").classList.remove("hidden");
+};
 
 $("pair-btn").onclick = async () => {
   $("pair-err").textContent = "";

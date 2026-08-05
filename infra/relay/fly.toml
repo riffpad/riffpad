@@ -6,7 +6,6 @@ primary_region = "hkg"
 
 [env]
   RELAY_PORT = "9090"
-  REGISTRATION_KEY = "change-me-to-a-long-random-key"
   RELAY_DATA_DIR = "/data"
 
 [mounts]

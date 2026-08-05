@@ -12,6 +12,17 @@
     <span id="conn" class="muted">离线</span>
   </header>
   <main>
+    <section id="auth-view" class="card hidden">
+      <h2>登录 / 注册</h2>
+      <div class="row">
+        <input id="auth-username" placeholder="用户名" autocomplete="username">
+        <input id="auth-password" type="password" placeholder="密码" autocomplete="current-password">
+        <button id="auth-login">登录</button>
+        <button id="auth-register" class="ghost">注册</button>
+      </div>
+      <p id="auth-err" class="err"></p>
+    </section>
+
     <section id="pair-view" class="card hidden">
       <h2>配对</h2>
       <p class="muted">在电脑终端运行 <code>riffpad pair</code>，输入配对码：</p>
@@ -26,6 +37,7 @@
       <div class="row">
         <h2>会话</h2>
         <button id="refresh-btn">刷新</button>
+        <button id="logout-btn" class="ghost hidden">退出登录</button>
       </div>
       <form id="create-form" class="card">
         <div class="row">

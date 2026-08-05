@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
+	"golang.org/x/term"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/apps/daemon/internal/logging"
@@ -62,6 +63,8 @@ func main() {
 		err = attachCmd(base)
 	case "detach":
 		err = detachCmd()
+	case "relay":
+		err = relayCmd(os.Args[2:], dataDir)
 	case "version":
 		fmt.Println("riffpad", version)
 	case "help", "-h", "--help":
@@ -88,6 +91,8 @@ Usage:
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
+  riffpad relay login           log in to the relay (--url wss://… --username …)
+  riffpad relay logout          clear the saved relay token
   riffpad logs                  tail daemon logs
   riffpad version`)
 }
@@ -340,6 +345,74 @@ func defaultDaemonPort(base string) int {
 		}
 	}
 	return 8787
+}
+
+func relayCmd(args []string, dataDir string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: riffpad relay login|logout")
+	}
+	switch args[0] {
+	case "login":
+		fs := flag.NewFlagSet("login", flag.ExitOnError)
+		url := fs.String("url", os.Getenv("RIFFPAD_RELAY_URL"), "relay URL (wss:// or ws://)")
+		username := fs.String("username", os.Getenv("RIFFPAD_RELAY_USER"), "relay username")
+		_ = fs.Parse(args[1:])
+		if *url == "" || *username == "" {
+			return fmt.Errorf("--url and --username are required")
+		}
+		password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
+		if password == "" {
+			fmt.Print("密码: ")
+			b, err := term.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				return err
+			}
+			fmt.Println()
+			password = string(b)
+		}
+		httpURL := strings.TrimSuffix(*url, "/")
+		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+		body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
+		resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("登录失败: %w", err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return err
+		}
+		if out.Token == "" {
+			return fmt.Errorf("登录失败（状态 %d）", resp.StatusCode)
+		}
+		cfg, err := config.Load(dataDir)
+		if err != nil {
+			return err
+		}
+		cfg.RelayURL = *url
+		cfg.RelayToken = out.Token
+		if err := config.Save(dataDir, cfg); err != nil {
+			return err
+		}
+		fmt.Printf("已登录 %s，token 已保存到配置。\n", *username)
+		return nil
+	case "logout":
+		cfg, err := config.Load(dataDir)
+		if err != nil {
+			return err
+		}
+		cfg.RelayToken = ""
+		if err := config.Save(dataDir, cfg); err != nil {
+			return err
+		}
+		fmt.Println("已退出登录。")
+		return nil
+	default:
+		return fmt.Errorf("usage: riffpad relay login|logout")
+	}
 }
 
 func findRiffpadd() (string, error) {

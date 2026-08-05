@@ -149,8 +149,8 @@
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
 | M1.6 | WebSocket Hub + 房间路由 + 心跳重连 | `[x]` | Host/Viewer 路由、join/leave、会话同步（本地 E2E 验证通过） | — |
-| M1.7 | 配对 API + 设备 token + per-host 注册密钥 | `[~]` | relay 配对 API + per-host 注册已实现（daemon 自动注册并持久化密钥）；JWT/账号体系 M2 | — |
-| M1.8 | 元数据存储（Postgres） | `[ ]` | 当前 relay 为内存态，内容不落库 | — |
+| M1.7 | 用户 auth + 配对 API + per-host 注册密钥 | `[x]` | 用户注册/登录/登出/me；host/device 绑定 owner；daemon `riffpad relay login` | — |
+| M1.8 | 元数据存储（SQLite，GORM；可换 Postgres） | `[x]` | users/hosts/devices/sessions 落库；relay 重启不丢 | — |
 | M1.9 | 部署：Fly.io / Railway + 域名 + TLS + 基础监控 | `[ ]` | 待人工/运维：需要域名与部署平台 | — |
 
 ### 4.3 mobile（PWA）
@@ -180,6 +180,7 @@
 | relay 配对：daemon 转发创建码，网页在 relay 端认领 | ✅ |
 | 端到端经 relay：配对 → 会话回放 → 实时消息 → 审批 allow | ✅ Node WebCrypto 客户端实测 |
 | per-host 注册密钥、relay 重启持久化、daemon 免密钥重连、配对 IP 限流 | ✅ 单测 + 本地实测 |
+| 用户账号（注册/登录/登出）、owner 隔离、SQLite 元数据 | ✅ 单测 + 本地实测 |
 | 公网部署（域名/TLS/Fly/Railway） | ⏳ 待人工 |
 
 ---
