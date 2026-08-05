@@ -265,19 +265,26 @@ function renderEvent(ev) {
 }
 
 async function sendApproval(p, decision, btn) {
-  btn.disabled = true;
+  const row = btn.closest(".row");
+  const buttons = row ? Array.from(row.querySelectorAll("button")) : [btn];
+  const reset = () => {
+    buttons.forEach((b) => {
+      b.disabled = false;
+      b.textContent = b.classList.contains("danger") ? "拒绝" : "同意";
+    });
+  };
+  buttons.forEach((b) => { b.disabled = true; });
   btn.textContent = "发送中…";
   try {
     const sent = await sendEvent("approval_response", { requestId: p.requestId, decision });
     if (!sent) {
-      btn.textContent = "未连接";
-      btn.disabled = false;
+      reset();
+      setConn("未连接，无法发送：请刷新页面并重新打开会话");
       return;
     }
     btn.textContent = decision === "approve" ? "已同意" : "已拒绝";
   } catch (e) {
-    btn.textContent = "发送失败";
-    btn.disabled = false;
+    reset();
     setConn("审批发送失败：" + (e && e.message ? e.message : String(e)));
   }
 }
