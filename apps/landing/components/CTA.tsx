@@ -1,0 +1,25 @@
+"use client";
+
+import { useLanguage } from "./LanguageProvider";
+
+export function CTA() {
+  const { t } = useLanguage();
+
+  return (
+    <section className="mx-auto max-w-frame px-4 py-24 text-center sm:px-6 sm:py-32">
+      <h2 className="mx-auto max-w-content text-balance text-2xl font-bold leading-snug sm:text-3xl">
+        {t.cta.title}
+      </h2>
+      <p className="mx-auto mt-4 max-w-[560px] text-base text-body">
+        {t.cta.description}
+      </p>
+      <a
+        href="mailto:hi@riffpad.ai"
+        className="btn btn-primary mt-10 h-12 px-8"
+      >
+        {t.cta.button}
+      </a>
+      <p className="mt-4 text-xs text-mute">{t.cta.note}</p>
+    </section>
+  );
+}

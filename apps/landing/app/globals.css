@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #fdfcfc;
+  --surface-soft: #f8f7f7;
+  --surface-card: #f1eeee;
+  --surface-dark: #201d1d;
+  --surface-dark-elevated: #302c2c;
+
+  --ink: #201d1d;
+  --ink-deep: #0f0000;
+  --body: #424245;
+  --mute: #646262;
+  --stone: #6e6e73;
+  --ash: #9a9898;
+
+  --on-dark: #fdfcfc;
+  --on-dark-mute: #9a9898;
+  --hairline: rgba(15, 0, 0, 0.12);
+  --hairline-strong: #646262;
+
+  --accent: #007aff;
+  --accent-hover: #0056b3;
+  --accent-active: #004085;
+  --warning: #ff9f0a;
+  --warning-hover: #cc7f08;
+  --danger: #ff3b30;
+  --danger-hover: #d70015;
+  --success: #30d158;
+}
+
+[data-theme="dark"] {
+  --canvas: #141414;
+  --surface-soft: #1d1d1d;
+  --surface-card: #242424;
+  --surface-dark: #0a0a0a;
+  --surface-dark-elevated: #242424;
+
+  --ink: #f4f3f1;
+  --ink-deep: #ffffff;
+  --body: #c7c5c2;
+  --mute: #96938f;
+  --stone: #7c7976;
+  --ash: #5f5d5a;
+
+  --on-dark: #f4f3f1;
+  --on-dark-mute: #96938f;
+  --hairline: rgba(255, 255, 255, 0.14);
+  --hairline-strong: #7c7976;
+
+  --accent: #409cff;
+  --accent-hover: #6fb3ff;
+  --accent-active: #9fcdff;
+  --warning: #ffb340;
+  --warning-hover: #ffc873;
+  --danger: #ff6961;
+  --danger-hover: #ff8f89;
+  --success: #4cd964;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas font-mono text-ink antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--ink);
+    color: var(--canvas);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded px-5 text-base font-medium leading-[2] transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-ink text-canvas hover:bg-ink-deep;
+  }
+
+  .btn-secondary {
+    @apply border border-hairline-strong bg-canvas text-ink hover:border-ink;
+  }
+
+  .btn-ghost {
+    @apply text-body hover:text-ink;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
