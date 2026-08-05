@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/gorilla/websocket"
 	"github.com/riffpad/riffpad/packages/protocol"
@@ -15,6 +16,7 @@ type client struct {
 	conn     *websocket.Conn
 	send     chan []byte
 	done     chan struct{}
+	log      *log.Logger
 }
 
 func (c *client) writeLoop() {
@@ -22,6 +24,7 @@ func (c *client) writeLoop() {
 		select {
 		case data := <-c.send:
 			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				c.log.Printf("ws write error device=%s: %v", c.deviceID, err)
 				close(c.done)
 				return
 			}

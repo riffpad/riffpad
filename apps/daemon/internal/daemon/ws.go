@@ -80,7 +80,9 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		conn:     conn,
 		send:     make(chan []byte, 256),
 		done:     make(chan struct{}),
+		log:      s.log,
 	}
+	s.log.Printf("ws connect device=%s session=%s curve=%s", deviceID, sid, dev.Curve)
 	sess.addClient(c)
 	hello := protocol.Hello{
 		V:            1,
@@ -90,6 +92,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	helloData, _ := json.Marshal(hello)
 	c.sendRaw(helloData)
+	s.log.Printf("ws hello queued device=%s session=%s replay=%d", deviceID, sid, len(sess.snapshot()))
 	for _, ev := range sess.snapshot() {
 		c.sendEvent(ev)
 	}

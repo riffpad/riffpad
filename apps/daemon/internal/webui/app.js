@@ -147,25 +147,29 @@ async function openDetail(sid, name) {
   };
   ws.onerror = () => setConn("连接错误");
   ws.onmessage = async (msg) => {
-    const data = JSON.parse(msg.data);
-    if (data.kind === "hello") {
-      const dsec = await deviceSecret(dev);
-      const serverEph = await crypto.subtle.importKey("raw", b64uToBytes(data.serverEphPub), { name: "ECDH", namedCurve: "P-256" }, false, []);
-      const ephBits = await crypto.subtle.deriveBits({ name: "ECDH", public: serverEph }, eph.privateKey, 256);
-      const hkdf = await crypto.subtle.importKey("raw", ephBits, "HKDF", false, ["deriveKey"]);
-      sessionKey = await crypto.subtle.deriveKey(
-        { name: "HKDF", hash: "SHA-256", salt: dsec, info: enc("riffpad/session-v1/" + sid) },
-        hkdf, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
-      );
-      everConnected = true;
-      setConn("已连接（加密）");
-      return;
-    }
-    if (sessionKey) {
-      const iv = b64uToBytes(data.nonce);
-      const ct = b64uToBytes(data.ciphertext);
-      const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: enc(sid) }, sessionKey, ct);
-      renderEvent(JSON.parse(dec.decode(pt)));
+    try {
+      const data = JSON.parse(msg.data);
+      if (data.kind === "hello") {
+        const dsec = await deviceSecret(dev);
+        const serverEph = await crypto.subtle.importKey("raw", b64uToBytes(data.serverEphPub), { name: "ECDH", namedCurve: "P-256" }, false, []);
+        const ephBits = await crypto.subtle.deriveBits({ name: "ECDH", public: serverEph }, eph.privateKey, 256);
+        const hkdf = await crypto.subtle.importKey("raw", ephBits, "HKDF", false, ["deriveKey"]);
+        sessionKey = await crypto.subtle.deriveKey(
+          { name: "HKDF", hash: "SHA-256", salt: dsec, info: enc("riffpad/session-v1/" + sid) },
+          hkdf, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+        everConnected = true;
+        setConn("已连接（加密）");
+        return;
+      }
+      if (sessionKey) {
+        const iv = b64uToBytes(data.nonce);
+        const ct = b64uToBytes(data.ciphertext);
+        const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: enc(sid) }, sessionKey, ct);
+        renderEvent(JSON.parse(dec.decode(pt)));
+      }
+    } catch (e) {
+      setConn("握手失败：" + (e && e.message ? e.message : String(e)));
     }
   };
 }
