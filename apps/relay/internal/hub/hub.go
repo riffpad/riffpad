@@ -96,8 +96,7 @@ var upgrader = websocket.Upgrader{
 func (h *Hub) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h.handleRoot)
-	mux.HandleFunc("/app.js", h.handleAsset)
-	mux.HandleFunc("/style.css", h.handleAsset)
+	mux.HandleFunc("/assets/", h.handleAsset)
 	mux.HandleFunc("/api/status", h.handleStatus)
 	mux.HandleFunc("/api/auth/register", h.handleRegister)
 	mux.HandleFunc("/api/auth/login", h.handleLogin)
@@ -117,7 +116,12 @@ func (h *Hub) handleRoot(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	html := strings.Replace(string(webui.IndexHTML), "</head>", "<script>window.RIFFPAD_RELAY=1;</script></head>", 1)
+	raw, err := webui.IndexHTML()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "webui not built"})
+		return
+	}
+	html := strings.Replace(string(raw), "</head>", "<script>window.RIFFPAD_RELAY=1;</script></head>", 1)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(html))
@@ -125,16 +129,18 @@ func (h *Hub) handleRoot(w http.ResponseWriter, r *http.Request) {
 
 func (h *Hub) handleAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	switch r.URL.Path {
-	case "/app.js":
-		w.Header().Set("Content-Type", "application/javascript")
-		_, _ = w.Write(webui.AppJS)
-	case "/style.css":
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		_, _ = w.Write(webui.StyleCSS)
-	default:
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if name == "" || strings.Contains(name, "..") {
 		http.NotFound(w, r)
+		return
 	}
+	data, err := webui.Asset(name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", webui.ContentType(name))
+	_, _ = w.Write(data)
 }
 
 func (h *Hub) handleStatus(w http.ResponseWriter, r *http.Request) {

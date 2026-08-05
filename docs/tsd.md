@@ -28,6 +28,7 @@
 |---|---|---|
 | daemon | Go 1.25 | 单二进制，跨平台（macOS / Linux 一期；Windows P1） |
 | relay | Go + Echo + gorilla/websocket | 长连接中继，部署为长运行容器 |
+| web client | React 19 + Vite + TypeScript（apps/client-beta） | 与 daemon/relay 内嵌同一份构建产物；本地 8787 与 app.riffpad.ai 共用 |
 | mobile | Next.js 14 PWA + xterm.js | 会话列表、审批卡片、终端兜底视图 |
 | 推送 | Web Push（VAPID）MVP | 国内厂商通道在原生壳阶段接入 |
 | 数据库 | Postgres | 仅存元数据（用户 / 设备 / 会话状态），内容不落库 |

@@ -125,8 +125,7 @@ func DefaultFactory() adapter.Factory {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleRoot)
-	mux.HandleFunc("/app.js", s.handleAsset)
-	mux.HandleFunc("/style.css", s.handleAsset)
+	mux.HandleFunc("/assets/", s.handleAsset)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/pairings", s.handleCreatePairing)
 	mux.HandleFunc("/api/pair", s.handlePair)
@@ -214,19 +213,27 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	writeRaw(w, http.StatusOK, "text/html; charset=utf-8", webui.IndexHTML)
+	html, err := webui.IndexHTML()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "webui not built")
+		return
+	}
+	writeRaw(w, http.StatusOK, "text/html; charset=utf-8", html)
 }
 
 func (s *Server) handleAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	switch r.URL.Path {
-	case "/app.js":
-		writeRaw(w, http.StatusOK, "application/javascript", webui.AppJS)
-	case "/style.css":
-		writeRaw(w, http.StatusOK, "text/css; charset=utf-8", webui.StyleCSS)
-	default:
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if name == "" || strings.Contains(name, "..") {
 		http.NotFound(w, r)
+		return
 	}
+	data, err := webui.Asset(name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	writeRaw(w, http.StatusOK, webui.ContentType(name), data)
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
