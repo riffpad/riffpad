@@ -54,7 +54,7 @@
 | M0.5 | 设备配对：终端二维码 + 密钥交换 + 本地密钥存储 | `[x]` | 扫码配对成功；私钥 0600；撤销可用 | — |
 | M0.6 | 本地网页端（M0 用浏览器代替 App） | `[x]` | 会话列表 + 事件流 + 审批按钮 + 文字指令注入 | — |
 | M0.7 | E2EE 信封：会话密钥派生 + AES-GCM 加解密 + 单测 | `[x]` | 加解密往返测试通过；中继侧不可读 | — |
-| M0.8 | M0 端到端演示（附着模式） | `[!]` 待人工验证 | 用户自己在终端开 Claude Code 交互会话，daemon 捕捉事件，网页端批准/拒绝生效 | — |
+| M0.8 | M0 端到端演示（附着模式） | `[x]` | 用户自己在终端开 Claude Code 交互会话，daemon 捕捉事件，网页端批准/拒绝生效（日志确认 hook resolved allow） | — |
 
 **M0 出口条件**：8 个任务全部完成；至少 3 个外部用户跑通一次完整闭环。
 
@@ -67,7 +67,7 @@
 | 用户消息（UserPromptSubmit）与 Agent 消息（MessageDisplay）进入时间线 | ✅ |
 | 多 claude 会话按 session_id 区分显示 | ✅ |
 | 配对、E2EE 握手、事件回放 | ✅ |
-| **审批闭环**（PermissionRequest hook → 网页审批卡 → 同意/拒绝 → claude 继续） | ⏳ 待人工验证 |
+| **审批闭环**（PermissionRequest hook → 网页审批卡 → 同意/拒绝 → claude 继续） | ✅（2026-08-05，日志确认 resolved allow；Claude 显示 Allowed by PermissionRequest hook） |
 | 3 个外部用户跑通完整闭环 | ⏳ 并入 M1 种子用户 |
 
 ### M0 人工验证步骤（M0.8，附着模式）
