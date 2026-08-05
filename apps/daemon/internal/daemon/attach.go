@@ -3,7 +3,9 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,19 +13,26 @@ import (
 	"github.com/riffpad/riffpad/packages/protocol"
 )
 
-// hookAdapter is a no-op adapter for attached (hook-driven) sessions. Events
-// are pushed directly through the daemon pump by hook handlers; approval and
-// prompt routing use the daemon's pendingHooks map instead of the adapter.
-type hookAdapter struct{}
+// attachAdapter is the adapter for attached (hook-driven) sessions. Events
+// are pushed directly through the daemon pump by hook handlers; approvals use
+// the pendingHooks map; prompts are injected into the user's tmux pane.
+type attachAdapter struct {
+	server *Server
+	cwd    string
+}
 
-func (hookAdapter) ID() string                         { return "" }
-func (hookAdapter) Start(_ context.Context) error      { return nil }
-func (hookAdapter) Events() <-chan protocol.Event      { return nil }
-func (hookAdapter) Meta() protocol.SessionStartPayload { return protocol.SessionStartPayload{} }
-func (hookAdapter) SendApproval(_, _ string) error     { return nil }
-func (hookAdapter) SendPrompt(string) error            { return nil }
-func (hookAdapter) Alive() bool                        { return true }
-func (hookAdapter) Stop() error                        { return nil }
+func (a *attachAdapter) ID() string                    { return "" }
+func (a *attachAdapter) Start(_ context.Context) error { return nil }
+func (a *attachAdapter) Events() <-chan protocol.Event { return nil }
+func (a *attachAdapter) Meta() protocol.SessionStartPayload {
+	return protocol.SessionStartPayload{}
+}
+func (a *attachAdapter) SendApproval(_, _ string) error { return nil }
+func (a *attachAdapter) SendPrompt(text string) error {
+	return a.server.injectPrompt(a.cwd, text)
+}
+func (a *attachAdapter) Alive() bool { return true }
+func (a *attachAdapter) Stop() error { return nil }
 
 // hookPayload is the common shape of Claude Code hook input JSON.
 type hookPayload struct {
@@ -114,7 +123,7 @@ func (s *Server) attachSession(claudeSID, cwd string) *session {
 	sess := &session{
 		id:      claudeSID,
 		meta:    protocol.SessionStartPayload{Name: name, CLI: "claude (attach)", Cwd: cwd},
-		adapter: hookAdapter{},
+		adapter: &attachAdapter{server: s, cwd: cwd},
 		status:  protocol.StatusRunning,
 		clients: map[*client]struct{}{},
 	}
@@ -127,6 +136,44 @@ func (s *Server) attachSession(claudeSID, cwd string) *session {
 	}
 	s.announceSessions()
 	return sess
+}
+
+// injectPrompt types text into the tmux pane running claude in cwd and presses
+// Enter. This is how web/remote instructions reach an interactive Claude Code
+// session that the user opened themselves.
+func (s *Server) injectPrompt(cwd, text string) error {
+	out, err := exec.Command("tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{pane_current_command}\t#{pane_current_path}").Output()
+	if err != nil {
+		return fmt.Errorf("tmux 不可用：%w（请把 claude 放进 tmux 再试）", err)
+	}
+	paneID := findClaudePane(string(out), cwd)
+	if paneID == "" {
+		return fmt.Errorf("未找到运行在 %s 的 claude tmux 面板（请把 claude 放进 tmux 再试）", cwd)
+	}
+	if err := exec.Command("tmux", "send-keys", "-t", paneID, "-l", text).Run(); err != nil {
+		return fmt.Errorf("tmux send-keys: %w", err)
+	}
+	if err := exec.Command("tmux", "send-keys", "-t", paneID, "Enter").Run(); err != nil {
+		return fmt.Errorf("tmux send-keys Enter: %w", err)
+	}
+	s.log.Printf("prompt injected into tmux pane=%s cwd=%s", paneID, cwd)
+	return nil
+}
+
+// findClaudePane picks a pane whose current command looks like claude and
+// whose path matches cwd.
+func findClaudePane(tmuxOutput, cwd string) string {
+	for _, line := range strings.Split(tmuxOutput, "\n") {
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		id, cmd, path := parts[0], parts[1], parts[2]
+		if strings.Contains(cmd, "claude") && path == cwd {
+			return id
+		}
+	}
+	return ""
 }
 
 func (s *Server) handleHookSessionStart(w http.ResponseWriter, r *http.Request) {

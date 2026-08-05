@@ -211,3 +211,19 @@ func TestAttachHookFlow(t *testing.T) {
 		t.Fatal("permission hook did not resolve")
 	}
 }
+
+func TestFindClaudePane(t *testing.T) {
+	out := "%0\tclaude\t/tmp/a\n" +
+		"%1\tnode /usr/local/bin/claude\t/tmp/b\n" +
+		"%2\tzsh\t/tmp/a\n" +
+		"%3\tclaude\t/tmp/a\n"
+	if got := findClaudePane(out, "/tmp/a"); got != "%0" {
+		t.Fatalf("expected %%0, got %q", got)
+	}
+	if got := findClaudePane(out, "/tmp/b"); got != "%1" {
+		t.Fatalf("expected %%1, got %q", got)
+	}
+	if got := findClaudePane(out, "/tmp/nope"); got != "" {
+		t.Fatalf("expected no pane, got %q", got)
+	}
+}
