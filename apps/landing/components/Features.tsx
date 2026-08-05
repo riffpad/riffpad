@@ -23,8 +23,7 @@ export function Features() {
               key={index}
               className="card p-6 transition-colors duration-200 hover:border-hairline-strong sm:p-8"
             >
-              <span className="text-sm font-bold text-accent">{">"}</span>
-              <h3 className="mt-3 text-lg font-bold text-ink">{item.title}</h3>
+              <h3 className="text-lg font-bold text-ink">{item.title}</h3>
               <p className="mt-2 text-base leading-[1.7] text-body">
                 {item.description}
               </p>

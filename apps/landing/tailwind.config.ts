@@ -48,9 +48,9 @@ const config: Config = {
         ],
       },
       borderRadius: {
-        sm: "8px",
-        md: "12px",
-        lg: "20px",
+        sm: "0px",
+        md: "0px",
+        lg: "0px",
         full: "9999px",
       },
       boxShadow: {

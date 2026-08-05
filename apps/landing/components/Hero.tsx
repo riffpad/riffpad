@@ -9,7 +9,7 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="bg-terminal-grid mx-auto max-w-frame scroll-mt-20 px-4 pb-20 pt-14 sm:px-6 sm:pb-28 sm:pt-20"
+      className="mx-auto max-w-frame scroll-mt-20 px-4 pb-20 pt-14 sm:px-6 sm:pb-28 sm:pt-20"
     >
       <div className="grid items-center gap-12 lg:grid-cols-2">
         <div>
@@ -18,7 +18,6 @@ export function Hero() {
             {t.hero.title1}
             <br />
             {t.hero.title2}
-            <span className="animate-blink text-accent">▍</span>
           </h1>
           <p className="mt-6 max-w-[520px] text-base leading-[1.7] text-body">
             {t.hero.description}

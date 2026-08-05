@@ -25,8 +25,8 @@ export function TerminalMockup() {
       <div className="px-4 py-5 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-on-console">
-            <span className="text-accent">$</span> {t.terminal.session}
-            <span className="text-success"> [{t.terminal.running}]</span>
+            {t.terminal.session}
+            <span className="text-success"> {t.terminal.running}</span>
           </span>
           <span className="text-xs text-on-console-mute">84ms</span>
         </div>
@@ -37,25 +37,25 @@ export function TerminalMockup() {
             <span aria-hidden="true">●</span>
           </div>
           <div className="mt-3 rounded-sm border border-warning/30 bg-warning/10 p-3">
-            <div className="text-[11px] text-warning">[!] {t.terminal.approval}</div>
+            <div className="text-[11px] text-warning">{t.terminal.approval}</div>
             <div className="mt-1.5 text-sm font-bold text-on-console">
-              $ {t.terminal.approvalSummary}
+              {t.terminal.approvalSummary}
             </div>
             <div className="mt-3 flex gap-2">
               <span className="inline-flex h-9 flex-1 items-center justify-center rounded-sm border border-success/50 text-xs font-bold text-success">
-                [ {t.terminal.approve} ]
+                {t.terminal.approve}
               </span>
               <span className="inline-flex h-9 flex-1 items-center justify-center rounded-sm border border-danger/50 text-xs font-bold text-danger">
-                [ {t.terminal.reject} ]
+                {t.terminal.reject}
               </span>
             </div>
           </div>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-on-console-mute">
-          <span>{`// ${t.terminal.statusE2ee}`}</span>
-          <span>{`// ${t.terminal.statusRelay}`}</span>
-          <span>{`// ${t.terminal.statusLatency}`}</span>
+          <span>{t.terminal.statusE2ee}</span>
+          <span>{t.terminal.statusRelay}</span>
+          <span>{t.terminal.statusLatency}</span>
         </div>
       </div>
 

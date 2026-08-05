@@ -16,8 +16,7 @@ export function Footer() {
               className="flex cursor-pointer items-center gap-2 text-sm font-bold text-ink"
             >
               <Logo className="h-6 w-6" />
-              riffpad@local
-              <span className="text-mute">:~$</span>
+              riffpad
             </a>
             <p className="mt-2 text-sm text-mute">{t.footer.tagline}</p>
           </div>

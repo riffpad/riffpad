@@ -25,7 +25,6 @@ export function Security() {
               {t.security.items.map((item, index) => (
                 <div key={index} className="border-b border-hairline py-4">
                   <h3 className="text-base font-bold text-ink">
-                    <span className="mr-2 text-accent">{">"}</span>
                     {item.title}
                   </h3>
                   <p className="mt-1.5 max-w-[520px] text-base leading-[1.7] text-body">
@@ -38,20 +37,22 @@ export function Security() {
 
           <div className="console-card overflow-hidden">
             <div className="border-b border-on-console/10 px-4 py-3 text-xs text-on-console-mute sm:px-5">
-              ~$ riffpad status --security
+              riffpad status --security
             </div>
             <div className="px-4 py-5 text-sm leading-[2] sm:px-5">
               {t.security.items.map((item, index) => (
                 <div key={index} className="flex gap-3">
-                  <span className="shrink-0 text-success">[ok]</span>
+                  <span className="shrink-0 text-success" aria-hidden="true">
+                    ●
+                  </span>
                   <span className="text-on-console">{item.title}</span>
                 </div>
               ))}
               <div className="flex gap-3">
-                <span className="shrink-0 text-warning">[warn]</span>
-                <span className="text-on-console-mute">
-                  {t.terminal.statusE2ee}
+                <span className="shrink-0 text-warning" aria-hidden="true">
+                  ●
                 </span>
+                <span className="text-on-console-mute">{t.terminal.statusE2ee}</span>
               </div>
             </div>
           </div>

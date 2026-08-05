@@ -4,11 +4,11 @@ name: Riffpad-design-system
 description: |
   Riffpad's own "Console-Mobile" design language. A terminal console and a
   mobile remote control fused into one system: monospace-first type, warm
-  paper / deep console color pair, brand-amber accents, rounded cards,
-  prompt glyphs (>, //, ●, ▍) and a hero that shows the product as a live
+  paper / deep console color pair, brand-amber accents, square geometry,
+  minimal glyphs (>, //, ●) and a hero that shows the product as a live
   session on your phone. Deliberately distinct from manpage-style terminal
   marketing: no cream-only manpage canvas, no ASCII bracket bullets, no
-  4px-only geometry.
+  prompt-string clutter in chrome, no 4px-only geometry.
 ---
 
 # Riffpad Design System — Console-Mobile
@@ -18,21 +18,20 @@ description: |
 Riffpad is the pocket remote for AI coding agents. The design language says
 that in one sentence: **a terminal console and a phone, fused**.
 
-- The page reads like a live session: `riffpad@local:~$`, `//` comment
-  labels, `▍` blinking cursor, status dots.
+- The page keeps a quiet terminal tone: `//` comment labels, status dots,
+  and a console hero — without prompt-string chrome in the navigation.
 - The hero is a console window showing a session, and inside that console
   sits a phone with an approval card — the product, not a metaphor.
 - The brand color is Riffpad amber (`#F7A501`), used on marketing surfaces
   as the single warm accent against cool neutral ink.
-- Geometry is rounded but restrained: 8px for chips/buttons, 12px for
-  cards, 20px for the phone frame. Nothing floats; every card earns its
-  place with a 1px hairline and a very soft shadow.
+- Geometry is square. Nothing floats; every card earns its place with a
+  1px hairline and a very soft shadow.
 
 This is *not* opencode's manpage aesthetic: no cream-only canvas, no ASCII
 bracket bullets (`[+]` / `[-]`), no 4px-only radius, no Apple semantic ramp
-locked inside a mockup. Terminal flavor is kept through type, prompt
-glyphs, and console surfaces — not through recreating a terminal UI
-verbatim.
+locked inside a mockup, no `:~$` / `~/` prompt clutter in chrome. Terminal
+flavor is kept through type, console surfaces, and a single product mockup
+— never through decorative command strings.
 
 ## 2. Colors
 
@@ -120,9 +119,9 @@ Base unit 4px: `xs 4` · `sm 8` · `md 12` · `lg 16` · `xl 24` · `xxl 32` ·
 
 | Token | Value | Use |
 |---|---|---|
-| `sm` | 8px | Buttons, chips, inputs, console inner cards |
-| `md` | 12px | Feature cards, console window, FAQ rows |
-| `lg` | 20px | Phone mockup frame |
+| `sm` | 0px | Buttons, chips, inputs, console inner cards |
+| `md` | 0px | Feature cards, console window, FAQ rows |
+| `lg` | 0px | Phone mockup frame |
 | `full` | 999px | Status dots, avatar dots |
 
 ### Elevation
@@ -142,32 +141,29 @@ No emoji, no icon library required. The system uses mono glyphs:
 | `>` | Prompt / feature bullet |
 | `//` | Comment / section label prefix |
 | `●` | Live status dot |
-| `▍` | Blinking cursor (hero, CTA input) |
 | `01/02/03` | Step numbers |
 | `→` | CTA arrow |
 
-Use them as text characters inside monospace type. If an SVG is truly
-needed (logo/favicon), keep it minimal and line-based.
+Use them sparingly, as text characters inside monospace type. No
+bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
+(logo/favicon), keep it minimal and line-based.
 
 ## 6. Components
 
 ### Top bar
 
 - Height 56px, `surface` background, 1px `hairline` bottom rule.
-- Left: Riffpad logo mark + `riffpad@local:~$` wordmark.
-- Center: nav links rendered as `~/features`, `~/how`, `~/security`,
-  `~/faq`.
-- Right: language toggle `[EN / 中]`, theme toggle `[dark / light]`,
+- Left: Riffpad logo mark + `riffpad` wordmark.
+- Center: plain nav links: Features / How it works / Security / FAQ.
+- Right: text-only language toggle `EN / 中`, theme toggle `Dark / Light`,
   amber CTA.
 - Mobile: nav collapses to a `menu` button; CTA stays visible.
 
 ### Hero
 
-- Desktop: two columns. Left: `//` badge, display headline ending with a
-  blinking `▍`, description, primary (amber) + secondary (outline) CTAs,
-  and a one-line trust note. Right: console window.
-- Background: faint 16px terminal grid (`linear-gradient` lines) inside the
-  hero section only.
+- Desktop: two columns. Left: `//` badge, display headline, description,
+  primary (amber) + secondary (outline) CTAs, and a one-line trust note.
+  Right: console window.
 
 ### Console window
 
@@ -177,9 +173,9 @@ needed (logo/favicon), keep it minimal and line-based.
 - Body: one session row (`running`), one approval card
   (`console-elevated` surface, amber warning label, action chips),
   one status line (`aes-256-gcm · zero-knowledge · 84ms`).
-- Inside the console sits the **phone mockup**: a `lg`-radius dark phone
-  frame with a status bar (`09:41`) and the same approval card repeated in
-  phone proportions.
+- Inside the console sits the **phone mockup**: a square dark phone frame
+  with a status bar (`09:41`) and the same approval card repeated in phone
+  proportions.
 
 ### Feature bento
 
@@ -210,22 +206,20 @@ needed (logo/favicon), keep it minimal and line-based.
 ### CTA
 
 - Centered block on `canvas`.
-- A console input line: `$ riffpad request early-access ▍` (static text,
-  blinking cursor), then the amber CTA button `Get early access →`.
+- Amber CTA button `Get early access →`, then a small note.
 
 ### Footer
 
 - 1px `hairline` top rule, `surface` background.
-- `riffpad@local:~$` wordmark + tagline, GitHub / Docs / Contact links,
-  copyright and `local-first · e2ee · zero-knowledge` line.
+- `riffpad` wordmark + tagline, GitHub / Docs / Contact links, copyright
+  and `local-first · e2ee · zero-knowledge` line.
 
 ## 7. Motion
 
 - All interactive transitions: 150–300ms, ease-out.
 - Hover: card border shifts to `hairline-strong`; primary CTA darkens by
   one step; no scale transforms that shift layout.
-- The `▍` cursor blinks at 1s/1s steps.
-- `prefers-reduced-motion: reduce` disables blink and all transitions.
+- `prefers-reduced-motion: reduce` disables all transitions.
 
 ## 8. Do / Don't
 
@@ -235,15 +229,19 @@ needed (logo/favicon), keep it minimal and line-based.
 - Use amber as the brand accent on marketing surfaces.
 - Show the product as console + phone; the approval card is the hero.
 - Use rounded cards with hairline borders and soft shadows.
-- Use `>` / `//` / `●` / `▍` prompt glyphs instead of icon sets.
+- Use minimal `>` / `//` / `●` glyphs only where they aid scanning.
 - Keep CJK text sans-serif.
 
 ### Don't
 
 - Don't recreate opencode's manpage: no cream-only canvas, no ASCII bracket
   bullets, no 4px-only geometry, no Berkeley-Mono-only identity.
+- Don't use prompt-string chrome (`:~$`, `~/`, `$`) in the header, footer,
+  or CTA.
+- Don't wrap buttons or controls in brackets (`[button]`).
 - Don't use Apple semantic colors on marketing chrome.
-- Don't add gradients, glassmorphism, or decorative imagery.
+- Don't add gradients, glassmorphism, terminal grids, or decorative
+  imagery.
 - Don't let the console surface appear more than once per viewport.
 - Don't use emoji as icons.
 

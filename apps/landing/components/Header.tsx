@@ -25,8 +25,7 @@ export function Header() {
           className="flex h-11 cursor-pointer items-center gap-2 text-ink"
         >
           <Logo className="h-6 w-6" />
-          <span className="text-sm font-bold">riffpad@local</span>
-          <span className="hidden text-sm text-mute sm:inline">:~$</span>
+          <span className="text-sm font-bold">riffpad</span>
         </a>
 
         <nav
@@ -39,7 +38,7 @@ export function Header() {
               href={`#${link.id}`}
               className="text-sm text-body transition-colors hover:text-ink"
             >
-              ~/{link.label}
+              {link.label}
             </a>
           ))}
         </nav>
@@ -60,7 +59,7 @@ export function Header() {
             aria-expanded={open}
             aria-controls="mobile-menu"
           >
-            [{open ? "-" : "+"} {t.nav.menu}]
+            {t.nav.menu}
           </button>
         </div>
       </div>
@@ -81,7 +80,7 @@ export function Header() {
                 onClick={() => setOpen(false)}
                 className="flex min-h-11 cursor-pointer items-center border-b border-hairline text-base text-body transition-colors hover:text-ink"
               >
-                ~/{link.label}
+                {link.label}
               </a>
             ))}
             <a href="mailto:hi@riffpad.ai" className="btn btn-primary mt-4">

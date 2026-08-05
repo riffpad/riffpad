@@ -14,12 +14,7 @@ export function CTA() {
         {t.cta.description}
       </p>
 
-      <div className="console-card mx-auto mt-10 max-w-xl overflow-hidden px-5 py-4 text-left text-sm text-on-console">
-        <span className="text-accent">$</span> riffpad request early-access{" "}
-        <span className="animate-blink text-accent">▍</span>
-      </div>
-
-      <a href="mailto:hi@riffpad.ai" className="btn btn-primary mt-8 h-12 px-8">
+      <a href="mailto:hi@riffpad.ai" className="btn btn-primary mt-10 h-12 px-8">
         {t.cta.button} <span aria-hidden="true">→</span>
       </a>
       <p className="mt-4 text-xs text-mute">{t.cta.note}</p>

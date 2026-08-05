@@ -117,20 +117,4 @@
 }
 
 @layer utilities {
-  .bg-terminal-grid {
-    background-image:
-      linear-gradient(var(--hairline) 1px, transparent 1px),
-      linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
-    background-size: 16px 16px;
-  }
-
-  .animate-blink {
-    animation: blink 1s step-end infinite;
-  }
-
-  @keyframes blink {
-    50% {
-      opacity: 0;
-    }
-  }
 }
