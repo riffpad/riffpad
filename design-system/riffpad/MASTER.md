@@ -7,9 +7,9 @@
 ---
 
 **Project:** Riffpad
-**Generated:** 2026-08-06 01:45:33
-**Category:** Developer Tool / IDE
-**Design Dials:** Variance 5/10 (Balanced / Modern) | Motion 4/10 (Standard) | Density 4/10 (Standard)
+**Generated:** 2026-08-06 02:08:13
+**Category:** Coding Bootcamp
+**Design Dials:** Variance 7/10 (Balanced / Modern) | Motion 5/10 (Standard) | Density 5/10 (Standard)
 
 ---
 
@@ -19,18 +19,18 @@
 
 | Role | Hex | CSS Variable |
 |------|-----|--------------|
-| Primary | `#1E3A5F` | `--color-primary` |
+| Primary | `#0F172A` | `--color-primary` |
 | On Primary | `#FFFFFF` | `--color-on-primary` |
-| Secondary | `#334155` | `--color-secondary` |
+| Secondary | `#1E293B` | `--color-secondary` |
 | Accent/CTA | `#22C55E` | `--color-accent` |
-| Background | `#0F172A` | `--color-background` |
-| Foreground | `#FFFFFF` | `--color-foreground` |
-| Muted | `#10192E` | `--color-muted` |
-| Border | `rgba(255,255,255,0.08)` | `--color-border` |
-| Destructive | `#DC2626` | `--color-destructive` |
-| Ring | `#1E3A5F` | `--color-ring` |
+| Background | `#020617` | `--color-background` |
+| Foreground | `#F8FAFC` | `--color-foreground` |
+| Muted | `#1A1E2F` | `--color-muted` |
+| Border | `#334155` | `--color-border` |
+| Destructive | `#EF4444` | `--color-destructive` |
+| Ring | `#0F172A` | `--color-ring` |
 
-**Color Notes:** Shield dark + connected green
+**Color Notes:** Terminal dark + success green
 
 ### Typography
 
@@ -46,7 +46,7 @@
 
 ### Spacing Variables
 
-*Density: 4/10 — Standard*
+*Density: 5/10 — Standard*
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -93,8 +93,8 @@
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #1E3A5F;
-  border: 2px solid #1E3A5F;
+  color: #0F172A;
+  border: 2px solid #0F172A;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
@@ -107,7 +107,7 @@
 
 ```css
 .card {
-  background: #0F172A;
+  background: #020617;
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-md);
@@ -133,9 +133,9 @@
 }
 
 .input:focus {
-  border-color: #1E3A5F;
+  border-color: #0F172A;
   outline: none;
-  box-shadow: 0 0 0 3px #1E3A5F20;
+  box-shadow: 0 0 0 3px #0F172A20;
 }
 ```
 
@@ -171,11 +171,11 @@
 
 ### Page Pattern
 
-**Pattern Name:** Minimal Single Column
+**Pattern Name:** AI Personalization Landing
 
-- **Conversion Strategy:** Single CTA focus. Large typography. Lots of whitespace. No nav clutter. Mobile-first.
-- **CTA Placement:** Center, large CTA button
-- **Section Order:** 1. Hero headline, 2. Short description, 3. Benefit bullets (3 max), 4. CTA, 5. Footer
+- **Conversion Strategy:** 20%+ conversion with personalization. Requires analytics integration. Fallback for new users.
+- **CTA Placement:** Context-aware placement based on user segment
+- **Section Order:** 1. Dynamic hero (personalized), 2. Relevant features, 3. Tailored testimonials, 4. Smart CTA
 
 ---
 
@@ -197,8 +197,8 @@ gsap.from('.grid-item', { opacity: 0, scale: 0.92, y: 16, duration: 0.4, stagger
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Light mode default
-- ❌ Slow performance
+- ❌ Light mode only
+- ❌ Hidden results
 
 ### Additional Forbidden Patterns
 

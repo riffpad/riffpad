@@ -7,16 +7,17 @@ export function Footer() {
   const { t } = useLanguage();
 
   return (
-    <footer className="border-t border-hairline">
+    <footer className="border-t border-hairline bg-surface">
       <div className="mx-auto max-w-frame px-4 py-12 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <a
               href="#top"
-              className="flex cursor-pointer items-center gap-2 font-bold text-ink"
+              className="flex cursor-pointer items-center gap-2 text-sm font-bold text-ink"
             >
               <Logo className="h-6 w-6" />
-              riffpad
+              riffpad@local
+              <span className="text-mute">:~$</span>
             </a>
             <p className="mt-2 text-sm text-mute">{t.footer.tagline}</p>
           </div>

@@ -24,7 +24,8 @@ public/       # robots.txt / sitemap.xml
 
 ## 设计参考
 
-- `DESIGN.md` 来自 [VoltAgent/awesome-design-md](https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/opencode.ai/DESIGN.md)（MIT License，Copyright (c) 2026 VoltAgent），作为视觉规范基底：全站等宽字体、米白画布、1px hairline、ASCII 括号标记、单块深色终端 mockup。
-- 在此基础上为 Riffpad 增加了深色主题、中英双语和品牌色（仅用于终端 mockup 内部语义状态）。
+- `DESIGN.md` 是 Riffpad 自有的 **Console-Mobile** 设计规范：终端控制台 × 手机遥控器。
+- 保留终端气质（等宽字体、控制台表面、`$`/`//`/`▍` 提示符），但刻意与 opencode 的 manpage 风格区分：使用品牌琥珀色、圆角卡片、bento 网格，不再使用米白画布 + ASCII 括号子弹 + 4px 几何。
+- 深色主题、中英双语、CJK 无衬线回退均为规范的一部分。
 - 设计系统决策记录在仓库根目录 `design-system/riffpad/`（由 ui-ux-pro-max skill 生成）。
 - 字体使用 Geist Mono 可变字体（OFL License，见 `app/fonts/GeistMono-OFL.txt`）。

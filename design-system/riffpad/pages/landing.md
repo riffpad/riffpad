@@ -1,7 +1,7 @@
 # Landing Page Overrides
 
 > **PROJECT:** Riffpad
-> **Generated:** 2026-08-06 01:45:33
+> **Generated:** 2026-08-06 02:08:13
 > **Page Type:** Landing / Marketing
 
 > ⚠️ **IMPORTANT:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
@@ -15,7 +15,7 @@
 
 - **Max Width:** 1200px (standard)
 - **Layout:** Full-width sections, centered content
-- **Sections:** 1. Hero headline, 2. Short description, 3. Benefit bullets (3 max), 4. CTA, 5. Footer
+- **Sections:** 1. Dynamic hero (personalized), 2. Relevant features, 3. Tailored testimonials, 4. Smart CTA
 
 ### Spacing Overrides
 
@@ -27,7 +27,7 @@
 
 ### Color Overrides
 
-- **Strategy:** Minimalist: Brand + white #FFFFFF + accent. Buttons: High contrast 7:1+. Text: Black/Dark grey
+- **Strategy:** Adaptive based on user data. A/B test color variations per segment.
 
 ### Component Overrides
 
@@ -45,8 +45,8 @@
 
 ## Recommendations
 
-- Effects: Badge hover effects, metric pulse animations, certificate carousel, smooth stat reveal
+- Effects: Expo.out Bezier(0.16,1,0.3,1) easing; spring modals (damping:20 stiffness:90); haptic-linked press (Impact Light/Medium); animated ambient light blobs (Reanimated translateX/Y slow oscillation); BlurView glassmorphism headers/nav (intensity 20); scale press 0.97 → 1.0; avoid pure #000000 (OLED smear)
 - AI Interaction: Clearly label AI generated content
 - AI Interaction: Thumps up/down or 'Regenerate'
 - AI Interaction: Stream text response token by token
-- CTA Placement: Center, large CTA button
+- CTA Placement: Context-aware placement based on user segment

@@ -11,7 +11,7 @@ export function LanguageSwitch() {
     <button
       type="button"
       onClick={() => setLang(next)}
-      className="flex h-11 min-w-11 cursor-pointer items-center justify-center px-3 text-sm font-medium text-body transition-colors hover:text-ink"
+      className="flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-sm border border-hairline bg-surface-muted px-3 text-xs font-bold text-mute transition-colors hover:text-ink"
       aria-label={lang === "en" ? "Switch to 中文" : "Switch to English"}
     >
       [{lang === "en" ? "中" : "EN"}]

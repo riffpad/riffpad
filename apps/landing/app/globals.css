@@ -3,61 +3,55 @@
 @tailwind utilities;
 
 :root {
-  --canvas: #fdfcfc;
-  --surface-soft: #f8f7f7;
-  --surface-card: #f1eeee;
-  --surface-dark: #201d1d;
-  --surface-dark-elevated: #302c2c;
+  --canvas: #fafaf7;
+  --surface: #ffffff;
+  --surface-muted: #f2f1ec;
 
-  --ink: #201d1d;
-  --ink-deep: #0f0000;
-  --body: #424245;
-  --mute: #646262;
-  --stone: #6e6e73;
-  --ash: #9a9898;
+  --ink: #191917;
+  --body: #46463f;
+  --mute: #73736a;
+  --hairline: rgba(25, 25, 23, 0.12);
+  --hairline-strong: #191917;
 
-  --on-dark: #fdfcfc;
-  --on-dark-mute: #9a9898;
-  --hairline: rgba(15, 0, 0, 0.12);
-  --hairline-strong: #646262;
+  --accent: #f7a501;
+  --accent-hover: #dd9001;
+  --accent-ink: #191917;
 
-  --accent: #007aff;
-  --accent-hover: #0056b3;
-  --accent-active: #004085;
-  --warning: #ff9f0a;
-  --warning-hover: #cc7f08;
-  --danger: #ff3b30;
-  --danger-hover: #d70015;
-  --success: #30d158;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+
+  --console: #111110;
+  --console-elevated: #1b1b19;
+  --on-console: #f5f4f0;
+  --on-console-mute: #9c9a92;
 }
 
 [data-theme="dark"] {
-  --canvas: #141414;
-  --surface-soft: #1d1d1d;
-  --surface-card: #242424;
-  --surface-dark: #0a0a0a;
-  --surface-dark-elevated: #242424;
+  --canvas: #0d0d0c;
+  --surface: #151514;
+  --surface-muted: #1d1d1b;
 
-  --ink: #f4f3f1;
-  --ink-deep: #ffffff;
-  --body: #c7c5c2;
-  --mute: #96938f;
-  --stone: #7c7976;
-  --ash: #5f5d5a;
+  --ink: #f5f4f0;
+  --body: #b9b7b0;
+  --mute: #8a887f;
+  --hairline: rgba(245, 244, 240, 0.1);
+  --hairline-strong: #f5f4f0;
 
-  --on-dark: #f4f3f1;
-  --on-dark-mute: #96938f;
-  --hairline: rgba(255, 255, 255, 0.14);
-  --hairline-strong: #7c7976;
+  --accent: #ffb224;
+  --accent-hover: #f7a501;
+  --accent-ink: #191917;
 
-  --accent: #409cff;
-  --accent-hover: #6fb3ff;
-  --accent-active: #9fcdff;
-  --warning: #ffb340;
-  --warning-hover: #ffc873;
-  --danger: #ff6961;
-  --danger-hover: #ff8f89;
-  --success: #4cd964;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+
+  --console: #080807;
+  --console-elevated: #151514;
+  --on-console: #f5f4f0;
+  --on-console-mute: #8a887f;
 }
 
 @layer base {
@@ -71,12 +65,12 @@
   }
 
   ::selection {
-    background: var(--ink);
-    color: var(--canvas);
+    background: var(--accent);
+    color: var(--accent-ink);
   }
 
   :focus-visible {
-    outline: 2px solid var(--ink);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
@@ -94,24 +88,49 @@
 
 @layer components {
   .btn {
-    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded px-5 text-base font-medium leading-[2] transition-colors duration-200;
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-bold leading-none transition-colors duration-200;
   }
 
   .btn-primary {
-    @apply bg-ink text-canvas hover:bg-ink-deep;
+    @apply bg-accent text-accent-ink hover:bg-accent-hover;
   }
 
   .btn-secondary {
-    @apply border border-hairline-strong bg-canvas text-ink hover:border-ink;
+    @apply border border-hairline-strong bg-surface text-ink hover:border-ink;
   }
 
   .btn-ghost {
-    @apply text-body hover:text-ink;
+    @apply text-body transition-colors hover:text-ink;
+  }
+
+  .card {
+    @apply rounded-md border border-hairline bg-surface shadow-card;
+  }
+
+  .console-card {
+    @apply rounded-md border border-hairline bg-console text-on-console;
+  }
+
+  .label {
+    @apply text-xs font-bold uppercase tracking-[0.12em] text-mute;
   }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .bg-terminal-grid {
+    background-image:
+      linear-gradient(var(--hairline) 1px, transparent 1px),
+      linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  .animate-blink {
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
   }
 }
