@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 
 	"github.com/glebarez/sqlite"
 	"github.com/riffpad/riffpad/apps/relay/internal/hub"
@@ -23,17 +24,16 @@ import (
 )
 
 type tableDef struct {
-	name  string
 	model any
 }
 
 var tables = []tableDef{
-	{name: "users", model: &hub.User{}},
-	{name: "oauth_accounts", model: &hub.OAuthAccount{}},
-	{name: "auth_tokens", model: &hub.AuthToken{}},
-	{name: "host_records", model: &hub.HostRecord{}},
-	{name: "devices", model: &hub.Device{}},
-	{name: "session_meta", model: &hub.SessionMeta{}},
+	{model: &hub.User{}},
+	{model: &hub.OAuthAccount{}},
+	{model: &hub.AuthToken{}},
+	{model: &hub.HostRecord{}},
+	{model: &hub.Device{}},
+	{model: &hub.SessionMeta{}},
 }
 
 func copyTable[T any](src, dst *gorm.DB, name string) (int64, error) {
@@ -71,40 +71,42 @@ func main() {
 	}
 
 	for _, t := range tables {
+		table := dst.NamingStrategy.TableName(reflect.TypeOf(t.model).Elem().Name())
 		if err := dst.AutoMigrate(t.model); err != nil {
-			log.Fatalf("migrate %s: %v", t.name, err)
+			log.Fatalf("migrate %s: %v", table, err)
 		}
 		var count int64
-		if err := dst.Table(t.name).Count(&count).Error; err != nil {
-			log.Fatalf("count %s: %v", t.name, err)
+		if err := dst.Table(table).Count(&count).Error; err != nil {
+			log.Fatalf("count %s: %v", table, err)
 		}
 		if count > 0 && !*force {
-			log.Fatalf("%s already has %d rows; pass --force to overwrite", t.name, count)
+			log.Fatalf("%s already has %d rows; pass --force to overwrite", table, count)
 		}
 	}
 
 	for _, t := range tables {
+		table := dst.NamingStrategy.TableName(reflect.TypeOf(t.model).Elem().Name())
 		var copied int64
 		switch t.model.(type) {
 		case *hub.User:
-			copied, err = copyTable[hub.User](src, dst, t.name)
+			copied, err = copyTable[hub.User](src, dst, table)
 		case *hub.OAuthAccount:
-			copied, err = copyTable[hub.OAuthAccount](src, dst, t.name)
+			copied, err = copyTable[hub.OAuthAccount](src, dst, table)
 		case *hub.AuthToken:
-			copied, err = copyTable[hub.AuthToken](src, dst, t.name)
+			copied, err = copyTable[hub.AuthToken](src, dst, table)
 		case *hub.HostRecord:
-			copied, err = copyTable[hub.HostRecord](src, dst, t.name)
+			copied, err = copyTable[hub.HostRecord](src, dst, table)
 		case *hub.Device:
-			copied, err = copyTable[hub.Device](src, dst, t.name)
+			copied, err = copyTable[hub.Device](src, dst, table)
 		case *hub.SessionMeta:
-			copied, err = copyTable[hub.SessionMeta](src, dst, t.name)
+			copied, err = copyTable[hub.SessionMeta](src, dst, table)
 		default:
-			log.Fatalf("no copier for %s", t.name)
+			log.Fatalf("no copier for %s", table)
 		}
 		if err != nil {
-			log.Fatalf("copy %s: %v", t.name, err)
+			log.Fatalf("copy %s: %v", table, err)
 		}
-		fmt.Printf("copied %s: %d rows\n", t.name, copied)
+		fmt.Printf("copied %s: %d rows\n", table, copied)
 	}
 	fmt.Println("migration complete")
 }
