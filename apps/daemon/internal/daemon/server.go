@@ -53,6 +53,7 @@ type session struct {
 	ended   bool
 	lease   bool      // local TUI attached: session closes when heartbeat lapses
 	lastHB  time.Time // last lease heartbeat from the local CLI
+	created time.Time
 	mu      sync.Mutex
 	history []protocol.Event
 	clients map[*client]struct{}
@@ -97,6 +98,7 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 	}
 	s.loadDevices()
 	s.cleanupCodexProcesses()
+	s.restoreSessions()
 	if cfg.RelayURL != "" {
 		hostID := cfg.HostID
 		if hostID == "" {
@@ -548,11 +550,13 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		events:  sessAdapter.Events(),
 		status:  protocol.StatusRunning,
 		ended:   false,
+		created: time.Now(),
 		clients: map[*client]struct{}{},
 	}
 	if req.Prompt == "" {
 		sess.status = protocol.StatusWaitingInput
 	}
+	s.persistSession(sess)
 	s.mu.Lock()
 	s.sessions[id] = sess
 	s.mu.Unlock()
@@ -639,6 +643,8 @@ func (s *Server) stopSession(id string) {
 	if !ok {
 		return
 	}
+	sess.ended = true
+	s.persistSession(sess)
 	s.announceSessions()
 	_ = sess.adapter.Stop()
 	s.log.Printf("session %s stopped", id)
@@ -704,6 +710,10 @@ func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
 	}
 	sess.addEvent(ev)
 	sess.broadcast(ev)
+	s.persistEvent(sess, ev)
+	if ev.Type == protocol.EventSessionEnd {
+		s.persistSession(sess)
+	}
 }
 
 func (s *Server) sweepLoop() {

@@ -75,6 +75,7 @@ button.ghost { background: transparent; }
 .status.running { background: #1f3b2c; color: #5ddb8a; }
 .status.waiting_input { background: #3b341f; color: #e0c060; }
 .status.done { background: #2a3040; color: #7fa6ff; }
+.status.restored { background: #24304a; color: #9db8ff; }
 .status.error { background: #3b1f1f; color: #ff7b72; }
 .events {
   max-height: 58vh;
