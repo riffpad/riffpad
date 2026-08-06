@@ -59,6 +59,7 @@ type Codex struct {
 	launched      bool
 	exited        bool
 	threadID      string
+	restoreThread string // non-empty when reconnecting to an existing thread after daemon restart
 	turnActive    bool
 	promptSent    bool
 	initError     error
@@ -217,6 +218,32 @@ func (c *Codex) ConnectInfo() (socket string, threadID string, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.socketPath, c.threadID, nil
+}
+
+// Restore reattaches this adapter to an existing thread (e.g. after a daemon
+// restart). The app-server is spawned again and the thread is resumed instead
+// of creating a new one.
+func (c *Codex) Restore(threadID string) error {
+	c.mu.Lock()
+	if c.ctx == nil {
+		c.ctx = context.Background()
+	}
+	c.threadID = threadID
+	c.restoreThread = threadID
+	c.knownThreads[threadID] = true
+	c.prompt = "" // conversation history already exists
+	c.mu.Unlock()
+	if err := c.ensureStarted(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// CurrentConnect returns the live socket path and thread id without waiting.
+func (c *Codex) CurrentConnect() (socket string, threadID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.socketPath, c.threadID
 }
 
 // Stop terminates the app-server.
@@ -503,7 +530,14 @@ func (c *Codex) handleResponse(id json.RawMessage, result json.RawMessage) {
 	case 1:
 		// initialize response; acknowledge then create the thread.
 		_ = c.writeJSON(map[string]any{"method": "initialized", "params": map[string]any{}})
-		_ = c.request("thread/start", map[string]any{"cwd": c.cwd})
+		c.mu.Lock()
+		restore := c.restoreThread
+		c.mu.Unlock()
+		if restore != "" {
+			_ = c.request("thread/resume", map[string]any{"threadId": restore})
+		} else {
+			_ = c.request("thread/start", map[string]any{"cwd": c.cwd})
+		}
 	case 2:
 		var res struct {
 			Thread struct {

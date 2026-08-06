@@ -54,6 +54,7 @@ type session struct {
 	lease   bool      // local TUI attached: session closes when heartbeat lapses
 	lastHB  time.Time // last lease heartbeat from the local CLI
 	created time.Time
+	connect map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
 	mu      sync.Mutex
 	history []protocol.Event
 	clients map[*client]struct{}
