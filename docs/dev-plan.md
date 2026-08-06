@@ -96,7 +96,7 @@
 ## 4. M1：MVP（进行中）
 
 **目标**：可对外使用的 MVP——多适配器 daemon + 云端中继 + Web/移动端，E2EE 全链路。
-**验收**：跨网络（手机蜂窝网）可用；推送 < 5s；10 个种子用户持续使用。
+**验收**：跨网络（手机蜂窝网）可用；Web MVP 完整闭环；10 个种子用户持续使用（推送由原生 app 通道在 M2.2 提供）。
 
 ### 4.1 daemon
 
@@ -124,8 +124,8 @@
 |---|---|---|---|---|
 | M1.11 | Web 客户端：`apps/client-beta`（React/Vite/TS） | `[x]` | 本地 8787 与 app.riffpad.ai 同一产物；登录/配对/会话/审批/指令全功能 | #59 |
 | M1.12 | 审批卡片 + 指令输入（文字） | `[x]` | 一键批准/拒绝（一次性按钮）；指令送达；E2EE 传输 | — |
-| M1.13 | Web Push（VAPID）：等待审批/完成/出错 | `[ ]` | 推送 < 5s；payload 零敏感内容 | — |
-| M1.14 | 原生移动壳（Capacitor/Expo）+ Keychain/Keystore E2EE | `[ ]` | 上架可安装；私钥存系统安全存储；配对时自动获取设备名（如 expo-device）作为默认名称，支持改名 | — |
+| M1.13 | 推送（Web Push VAPID） | `[!]` | **由原生 app 推送替代（M2.2）**：Web Push 无法覆盖国内厂商推送且需服务端→浏览器通道；原生壳（M2.1）配 APNs/FCM/厂商通道是正路，跳过避免做两遍 | — |
+| M1.14 | 原生移动壳（Capacitor/Expo）+ Keychain/Keystore E2EE | `[!]` | **暂缓（先 Web MVP）**：上架/备案等手续重，先用 Web 验证产品；原生壳时配 Keychain/Keystore E2EE、自动获取设备名（expo-device）并支持改名 | — |
 
 ### 4.4 质量与上线
 
@@ -134,7 +134,7 @@
 | M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[ ]` | CI 全绿（当前 CI 覆盖 landing 构建；Go 测试需接入） | — |
 | M1.16 | 种子用户招募与反馈收集 | `[ ]` | ≥ 10 个用户；留存数据可看 | — |
 
-**M1 出口条件**：M1.1–M1.16 全部完成；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成全流程。
+**M1 出口条件**：M1.1–M1.16 全部完成（M1.13 由原生推送替代、M1.14 暂缓，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
 
 ### M1 验证记录（2026-08-05/06，relay 地基 + 适配器）
 
