@@ -615,6 +615,7 @@ func (c *Codex) handleItemCompleted(params json.RawMessage) {
 			Type     string          `json:"type"`
 			Command  string          `json:"command"`
 			Changes  json.RawMessage `json:"changes"`
+			Content  json.RawMessage `json:"content"`
 			Tool     string          `json:"tool"`
 			Server   string          `json:"server"`
 			Status   string          `json:"status"`
@@ -635,6 +636,10 @@ func (c *Codex) handleItemCompleted(params json.RawMessage) {
 		c.mu.Unlock()
 		if ok && strings.TrimSpace(b.String()) != "" {
 			_ = c.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: b.String()})
+		}
+	case "userMessage":
+		if text := userMessageText(n.Item.Content); text != "" {
+			_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
 		}
 	case "commandExecution":
 		status := "completed"
@@ -877,6 +882,24 @@ func fileChangePaths(raw json.RawMessage) []string {
 		}
 	}
 	return out
+}
+
+// userMessageText extracts the text of a userMessage item's content blocks.
+func userMessageText(raw json.RawMessage) string {
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, blk := range blocks {
+		if blk.Type == "text" {
+			b.WriteString(blk.Text)
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func firstNonEmpty(vals ...string) string {
