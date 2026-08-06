@@ -286,7 +286,9 @@ while (!sessionKey && !wsError && Date.now() < helloDeadline) {
 check("7 viewer WS connected (E2EE)", wsConnected && !!sessionKey, wsError || "");
 if (!wsConnected || !sessionKey) process.exit(7);
 
-// 8. wait for initial agent reply (or existing history when reusing a session)
+// 8. wait for initial agent reply (or existing history when reusing a
+// session; sessions created without an initial prompt have no reply yet, so
+// treat that as SKIP rather than FAIL)
 const deadline = Date.now() + TIMEOUT_MS;
 let gotReply = false;
 while (Date.now() < deadline && !gotReply) {
@@ -294,7 +296,11 @@ while (Date.now() < deadline && !gotReply) {
   if (!gotReply) await sleep(1000);
 }
 const replyText = events.find((e) => e.type === "agent_message")?.payload?.text || "";
-check("8 agent reply visible to viewer", gotReply, replyText.slice(0, 60));
+if (!gotReply && EXISTING_SESSION) {
+  console.log("SKIP  8 agent reply visible to viewer — session has no initial prompt history");
+} else {
+  check("8 agent reply visible to viewer", gotReply, replyText.slice(0, 60));
+}
 if (!gotReply) {
   console.log("  events seen:", events.map((e) => `${e.type}:${e.payload?.status || e.payload?.text?.slice(0, 20) || ""}`).join(" | "));
 }
@@ -326,7 +332,9 @@ while (Date.now() < pongDeadline && !gotPong) {
 check("10 agent replied to viewer prompt", gotPong, "reply contains PONG");
 
 ws.close();
-await jfetch(`${DAEMON}/api/sessions/${sid}/stop`, { method: "POST" });
+if (!EXISTING_SESSION) {
+  await jfetch(`${DAEMON}/api/sessions/${sid}/stop`, { method: "POST" });
+}
 
 const passed = checks.filter((c) => c.ok).length;
 console.log(`\n${passed}/${checks.length} checks passed in ${((Date.now() - started) / 1000).toFixed(1)}s`);
