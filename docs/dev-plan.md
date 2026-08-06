@@ -131,7 +131,7 @@
 
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
-| M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[ ]` | CI 全绿（当前 CI 覆盖 landing 构建；Go 测试需接入） | — |
+| M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[x]` | CI 三 job：Go 全量测试（daemon/relay/protocol）、client-beta typecheck/build、Playwright UI 冒烟（真实本地 daemon）；审批闭环/E2EE 由 Go 测试与 e2e-acceptance.mjs 覆盖 | #91 #92 |
 | M1.16 | 种子用户招募与反馈收集 | `[ ]` | ≥ 10 个用户；留存数据可看 | — |
 
 **M1 出口条件**：M1.1–M1.16 全部完成；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成全流程。
