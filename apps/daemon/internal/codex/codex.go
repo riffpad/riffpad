@@ -66,6 +66,7 @@ type Codex struct {
 	pendingRes    map[int]chan json.RawMessage
 	pending       map[string]pendingApproval
 	messages      map[string]*strings.Builder
+	knownThreads  map[string]bool
 }
 
 // New creates a Codex app-server session adapter.
@@ -89,6 +90,7 @@ func New(req adapter.CreateRequest) *Codex {
 		pendingRes:    make(map[int]chan json.RawMessage),
 		pending:       make(map[string]pendingApproval),
 		messages:      make(map[string]*strings.Builder),
+		knownThreads:  make(map[string]bool),
 	}
 }
 
@@ -531,8 +533,12 @@ func (c *Codex) handleResponse(id json.RawMessage, result json.RawMessage) {
 				if _, err := c.requestSync("thread/name/set", map[string]any{"threadId": tid, "name": name}, 5*time.Second); err != nil {
 					log.Printf("codex[%s] thread/name/set: %v", c.id, err)
 				}
+				c.mu.Lock()
+				c.knownThreads[tid] = true
+				c.mu.Unlock()
 			}
 			c.closeReady()
+			go c.followLoop()
 		}()
 	default:
 		var res struct {
@@ -666,6 +672,83 @@ func (c *Codex) handleAgentDelta(params json.RawMessage) {
 		b.WriteString(n.Delta)
 	}
 	c.mu.Unlock()
+}
+
+// followLoop periodically checks which threads are loaded in the app-server.
+// If the user switches focus inside the TUI (e.g. `/resume` to a historical
+// session), a new thread appears that we did not create; we follow it so the
+// daemon keeps managing exactly the session the user is looking at.
+func (c *Codex) followLoop() {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.stopCh:
+			return
+		case <-ticker.C:
+			c.followOnce()
+		}
+	}
+}
+
+func (c *Codex) followOnce() {
+	res, err := c.requestSync("thread/loaded/list", map[string]any{}, 5*time.Second)
+	if err != nil {
+		return
+	}
+	var list struct {
+		Data []string `json:"data"`
+	}
+	if err := json.Unmarshal(res, &list); err != nil {
+		return
+	}
+	c.mu.Lock()
+	known := make(map[string]bool, len(c.knownThreads))
+	for k := range c.knownThreads {
+		known[k] = true
+	}
+	c.mu.Unlock()
+	for _, tid := range list.Data {
+		if tid == "" || known[tid] {
+			continue
+		}
+		c.followThread(tid)
+		return // handle one switch per tick
+	}
+}
+
+// followThread resumes a newly-loaded thread (the TUI switched to it),
+// subscribes, and moves the daemon's focus to it.
+func (c *Codex) followThread(tid string) {
+	r, err := c.requestSync("thread/resume", map[string]any{"threadId": tid}, 5*time.Second)
+	if err != nil {
+		log.Printf("codex[%s] follow resume %s: %v", c.id, tid, err)
+		return
+	}
+	var thr struct {
+		Thread struct {
+			ID  string `json:"id"`
+			Cwd string `json:"cwd,omitempty"`
+		} `json:"thread"`
+	}
+	_ = json.Unmarshal(r, &thr)
+	c.mu.Lock()
+	c.threadID = tid
+	c.knownThreads[tid] = true
+	c.turnActive = false
+	if thr.Thread.Cwd != "" {
+		c.cwd = thr.Thread.Cwd
+	}
+	c.mu.Unlock()
+	short := tid
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	_ = c.emit(protocol.EventNotify, protocol.NotifyPayload{
+		Level:   "info",
+		Message: "会话焦点已切换到 " + short + "（TUI 内 /resume）",
+	})
+	log.Printf("codex[%s] followed TUI to thread %s", c.id, tid)
 }
 
 func (c *Codex) handleTurnCompleted(params json.RawMessage) {
