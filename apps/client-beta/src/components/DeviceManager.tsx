@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, isRelay } from "../lib/store";
+import { useI18n } from "../lib/i18n";
 
 interface Device {
   id: string;
@@ -8,6 +9,7 @@ interface Device {
 }
 
 export default function DeviceManager() {
+  const { t } = useI18n();
   const [devices, setDevices] = useState<Device[]>([]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,17 +39,16 @@ export default function DeviceManager() {
   }
 
   async function kill() {
-    if (!window.confirm("熔断将停止所有会话并撤销所有设备，确定继续？")) return;
+    if (!window.confirm(t("confirm_kill"))) return;
     setBusy(true);
     setErr("");
     try {
       if (isRelay) {
-        // Cloud side has no daemon control; revoke all devices via relay.
         for (const d of devices) {
           await api("/api/devices/" + d.id, { method: "DELETE" });
         }
         await refresh();
-        window.alert("已撤销全部云端设备。要停止电脑上的 agent，请在电脑端执行 riffpad kill。");
+        window.alert(t("kill_alert_relay"));
       } else {
         await api("/api/killswitch", { method: "POST" });
         await refresh();
@@ -60,22 +61,22 @@ export default function DeviceManager() {
   }
 
   return (
-    <section className="card">
-      <div className="row">
-        <h3>设备</h3>
-        <button className="ghost" onClick={() => void refresh()}>刷新</button>
+    <section className="card device-card">
+      <div className="row device-head">
+        <h3><span className="glyph">//</span>{t("devices")}</h3>
+        <button className="ghost" onClick={() => void refresh()}>{t("refresh")}</button>
         <button className="danger" onClick={() => void kill()} disabled={busy}>
-          {isRelay ? "撤销全部设备" : "熔断"}
+          {isRelay ? t("revoke_all") : t("kill_switch")}
         </button>
       </div>
       {devices.length === 0 ? (
-        <p className="muted">暂无已配对设备</p>
+        <p className="muted empty">{t("no_devices")}</p>
       ) : (
         <ul id="device-list">
           {devices.map((d) => (
             <li key={d.id}>
-              <span className="truncate">{(d.name || "设备") + " · " + d.id.slice(0, 8)}</span>
-              <button className="danger" onClick={() => void revoke(d.id)}>撤销</button>
+              <span className="truncate">{(d.name || t("device")) + " · " + d.id.slice(0, 8)}</span>
+              <button className="danger ghost-danger" onClick={() => void revoke(d.id)}>{t("revoke")}</button>
             </li>
           ))}
         </ul>
