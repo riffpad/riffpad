@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -264,6 +266,23 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	if fake.lastDecision != "approve" {
 		t.Fatalf("unexpected decision %q", fake.lastDecision)
 	}
+	// The daemon persists the final session events asynchronously (broadcast
+	// reaches the viewer before the last write finishes). Wait for the meta
+	// file to show the session as ended, then clean up so t.TempDir() does
+	// not race an in-flight write.
+	metaPath := filepath.Join(dir, "sessions", sess.ID, "meta.json")
+	var ps PersistedSession
+	for i := 0; i < 100; i++ {
+		data, err := os.ReadFile(metaPath)
+		if err == nil && json.Unmarshal(data, &ps) == nil && ps.Ended {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !ps.Ended {
+		t.Fatalf("session meta not finalized before cleanup")
+	}
+	_ = os.RemoveAll(filepath.Join(dir, "sessions", sess.ID))
 }
 
 func TestLeaseExpiryClosesSession(t *testing.T) {
