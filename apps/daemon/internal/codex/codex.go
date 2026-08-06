@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -60,6 +61,7 @@ type Codex struct {
 	exited        bool
 	threadID      string
 	restoreThread string // non-empty when reconnecting to an existing thread after daemon restart
+	adoptedPID    int    // pid of a surviving app-server reused across daemon restarts
 	turnActive    bool
 	promptSent    bool
 	initError     error
@@ -233,10 +235,48 @@ func (c *Codex) Restore(threadID string) error {
 	c.knownThreads[threadID] = true
 	c.prompt = "" // conversation history already exists
 	c.mu.Unlock()
-	if err := c.ensureStarted(); err != nil {
-		return err
+
+	// Prefer reusing a surviving app-server: a daemon restart must not drop
+	// the TUI connection attached to it.
+	socketPath := filepath.Join(c.dataDir, "codex", c.id+".sock")
+	if _, err := os.Stat(socketPath); err == nil {
+		if pid, ok := readPIDFile(socketPath + ".pid"); ok {
+			c.mu.Lock()
+			c.adoptedPID = pid
+			c.socketPath = socketPath
+			c.launched = true
+			c.mu.Unlock()
+			go func() {
+				<-c.stopCh
+				if c.adoptedPID > 0 {
+					_ = syscall.Kill(c.adoptedPID, syscall.SIGTERM)
+				}
+			}()
+			if err := c.connect(c.ctx, socketPath); err == nil {
+				return c.request("initialize", map[string]any{
+					"clientInfo": map[string]any{"name": "riffpad", "version": "0.1.0"},
+				})
+			}
+			// Surviving socket but dead process: fall through to a fresh spawn.
+			c.mu.Lock()
+			c.launched = false
+			c.adoptedPID = 0
+			c.mu.Unlock()
+		}
 	}
-	return nil
+	_ = os.Remove(socketPath)
+	_ = os.Remove(socketPath + ".pid")
+	return c.ensureStarted()
+}
+
+func readPIDFile(path string) (int, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+	var pid int
+	n, _ := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &pid)
+	return pid, n == 1 && pid > 0
 }
 
 // CurrentConnect returns the live socket path and thread id without waiting.
@@ -262,6 +302,9 @@ func (c *Codex) Stop() error {
 	}
 	if c.cmd != nil && c.cmd.Process != nil {
 		_ = c.cmd.Process.Kill()
+	}
+	if c.adoptedPID > 0 {
+		_ = syscall.Kill(c.adoptedPID, syscall.SIGTERM)
 	}
 	c.mu.Lock()
 	if c.socketPath != "" {

@@ -92,7 +92,7 @@ func main() {
 	case "setup":
 		err = setupCmd(os.Args[2:], dataDir)
 	case "update":
-		err = updateCmd(os.Args[2:])
+		err = updateCmd(os.Args[2:], dataDir)
 	case "version":
 		fmt.Println("riffpad", version)
 	case "help", "-h", "--help":
@@ -734,9 +734,10 @@ func reachable(base string) bool {
 // updateCmd checks the latest GitHub release, downloads the binary for the
 // current platform, verifies its SHA256, and atomically replaces this
 // executable (keeping a .riffpad.bak backup).
-func updateCmd(args []string) error {
+func updateCmd(args []string, dataDir string) error {
 	fs := flag.NewFlagSet("update", flag.ExitOnError)
 	force := fs.Bool("force", false, "reinstall even if already up to date")
+	noRestart := fs.Bool("no-restart", false, "do not restart the daemon after updating")
 	_ = fs.Parse(args)
 
 	fmt.Println(t.T("update_current", version))
@@ -793,8 +794,32 @@ func updateCmd(args []string) error {
 		return err
 	}
 	fmt.Println(t.T("update_done", latest, backup))
+	if !*noRestart && reachable(defaultDaemonBase()) {
+		fmt.Println("daemon 正在运行，自动重启以应用新版本…")
+		if resp, err := http.Post(defaultDaemonBase()+"/api/shutdown", "application/json", nil); err == nil {
+			_ = resp.Body.Close()
+		}
+		// Wait for the old daemon to exit, then start the new binary via the
+		// same path as `riffpad daemon start` (verified to survive).
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) && reachable(defaultDaemonBase()) {
+			time.Sleep(300 * time.Millisecond)
+		}
+		if err := daemonStart(defaultDaemonBase(), dataDir); err != nil {
+			return fmt.Errorf("重启 daemon 失败: %w", err)
+		}
+		fmt.Println("daemon 已重启，会话已恢复。")
+		return nil
+	}
 	fmt.Println(t.T("update_restart_hint"))
 	return nil
+}
+
+func defaultDaemonBase() string {
+	if b := os.Getenv("RIFFPAD_URL"); b != "" {
+		return b
+	}
+	return "http://127.0.0.1:8787"
 }
 
 func latestReleaseTag() (string, error) {
