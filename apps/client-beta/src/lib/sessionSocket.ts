@@ -37,6 +37,7 @@ export async function openSessionSocket(
   let ws: WebSocket | null = null;
   let sessionKey: CryptoKey | null = null;
   let reconnectAttempt = 0;
+  let everConnected = false;
   const seenIds = new Set<string>();
 
   // Messages must be handled in order: the hello handshake derives the
@@ -59,6 +60,7 @@ export async function openSessionSocket(
             sid,
           );
           reconnectAttempt = 0;
+          everConnected = true;
           handlers.onConn("已连接（加密）");
           continue;
         }
@@ -99,7 +101,13 @@ export async function openSessionSocket(
         handlers.onConn("已断开");
         return;
       }
-      const delay = Math.min(1000 * 2 ** reconnectAttempt, 30000);
+      if (!everConnected && reconnectAttempt >= 3) {
+        handlers.onConn("连接失败：设备可能已被撤销，请刷新页面并重新配对");
+        return;
+      }
+      const delay = everConnected
+        ? Math.min(1000 * 2 ** reconnectAttempt, 30000)
+        : 1000 * 2 ** reconnectAttempt;
       reconnectAttempt++;
       handlers.onConn(`连接断开，${Math.round(delay / 1000)}s 后自动重连…`);
       window.setTimeout(() => {
