@@ -6,6 +6,7 @@ import {
   genPair,
 } from "./crypto";
 import { getDeviceSecret } from "./device";
+import { getT } from "./i18n";
 import { isRelay, relayStore } from "./store";
 import type { Device, RiffpadEvent } from "./types";
 
@@ -45,6 +46,7 @@ export async function openSessionSocket(
   // ready would otherwise be dropped by concurrent async handlers.
   const queue: string[] = [];
   let draining = false;
+  const t = getT();
 
   async function drainQueue() {
     while (queue.length > 0) {
@@ -61,7 +63,7 @@ export async function openSessionSocket(
           );
           reconnectAttempt = 0;
           everConnected = true;
-          handlers.onConn("已连接（加密）");
+          handlers.onConn(t("connected_encrypted"));
           continue;
         }
         if (sessionKey) {
@@ -91,25 +93,25 @@ export async function openSessionSocket(
       (tok ? "&token=" + encodeURIComponent(tok) : "");
     ws = new WebSocket(url);
 
-    ws.onopen = () => handlers.onConn(reconnectAttempt > 0 ? "重连中…" : "连接中…");
+    ws.onopen = () => handlers.onConn(reconnectAttempt > 0 ? t("reconnecting") : t("connecting"));
     ws.onerror = () => {
       // onclose follows; keep state updates there.
     };
     ws.onclose = () => {
       sessionKey = null;
       if (closed) {
-        handlers.onConn("已断开");
+        handlers.onConn(t("disconnected"));
         return;
       }
       if (!everConnected && reconnectAttempt >= 3) {
-        handlers.onConn("连接失败：设备可能已被撤销，请刷新页面并重新配对");
+        handlers.onConn(t("device_revoked"));
         return;
       }
       const delay = everConnected
         ? Math.min(1000 * 2 ** reconnectAttempt, 30000)
         : 1000 * 2 ** reconnectAttempt;
       reconnectAttempt++;
-      handlers.onConn(`连接断开，${Math.round(delay / 1000)}s 后自动重连…`);
+      handlers.onConn(t("reconnect_in", { s: Math.round(delay / 1000) }));
       window.setTimeout(() => {
         if (!closed) void connect();
       }, delay);

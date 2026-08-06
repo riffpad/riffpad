@@ -51,6 +51,11 @@ const zh: Record<string, string> = {
   send_failed: "未连接：设备可能已失效或会话已结束，请刷新页面重试",
   waiting_events: "等待事件…",
   session_default: "会话",
+  connected_encrypted: "已连接（加密）",
+  reconnecting: "重连中…",
+  disconnected: "已断开",
+  device_revoked: "连接失败：设备可能已被撤销，请刷新页面并重新配对",
+  reconnect_in: "连接断开，{s}s 后自动重连…",
 
   event_session_start: "会话开始",
   event_session_end: "会话结束",
@@ -143,6 +148,11 @@ const en: Record<string, string> = {
   send_failed: "Not connected: the device may be invalid or the session ended. Refresh and retry.",
   waiting_events: "Waiting for events…",
   session_default: "Session",
+  connected_encrypted: "Connected (encrypted)",
+  reconnecting: "Reconnecting…",
+  disconnected: "Disconnected",
+  device_revoked: "Connection failed: device may have been revoked. Refresh and re-pair.",
+  reconnect_in: "Disconnected, reconnecting in {s}s…",
 
   event_session_start: "Session start",
   event_session_end: "Session end",
@@ -203,6 +213,15 @@ export function detectLang(): Lang {
   const saved = localStorage.getItem("riffpad.lang");
   if (saved === "zh" || saved === "en") return saved;
   return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+// getT returns a translate function for the currently detected language. It
+// is used outside React components (e.g. the session socket) where the hook
+// is unavailable.
+export function getT(): (key: string, vars?: Vars) => string {
+  const lang = detectLang();
+  const table = lang === "zh" ? zh : en;
+  return (key, vars) => format(table[key] ?? en[key] ?? key, vars);
 }
 
 interface I18nValue {
