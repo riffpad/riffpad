@@ -107,7 +107,7 @@
 | M1.3 | Kimi Code 适配器：ACP client（`kimi acp`） | `[x]` | session/prompt、session/update、request_permission 全协议内；真机实测 | #55 |
 | M1.4 | 会话管理：多会话 + daemon 重启恢复 | `[x]` | 多会话并行；状态/历史加密持久化（AES-GCM）；重启后 Codex 自动重连（TUI 无感），Kimi/Claude 只读恢复；`riffpad update` 自动重启并恢复 | #86 #87 #88 #89 |
 | M1.5 | 断线重连 + 本地回放 | `[~]` | daemon/relay 断线重连已做（重连后重播会话）；手机端缺口补齐未做 | — |
-| M1.6 | 设备管理：多手机、撤销、一键熔断 | `[~]` | 多设备已支持；撤销/熔断未做 | — |
+| M1.6 | 设备管理：多手机、撤销、一键熔断 | `[x]` | relay 设备列表/撤销（立即断开）、host 熔断（撤销全部+断全部 viewer）；daemon `POST /api/killswitch` + CLI `riffpad kill`；web 设备卡片（撤销/熔断，二次确认）；撤销后客户端启动校验并引导重新配对 | #96 #97 |
 
 ### 4.2 relay
 
@@ -125,7 +125,7 @@
 | M1.11 | Web 客户端：`apps/client-beta`（React/Vite/TS） | `[x]` | 本地 8787 与 app.riffpad.ai 同一产物；登录/配对/会话/审批/指令全功能 | #59 |
 | M1.12 | 审批卡片 + 指令输入（文字） | `[x]` | 一键批准/拒绝（一次性按钮）；指令送达；E2EE 传输 | — |
 | M1.13 | Web Push（VAPID）：等待审批/完成/出错 | `[ ]` | 推送 < 5s；payload 零敏感内容 | — |
-| M1.14 | 原生移动壳（Capacitor/Expo）+ Keychain/Keystore E2EE | `[ ]` | 上架可安装；私钥存系统安全存储 | — |
+| M1.14 | 原生移动壳（Capacitor/Expo）+ Keychain/Keystore E2EE | `[ ]` | 上架可安装；私钥存系统安全存储；配对时自动获取设备名（如 expo-device）作为默认名称，支持改名 | — |
 
 ### 4.4 质量与上线
 
