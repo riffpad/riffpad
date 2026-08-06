@@ -472,7 +472,14 @@ func attachCodexTUI(base, sessionID string) error {
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "Codex TUI 已退出：", err)
 	}
-	fmt.Printf("Codex TUI 已退出；会话 %s 仍由 daemon 托管（手机端可查看/遥控）。\n", sessionID)
+	// The user exited the TUI — per the no-silent-hosting convention, exiting
+	// means exiting. Close the daemon session so it disappears from the client
+	// and cannot be remote-controlled anymore. Users who want a persistent
+	// session should run riffpad inside tmux themselves.
+	if resp, err := http.Post(base+"/api/sessions/"+sessionID+"/stop", "application/json", nil); err == nil {
+		_ = resp.Body.Close()
+	}
+	fmt.Printf("Codex TUI 已退出，会话 %s 已关闭。\n", sessionID)
 	return nil
 }
 
