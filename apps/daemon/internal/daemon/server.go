@@ -647,6 +647,17 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		s.pumpEvent(sess, startEv)
 	}
+	// Respond with the initial status before starting the adapter, so the
+	// create response is deterministic (e.g. waiting_input for an empty
+	// prompt) instead of racing with the first agent status event.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":     id,
+		"name":   req.Name,
+		"cli":    req.CLI,
+		"cwd":    req.Cwd,
+		"status": sess.status,
+		"url":    fmt.Sprintf("http://127.0.0.1:%d/?session=%s", s.cfg.Port, id),
+	})
 	go func() {
 		if err := sessAdapter.Start(context.Background()); err != nil {
 			s.log.Printf("session %s start error: %v", id, err)
@@ -656,14 +667,6 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	go s.pump(sess)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id":     id,
-		"name":   req.Name,
-		"cli":    req.CLI,
-		"cwd":    req.Cwd,
-		"status": sess.status,
-		"url":    fmt.Sprintf("http://127.0.0.1:%d/?session=%s", s.cfg.Port, id),
-	})
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
