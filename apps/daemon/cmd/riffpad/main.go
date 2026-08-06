@@ -693,13 +693,28 @@ func authCmd(dataDir string) error {
 }
 
 // logoutCmd clears the stored relay token. `riffpad relay logout` is kept as
-// an alias.
+// an alias. It also revokes the token on the relay (best effort) and forgets
+// the saved username.
 func logoutCmd(dataDir string) error {
 	cfg, err := config.Load(dataDir)
 	if err != nil {
 		return err
 	}
+	if cfg.RelayToken != "" && cfg.RelayURL != "" {
+		httpURL := strings.TrimSuffix(cfg.RelayURL, "/")
+		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+		req, err := http.NewRequest(http.MethodPost, httpURL+"/api/auth/logout", nil)
+		if err == nil {
+			req.Header.Set("Authorization", "Bearer "+cfg.RelayToken)
+			client := &http.Client{Timeout: 5 * time.Second}
+			if resp, err := client.Do(req); err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
 	cfg.RelayToken = ""
+	cfg.RelayUser = ""
 	if err := config.Save(dataDir, cfg); err != nil {
 		return err
 	}
