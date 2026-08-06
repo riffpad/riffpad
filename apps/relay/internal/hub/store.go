@@ -181,6 +181,25 @@ func (s *Store) GetDevice(id string) (*Device, error) {
 	return &d, nil
 }
 
+// DevicesForUser lists all devices owned by the user.
+func (s *Store) DevicesForUser(userID string) ([]Device, error) {
+	var list []Device
+	if err := s.db.Where("owner_id = ?", userID).Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// DeleteDevice removes a device owned by the given user.
+func (s *Store) DeleteDevice(id, ownerID string) error {
+	return s.db.Where("id = ? AND owner_id = ?", id, ownerID).Delete(&Device{}).Error
+}
+
+// DeleteDevicesForHost removes every device paired to a host.
+func (s *Store) DeleteDevicesForHost(hostID string) error {
+	return s.db.Where("host_id = ?", hostID).Delete(&Device{}).Error
+}
+
 func (s *Store) HostIDsForUser(userID string) ([]string, error) {
 	var ids []string
 	if err := s.db.Model(&HostRecord{}).Where("owner_id = ?", userID).Pluck("id", &ids).Error; err != nil {

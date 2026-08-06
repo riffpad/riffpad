@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 import AuthView from "./components/AuthView";
+import DeviceManager from "./components/DeviceManager";
 import PairView from "./components/PairView";
 import SessionDetailView from "./components/SessionDetailView";
 import SessionListView from "./components/SessionListView";
-import { api, isRelay, relayStore } from "./lib/store";
+import { api, deviceStore, isRelay, relayStore } from "./lib/store";
 import { ensureIdentity } from "./lib/device";
+import type { Device } from "./lib/types";
 
 type Phase = "loading" | "auth" | "pair" | "sessions";
+
+async function deviceStillValid(dev: Device): Promise<boolean> {
+  if (!dev.deviceId) return false;
+  try {
+    const res = await api("/api/devices");
+    const data = await res.json();
+    const list = (data.devices || []) as { id?: string }[];
+    return list.some((d) => d.id === dev.deviceId);
+  } catch {
+    // Network hiccup: don't force re-pair; the connect error will surface.
+    return true;
+  }
+}
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>("loading");
@@ -20,6 +35,11 @@ export default function App() {
         const res = await api("/api/auth/me");
         if (res.ok) {
           const dev = await ensureIdentity();
+          if (dev.deviceId && !(await deviceStillValid(dev))) {
+            deviceStore.set({ ...dev, deviceId: null, serverPub: null });
+            setPhase("pair");
+            return;
+          }
           setPhase(dev.deviceId ? "sessions" : "pair");
           return;
         }
@@ -29,6 +49,11 @@ export default function App() {
       return;
     }
     const dev = await ensureIdentity();
+    if (dev.deviceId && !(await deviceStillValid(dev))) {
+      deviceStore.set({ ...dev, deviceId: null, serverPub: null });
+      setPhase("pair");
+      return;
+    }
     setPhase(dev.deviceId ? "sessions" : "pair");
   }, []);
 
@@ -79,25 +104,28 @@ export default function App() {
           />
         )}
         {phase === "sessions" && !openSession && (
-          <SessionListView
-            onOpen={(sid, name) => {
-              setConn("离线");
-              setOpenSession({ sid, name });
-            }}
-            onLogout={
-              isRelay
-                ? async () => {
-                    try {
-                      await api("/api/auth/logout", { method: "POST" });
-                    } catch {
-                      // ignore
+          <>
+            <SessionListView
+              onOpen={(sid, name) => {
+                setConn("离线");
+                setOpenSession({ sid, name });
+              }}
+              onLogout={
+                isRelay
+                  ? async () => {
+                      try {
+                        await api("/api/auth/logout", { method: "POST" });
+                      } catch {
+                        // ignore
+                      }
+                      relayStore.clear();
+                      setPhase("auth");
                     }
-                    relayStore.clear();
-                    setPhase("auth");
-                  }
-                : undefined
-            }
-          />
+                  : undefined
+              }
+            />
+            <DeviceManager />
+          </>
         )}
         {openSession && (
           <SessionDetailView

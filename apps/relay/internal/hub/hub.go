@@ -36,6 +36,7 @@ type hostConn struct {
 
 type viewerConn struct {
 	id        string
+	deviceID  string
 	sessionID string
 	host      *hostConn
 	conn      *websocket.Conn
@@ -105,6 +106,9 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/api/hosts/register", h.handleRegisterHost)
 	mux.HandleFunc("/api/pairings", h.handleCreatePairing)
 	mux.HandleFunc("/api/pair", h.handlePair)
+	mux.HandleFunc("/api/devices", h.handleDevices)
+	mux.HandleFunc("/api/devices/", h.handleDeviceDelete)
+	mux.HandleFunc("/api/hosts/", h.handleHostKillswitch)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
 	mux.HandleFunc("/ws/host", h.handleHostWS)
 	mux.HandleFunc("/ws", h.handleViewerWS)
@@ -415,6 +419,96 @@ func (h *Hub) handleSessions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"sessions": liveSessions})
 }
 
+// handleDevices lists devices paired to the authenticated user's hosts.
+func (h *Hub) handleDevices(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.authUser(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	list, err := h.store.DevicesForUser(u.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"devices": list})
+}
+
+// handleDeviceDelete revokes one paired device and disconnects it immediately.
+func (h *Hub) handleDeviceDelete(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.authUser(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if r.Method != http.MethodDelete {
+		methodNotAllowed(w)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/api/devices/")
+	if id == "" {
+		http.NotFound(w, r)
+		return
+	}
+	if err := h.store.DeleteDevice(id, u.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "delete failed")
+		return
+	}
+	n := h.disconnectViewers(func(v *viewerConn) bool { return v.deviceID == id })
+	h.log.Printf("revoked device=%s user=%s disconnected=%d", id, u.Username, n)
+	writeJSON(w, http.StatusOK, map[string]any{"revoked": true, "disconnected": n})
+}
+
+// handleHostKillswitch revokes every device paired to a host and disconnects
+// all of its viewers (one-action kill switch).
+func (h *Hub) handleHostKillswitch(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.authUser(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	hostID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/hosts/"), "/killswitch")
+	host, err := h.store.GetHost(hostID)
+	if err != nil || host.OwnerID != u.ID {
+		writeError(w, http.StatusNotFound, "host not found")
+		return
+	}
+	if err := h.store.DeleteDevicesForHost(hostID); err != nil {
+		writeError(w, http.StatusInternalServerError, "delete failed")
+		return
+	}
+	n := h.disconnectViewers(func(v *viewerConn) bool { return v.host.id == hostID })
+	h.log.Printf("killswitch host=%s user=%s devices-revoked disconnected=%d", hostID, u.Username, n)
+	writeJSON(w, http.StatusOK, map[string]any{"killed": true, "disconnected": n})
+}
+
+// disconnectViewers closes matching viewer connections and removes them.
+func (h *Hub) disconnectViewers(match func(*viewerConn) bool) int {
+	h.mu.Lock()
+	var targets []*viewerConn
+	for _, v := range h.viewers {
+		if match(v) {
+			targets = append(targets, v)
+		}
+	}
+	for _, v := range targets {
+		delete(h.viewers, v.id)
+		hostSend(v.host, hostFrame{Kind: "leave", ViewerID: v.id})
+		v.closeDone()
+		_ = v.conn.Close()
+	}
+	h.mu.Unlock()
+	return len(targets)
+}
+
 // ---------- host connection ----------
 
 type hostFrame struct {
@@ -570,7 +664,7 @@ func (h *Hub) handleViewerWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := &viewerConn{
-		id: protocol.NewID(), sessionID: sid, host: host,
+		id: protocol.NewID(), deviceID: deviceID, sessionID: sid, host: host,
 		conn: conn, send: make(chan []byte, 256), done: make(chan struct{}),
 	}
 	h.mu.Lock()

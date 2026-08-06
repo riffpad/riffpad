@@ -236,6 +236,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/pair", s.handlePair)
 	mux.HandleFunc("/api/devices", s.handleDevices)
 	mux.HandleFunc("/api/devices/", s.handleDevice)
+	mux.HandleFunc("/api/killswitch", s.handleKillswitch)
 	mux.HandleFunc("/api/sessions", s.handleSessions)
 	mux.HandleFunc("/api/sessions/", s.handleSession)
 	mux.HandleFunc("/api/shutdown", s.handleShutdown)
@@ -504,6 +505,58 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	_ = s.saveDevices()
 	writeJSON(w, http.StatusOK, map[string]any{"revoked": ok})
+}
+
+// handleKillswitch stops every agent session, clears all paired devices, and
+// asks the relay to revoke cloud devices / disconnect viewers.
+func (s *Server) handleKillswitch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	s.mu.Lock()
+	sessions := make([]*session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		sessions = append(sessions, sess)
+	}
+	s.devices = map[string]Device{}
+	s.mu.Unlock()
+	_ = s.saveDevices()
+	for _, sess := range sessions {
+		sess.mu.Lock()
+		for c := range sess.clients {
+			_ = c.transport.Close()
+		}
+		sess.mu.Unlock()
+		s.stopSession(sess.id)
+	}
+	if s.rc != nil {
+		_ = s.relayKillswitch()
+	}
+	s.log.Printf("killswitch: stopped %d sessions, revoked all devices", len(sessions))
+	writeJSON(w, http.StatusOK, map[string]any{"killed": true, "sessions": len(sessions)})
+}
+
+func (s *Server) relayKillswitch() error {
+	httpURL := s.cfg.RelayURL
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+	body := strings.NewReader("{}")
+	req, err := http.NewRequest(http.MethodPost,
+		strings.TrimSuffix(httpURL, "/")+"/api/hosts/"+s.rc.hostID+"/killswitch", body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if s.cfg.RelayToken != "" {
+		req.Header.Set("Authorization", "Bearer "+s.cfg.RelayToken)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {

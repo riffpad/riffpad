@@ -17,6 +17,7 @@ Usage:
                                 log in to Riffpad cloud (relay)
   riffpad logout                clear the saved login token
   riffpad setup                 install daemon auto-start (Linux systemd user service)
+  riffpad kill                  stop all sessions and revoke all devices
   riffpad update                check for updates and replace this binary
   riffpad logs                  tail daemon logs
   riffpad version
@@ -40,6 +41,7 @@ Usage:
 		"login_failed_status":         "login failed (status %d)",
 		"login_success":               "Logged in as %s; token saved to config.",
 		"logout_done":                 "Logged out.",
+		"kill_done":                   "Kill switch engaged: %d sessions stopped, all devices revoked.",
 		"setup_removed":               "Removed riffpad systemd user service.",
 		"setup_installed":             "Installed and enabled %s",
 		"setup_done":                  "The daemon will start at login and restart after crashes; you can now run riffpad run/attach/pair directly.",
@@ -81,6 +83,7 @@ Usage:
                                 登录 Riffpad 云服务（relay）
   riffpad logout                清除登录 token
   riffpad setup                 安装 daemon 自启（Linux systemd user service）
+  riffpad kill                  熔断：停止所有会话并撤销所有设备
   riffpad update                检查更新并替换当前二进制
   riffpad logs                  查看 daemon 日志
   riffpad version
@@ -104,6 +107,7 @@ Usage:
 		"login_failed_status":         "登录失败（状态 %d）",
 		"login_success":               "已登录 %s，token 已保存到配置。",
 		"logout_done":                 "已退出登录。",
+		"kill_done":                   "已熔断：停止 %d 个会话，撤销所有设备。",
 		"setup_removed":               "已移除 riffpad systemd user 服务。",
 		"setup_installed":             "已安装并启用 %s",
 		"setup_done":                  "daemon 将随登录自启，崩溃后自动重启；以后可直接运行 riffpad run/attach/pair。",
