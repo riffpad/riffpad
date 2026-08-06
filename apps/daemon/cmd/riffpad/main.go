@@ -416,6 +416,13 @@ func runCmd(args []string, base string) error {
 	cwd := fs.String("cwd", "", "working directory")
 	cli := fs.String("cli", "claude", "agent CLI (claude|kimi|codex)")
 	_ = fs.Parse(args)
+	if *cwd == "" {
+		// Default to the directory where the user ran the command, not the
+		// daemon's own cwd (the daemon may have been started elsewhere).
+		if wd, err := os.Getwd(); err == nil {
+			*cwd = wd
+		}
+	}
 	body, _ := json.Marshal(map[string]string{
 		"name": *name, "prompt": *prompt, "cwd": *cwd, "cli": *cli,
 	})
@@ -469,10 +476,42 @@ func attachCodexTUI(base, sessionID string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "Codex TUI 已退出：", err)
+
+	// Ctrl+C (SIGINT) is delivered to the whole foreground process group,
+	// i.e. both codex and this CLI. Without handling it, Go kills the CLI
+	// immediately and the session cleanup below never runs — the daemon
+	// session would stay alive and stay remote-controllable. So capture the
+	// signal, let codex exit normally (or kill it after a timeout), then
+	// close the session.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	exited := make(chan struct{})
+	go func() {
+		select {
+		case <-sigCh:
+			select {
+			case <-exited:
+			case <-time.After(5 * time.Second):
+				if cmd.Process != nil {
+					_ = cmd.Process.Kill()
+				}
+			}
+		case <-exited:
+		}
+	}()
+	runErr := cmd.Run()
+	close(exited)
+	if runErr != nil {
+		fmt.Fprintln(os.Stderr, "Codex TUI 已退出：", runErr)
 	}
-	fmt.Printf("Codex TUI 已退出；会话 %s 仍由 daemon 托管（手机端可查看/遥控）。\n", sessionID)
+	// The user exited the TUI — per the no-silent-hosting convention, exiting
+	// means exiting. Close the daemon session so it disappears from the client
+	// and cannot be remote-controlled anymore. Users who want a persistent
+	// session should run riffpad inside tmux themselves.
+	if resp, err := http.Post(base+"/api/sessions/"+sessionID+"/stop", "application/json", nil); err == nil {
+		_ = resp.Body.Close()
+	}
+	fmt.Printf("Codex TUI 已退出，会话 %s 已关闭。\n", sessionID)
 	return nil
 }
 

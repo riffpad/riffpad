@@ -48,6 +48,7 @@ type session struct {
 	adapter adapter.Session
 	events  <-chan protocol.Event
 	status  string
+	ended   bool
 	mu      sync.Mutex
 	history []protocol.Event
 	clients map[*client]struct{}
@@ -407,6 +408,9 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		list := make([]map[string]any, 0, len(s.sessions))
 		for _, sess := range s.sessions {
+			if sess.ended {
+				continue
+			}
 			list = append(list, map[string]any{
 				"id":     sess.id,
 				"name":   sess.meta.Name,
@@ -470,6 +474,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		adapter: sessAdapter,
 		events:  sessAdapter.Events(),
 		status:  protocol.StatusRunning,
+		ended:   false,
 		clients: map[*client]struct{}{},
 	}
 	if req.Prompt == "" {
@@ -584,6 +589,8 @@ func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
 		_ = ev.DecodePayload(&p)
 		if ev.Type == protocol.EventSessionEnd {
 			sess.status = protocol.StatusDone
+			sess.ended = true
+			s.announceSessions()
 		} else if p.Status != "" {
 			sess.status = p.Status
 		}
@@ -649,6 +656,9 @@ func (s *Server) announceSessions() {
 	s.mu.Lock()
 	list := make([]RelaySession, 0, len(s.sessions))
 	for _, sess := range s.sessions {
+		if sess.ended {
+			continue
+		}
 		list = append(list, RelaySession{
 			ID: sess.id, Name: sess.meta.Name, CLI: sess.meta.CLI,
 			Cwd: sess.meta.Cwd, Status: sess.status,

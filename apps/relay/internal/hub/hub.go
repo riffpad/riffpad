@@ -393,24 +393,26 @@ func (h *Hub) handleSessions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	list, err := h.store.SessionsForHosts(hostIDs)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "query failed")
-		return
-	}
 	h.mu.Lock()
 	live := map[string]bool{}
 	for id := range h.hosts {
 		live[id] = true
 	}
-	h.mu.Unlock()
-	out := make([]SessionMeta, 0, len(list))
-	for _, s := range list {
-		if live[s.HostID] {
-			out = append(out, s)
+	// Serve the live snapshot announced by each host, not the accumulated
+	// database history: sessions that exited (or hosts that restarted) must
+	// not appear in the client list. hostIDs keeps owner isolation intact.
+	owners := map[string]bool{}
+	for _, id := range hostIDs {
+		owners[id] = true
+	}
+	liveSessions := make([]SessionMeta, 0, len(h.sessions))
+	for _, s := range h.sessions {
+		if owners[s.HostID] && live[s.HostID] {
+			liveSessions = append(liveSessions, s)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sessions": out})
+	h.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"sessions": liveSessions})
 }
 
 // ---------- host connection ----------
@@ -476,6 +478,7 @@ func (h *Hub) hostReadLoop(host *hostConn) {
 			h.sessions = map[string]SessionMeta{}
 			h.sessionHosts = map[string]string{}
 			for _, s := range fr.Sessions {
+				s.HostID = host.id
 				h.sessions[s.ID] = s
 				h.sessionHosts[s.ID] = host.id
 			}
