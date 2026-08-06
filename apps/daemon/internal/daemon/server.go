@@ -508,6 +508,10 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if strings.HasSuffix(id, "/connect") {
+		s.handleSessionConnect(w, r, strings.TrimSuffix(id, "/connect"))
+		return
+	}
 	if !strings.HasSuffix(id, "/stop") {
 		http.NotFound(w, r)
 		return
@@ -520,8 +524,38 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
+	s.mu.Lock()
+	delete(s.sessions, id)
+	s.mu.Unlock()
+	s.announceSessions()
 	_ = sess.adapter.Stop()
 	writeJSON(w, http.StatusOK, map[string]any{"stopped": true})
+}
+
+// handleSessionConnect returns the local connect info (app-server socket +
+// thread id) for adapters that support attaching a local TUI, waiting until
+// the session is ready.
+func (s *Server) handleSessionConnect(w http.ResponseWriter, r *http.Request, id string) {
+	s.mu.Lock()
+	sess, ok := s.sessions[id]
+	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+	ci, ok := sess.adapter.(interface {
+		ConnectInfo() (socket string, threadID string, err error)
+	})
+	if !ok {
+		writeError(w, http.StatusBadRequest, "session does not support TUI attach")
+		return
+	}
+	socket, threadID, err := ci.ConnectInfo()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"socket": socket, "threadId": threadID})
 }
 
 func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {

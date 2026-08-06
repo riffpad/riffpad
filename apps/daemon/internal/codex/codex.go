@@ -1,8 +1,10 @@
 // Package codex implements the Codex adapter over the official
-// `codex app-server` JSON-RPC protocol (stdio transport). The daemon spawns
-// an app-server per session, creates a thread, and drives turns with
-// turn/start / turn/steer. Command/file/permission approvals arrive as
-// server-initiated JSON-RPC requests and are answered by the daemon.
+// `codex app-server` JSON-RPC protocol. The daemon spawns a remote-control
+// app-server on a unix socket per session, creates a thread, and exposes
+// connect info so the local CLI can attach `codex resume --remote` and keep
+// the TUI in the user's terminal (no-silent hosting). Command/file/permission
+// approvals arrive as server-initiated JSON-RPC requests and are answered by
+// the daemon.
 package codex
 
 import (
@@ -12,11 +14,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
+	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
 	"github.com/riffpad/riffpad/packages/protocol"
@@ -31,26 +39,31 @@ type pendingApproval struct {
 
 // Codex is a Codex session driven through the app-server protocol.
 type Codex struct {
-	id     string
-	name   string
-	cwd    string
-	prompt string
-	binary string
-	events chan protocol.Event
-	stopCh chan struct{}
-	doneCh chan struct{}
-	ready  chan struct{}
+	id      string
+	name    string
+	cwd     string
+	prompt  string
+	binary  string
+	dataDir string
+	events  chan protocol.Event
+	stopCh  chan struct{}
+	doneCh  chan struct{}
+	ready   chan struct{}
 
 	mu            sync.Mutex
 	ctx           context.Context
 	cmd           *exec.Cmd
-	stdin         io.WriteCloser
+	conn          *websocket.Conn
+	socketPath    string
+	sendFn        func(data []byte) error
 	launched      bool
 	exited        bool
 	threadID      string
 	turnActive    bool
+	promptSent    bool
 	initError     error
 	nextRequestID int
+	pendingRes    map[int]chan json.RawMessage
 	pending       map[string]pendingApproval
 	messages      map[string]*strings.Builder
 }
@@ -67,11 +80,13 @@ func New(req adapter.CreateRequest) *Codex {
 		cwd:           req.Cwd,
 		prompt:        req.Prompt,
 		binary:        binary,
+		dataDir:       req.DataDir,
 		events:        make(chan protocol.Event, 256),
 		stopCh:        make(chan struct{}),
 		doneCh:        make(chan struct{}),
 		ready:         make(chan struct{}),
 		nextRequestID: 1,
+		pendingRes:    make(map[int]chan json.RawMessage),
 		pending:       make(map[string]pendingApproval),
 		messages:      make(map[string]*strings.Builder),
 	}
@@ -118,17 +133,14 @@ func (c *Codex) ensureStarted() error {
 }
 
 func (c *Codex) spawn(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, c.binary, "app-server", "--listen", "stdio://")
+	dir := filepath.Join(c.dataDir, "codex")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create codex dir: %w", err)
+	}
+	socketPath := filepath.Join(dir, c.id+".sock")
+	cmd := exec.CommandContext(ctx, c.binary, "app-server", "--remote-control", "--listen", "unix://"+socketPath)
 	if c.cwd != "" {
 		cmd.Dir = c.cwd
-	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -139,9 +151,8 @@ func (c *Codex) spawn(ctx context.Context) error {
 	}
 	c.mu.Lock()
 	c.cmd = cmd
-	c.stdin = stdin
+	c.socketPath = socketPath
 	c.mu.Unlock()
-	go c.readLoop(stdout)
 	go c.copyStderr(stderr)
 	go func() {
 		<-c.stopCh
@@ -149,10 +160,58 @@ func (c *Codex) spawn(ctx context.Context) error {
 			_ = c.cmd.Process.Kill()
 		}
 	}()
+	if err := c.connect(ctx, socketPath); err != nil {
+		return err
+	}
 	_ = c.request("initialize", map[string]any{
 		"clientInfo": map[string]any{"name": "riffpad", "version": "0.1.0"},
 	})
 	return nil
+}
+
+// connect waits for the app-server unix socket and establishes the JSON-RPC
+// WebSocket connection.
+func (c *Codex) connect(ctx context.Context, socketPath string) error {
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		if _, err := os.Stat(socketPath); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("codex app-server socket not ready")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	dialer := websocket.Dialer{
+		NetDial: func(network, addr string) (net.Conn, error) {
+			return net.Dial("unix", socketPath)
+		},
+		HandshakeTimeout: 10 * time.Second,
+	}
+	conn, _, err := dialer.Dial("ws://codex/", http.Header{})
+	if err != nil {
+		return fmt.Errorf("dial codex app-server: %w", err)
+	}
+	c.mu.Lock()
+	c.conn = conn
+	c.mu.Unlock()
+	go c.readLoop(conn)
+	return nil
+}
+
+// ConnectInfo returns the local app-server socket and thread id so the CLI can
+// attach the Codex TUI (`codex resume --remote unix://… <threadId>`).
+func (c *Codex) ConnectInfo() (socket string, threadID string, err error) {
+	if err := c.waitReady(); err != nil {
+		return "", "", err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.socketPath, c.threadID, nil
 }
 
 // Stop terminates the app-server.
@@ -190,6 +249,21 @@ func (c *Codex) SendPrompt(text string) error {
 	}
 	if err := c.waitReady(); err != nil {
 		return err
+	}
+	c.mu.Lock()
+	needResume := c.promptSent
+	c.promptSent = true
+	c.mu.Unlock()
+	if needResume {
+		// Re-attach to the thread before injecting: app-server only streams
+		// turn/item events to connections subscribed to the thread. After the
+		// local TUI resumes the same thread, our subscription must be
+		// refreshed or events silently stop reaching the daemon (and phone).
+		// The first prompt skips this: thread/start already subscribed and a
+		// fresh thread has no rollout yet (resume would fail).
+		if _, err := c.requestSync("thread/resume", map[string]any{"threadId": c.threadID}, 5*time.Second); err != nil {
+			log.Printf("codex[%s] thread/resume: %v", c.id, err)
+		}
 	}
 	input := []any{map[string]any{"type": "text", "text": text}}
 	c.mu.Lock()
@@ -269,32 +343,63 @@ func (c *Codex) request(method string, params map[string]any) error {
 	return c.writeJSON(map[string]any{"method": method, "id": id, "params": params})
 }
 
+// requestSync sends a JSON-RPC request and waits for its response.
+func (c *Codex) requestSync(method string, params map[string]any, timeout time.Duration) (json.RawMessage, error) {
+	c.mu.Lock()
+	id := c.nextRequestID
+	c.nextRequestID++
+	ch := make(chan json.RawMessage, 1)
+	c.pendingRes[id] = ch
+	c.mu.Unlock()
+	if err := c.writeJSON(map[string]any{"method": method, "id": id, "params": params}); err != nil {
+		c.mu.Lock()
+		delete(c.pendingRes, id)
+		c.mu.Unlock()
+		return nil, err
+	}
+	select {
+	case res := <-ch:
+		var e struct {
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(res, &e) == nil && e.Message != "" {
+			return nil, fmt.Errorf("codex %s: %s", method, e.Message)
+		}
+		return res, nil
+	case <-time.After(timeout):
+		c.mu.Lock()
+		delete(c.pendingRes, id)
+		c.mu.Unlock()
+		return nil, fmt.Errorf("request %s timed out", method)
+	case <-c.stopCh:
+		return nil, fmt.Errorf("session stopped")
+	}
+}
+
 func (c *Codex) writeJSON(v any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.stdin == nil {
-		return fmt.Errorf("stdin not ready")
-	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(c.stdin, string(data)); err != nil {
-		return err
+	if c.sendFn != nil {
+		return c.sendFn(data)
 	}
-	return nil
+	if c.conn == nil {
+		return fmt.Errorf("app-server not connected")
+	}
+	return c.conn.WriteMessage(websocket.TextMessage, data)
 }
 
-func (c *Codex) readLoop(r io.Reader) {
+func (c *Codex) readLoop(conn *websocket.Conn) {
 	defer close(c.doneCh)
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
+	for {
+		_, data, err := conn.ReadMessage()
+		if err != nil {
+			break
 		}
-		c.handleLine(line)
+		c.handleLine(data)
 	}
 	if c.cmd != nil && c.cmd.Process != nil {
 		_ = c.cmd.Wait()
@@ -329,6 +434,19 @@ func (c *Codex) handleLine(line []byte) {
 			Message string `json:"message"`
 		}
 		_ = json.Unmarshal(msg.Error, &e)
+		var rid int
+		if json.Unmarshal(msg.ID, &rid) == nil {
+			c.mu.Lock()
+			ch, ok := c.pendingRes[rid]
+			if ok {
+				delete(c.pendingRes, rid)
+			}
+			c.mu.Unlock()
+			if ok {
+				ch <- json.RawMessage(msg.Error)
+				return
+			}
+		}
 		c.mu.Lock()
 		c.initError = fmt.Errorf("codex app-server error: %s", e.Message)
 		c.mu.Unlock()
@@ -358,6 +476,16 @@ func (c *Codex) closeReady() {
 func (c *Codex) handleResponse(id json.RawMessage, result json.RawMessage) {
 	var rid int
 	if json.Unmarshal(id, &rid) != nil {
+		return
+	}
+	c.mu.Lock()
+	ch, ok := c.pendingRes[rid]
+	if ok {
+		delete(c.pendingRes, rid)
+	}
+	c.mu.Unlock()
+	if ok {
+		ch <- result
 		return
 	}
 	switch rid {

@@ -427,11 +427,52 @@ func runCmd(args []string, base string) error {
 	var data struct {
 		ID  string `json:"id"`
 		URL string `json:"url"`
+		CLI string `json:"cli"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
 	}
+	if data.CLI == "codex" {
+		return attachCodexTUI(base, data.ID)
+	}
 	fmt.Println(t.T("session_url", data.ID, data.URL))
+	return nil
+}
+
+// attachCodexTUI waits for the daemon's Codex app-server thread and then runs
+// `codex resume --remote` in the foreground so the TUI stays in the user's
+// terminal (no-silent hosting). Ctrl-C exits the TUI; the daemon session
+// remains available from the phone.
+func attachCodexTUI(base, sessionID string) error {
+	fmt.Println("正在启动 Codex TUI（会话已托管到 daemon）…")
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Get(base + "/api/sessions/" + sessionID + "/connect")
+	if err != nil {
+		return fmt.Errorf("等待 Codex 会话就绪失败: %w", err)
+	}
+	defer resp.Body.Close()
+	var info struct {
+		Socket   string `json:"socket"`
+		ThreadID string `json:"threadId"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK || info.Socket == "" || info.ThreadID == "" {
+		return fmt.Errorf("Codex 会话未就绪（状态 %d）", resp.StatusCode)
+	}
+	codexBin, err := exec.LookPath("codex")
+	if err != nil {
+		return fmt.Errorf("未找到 codex 可执行文件: %w", err)
+	}
+	cmd := exec.Command(codexBin, "resume", "--remote", "unix://"+info.Socket, info.ThreadID)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Codex TUI 已退出：", err)
+	}
+	fmt.Printf("Codex TUI 已退出；会话 %s 仍由 daemon 托管（手机端可查看/遥控）。\n", sessionID)
 	return nil
 }
 

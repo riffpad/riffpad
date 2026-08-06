@@ -60,24 +60,42 @@ export async function openSessionSocket(
     handlers.onConn("连接失败：请刷新页面重试");
   };
   ws.onerror = () => handlers.onConn("连接错误");
-  ws.onmessage = async (msg) => {
-    try {
-      const data = JSON.parse(String(msg.data));
-      if (data.kind === "hello") {
-        const dsec = await getDeviceSecret(dev);
-        sessionKey = await deriveSessionKey(eph.privateKey, data.serverEphPub, dsec, sid);
-        everConnected = true;
-        handlers.onConn("已连接（加密）");
-        return;
-      }
-      if (sessionKey) {
-        const pt = await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext);
-        handlers.onEvent(pt as RiffpadEvent);
-      }
-    } catch (e) {
-      handlers.onError(e instanceof Error ? e.message : String(e));
+
+  // Messages must be handled in order: the hello handshake derives the
+  // session key asynchronously, and replayed events arriving before the key is
+  // ready would otherwise be dropped by concurrent async handlers.
+  const queue: string[] = [];
+  let draining = false;
+  ws.onmessage = (msg) => {
+    queue.push(String(msg.data));
+    if (!draining) {
+      draining = true;
+      void drainQueue();
     }
   };
+
+  async function drainQueue() {
+    while (queue.length > 0) {
+      const raw = queue.shift()!;
+      try {
+        const data = JSON.parse(raw);
+        if (data.kind === "hello") {
+          const dsec = await getDeviceSecret(dev);
+          sessionKey = await deriveSessionKey(eph.privateKey, data.serverEphPub, dsec, sid);
+          everConnected = true;
+          handlers.onConn("已连接（加密）");
+          continue;
+        }
+        if (sessionKey) {
+          const pt = await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext);
+          handlers.onEvent(pt as RiffpadEvent);
+        }
+      } catch (e) {
+        handlers.onError(e instanceof Error ? e.message : String(e));
+      }
+    }
+    draining = false;
+  }
   void everConnected;
   return api;
 }

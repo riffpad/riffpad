@@ -80,7 +80,10 @@ func TestTurnCompletedStatus(t *testing.T) {
 func TestCommandApproval(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	fw := &fakeWriteCloser{}
-	c.stdin = fw
+	c.sendFn = func(d []byte) error {
+		_, err := fw.Write(d)
+		return err
+	}
 	c.handleLine([]byte(`{"id":"req_1","method":"item/commandExecution/requestApproval","params":{"itemId":"it1","threadId":"thr1","turnId":"tu1","command":"rm -rf build","reason":"clean"}}`))
 	ev := nextEvent(t, c)
 	if ev.Type != protocol.EventApprovalReq {
@@ -107,7 +110,10 @@ func TestCommandApproval(t *testing.T) {
 func TestPermissionsApproval(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	fw := &fakeWriteCloser{}
-	c.stdin = fw
+	c.sendFn = func(d []byte) error {
+		_, err := fw.Write(d)
+		return err
+	}
 	c.handleLine([]byte(`{"id":"req_2","method":"item/permissions/requestApproval","params":{"itemId":"it2","threadId":"thr1","turnId":"tu1","permissions":[{"name":"network","reason":"download"}]}}`))
 	ev := nextEvent(t, c)
 	if ev.Type != protocol.EventApprovalReq {
