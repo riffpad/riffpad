@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -13,13 +15,13 @@ const defaultPort = 8787
 
 // Config is the daemon configuration persisted to config.json.
 type Config struct {
-	Port         int    `json:"port"`
-	RelayURL     string `json:"relayUrl,omitempty"`
-	HostID       string `json:"hostId,omitempty"`
-	HostToken    string `json:"hostToken,omitempty"`
-	HostSecret   string `json:"hostSecret,omitempty"`
-	RelayToken   string `json:"relayToken,omitempty"`
-	RelayUser    string `json:"-"`
+	Port          int    `json:"port"`
+	RelayURL      string `json:"relayUrl,omitempty"`
+	HostID        string `json:"hostId,omitempty"`
+	HostToken     string `json:"hostToken,omitempty"`
+	HostSecret    string `json:"hostSecret,omitempty"`
+	RelayToken    string `json:"relayToken,omitempty"`
+	RelayUser     string `json:"-"`
 	RelayPassword string `json:"-"`
 }
 
@@ -106,6 +108,7 @@ type Keys struct {
 	X25519Public  string `json:"x25519Public"`
 	P256Private   string `json:"p256Private"`
 	P256Public    string `json:"p256Public"`
+	SessionEncKey string `json:"sessionEncKey,omitempty"` // local AES-256 key for persisted session history
 }
 
 // LoadOrCreateKeys loads keys.json, generating identity keys on first run.
@@ -115,6 +118,12 @@ func LoadOrCreateKeys(dir string) (*Keys, error) {
 		k := &Keys{}
 		if err := json.Unmarshal(data, k); err != nil {
 			return nil, err
+		}
+		if k.SessionEncKey == "" {
+			k.SessionEncKey = newSessionEncKey()
+			if err := saveKeys(path, k); err != nil {
+				return nil, err
+			}
 		}
 		return k, nil
 	}
@@ -132,6 +141,7 @@ func LoadOrCreateKeys(dir string) (*Keys, error) {
 		X25519Public:  protocol.EncodeKey(x.PublicKey),
 		P256Private:   protocol.EncodeKey(p.PrivateKey()),
 		P256Public:    protocol.EncodeKey(p.PublicKey),
+		SessionEncKey: newSessionEncKey(),
 	}
 	raw, err := json.MarshalIndent(k, "", "  ")
 	if err != nil {
@@ -141,6 +151,22 @@ func LoadOrCreateKeys(dir string) (*Keys, error) {
 		return nil, err
 	}
 	return k, nil
+}
+
+func newSessionEncKey() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
+
+func saveKeys(path string, k *Keys) error {
+	data, err := json.MarshalIndent(k, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
 }
 
 // Identity returns the server identity key pair for the given curve.
