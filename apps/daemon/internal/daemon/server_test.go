@@ -18,16 +18,16 @@ import (
 )
 
 type fakeSession struct {
-	id         string
-	events     chan protocol.Event
-	approvals  chan string
-	prompts    chan string
-	stopCalled chan struct{}
+	id           string
+	events       chan protocol.Event
+	approvals    chan string
+	prompts      chan string
+	stopCalled   chan struct{}
 	lastDecision string
 }
 
-func (f *fakeSession) ID() string                     { return f.id }
-func (f *fakeSession) Events() <-chan protocol.Event  { return f.events }
+func (f *fakeSession) ID() string                    { return f.id }
+func (f *fakeSession) Events() <-chan protocol.Event { return f.events }
 func (f *fakeSession) Meta() protocol.SessionStartPayload {
 	return protocol.SessionStartPayload{Name: "fake", CLI: "fake", Cwd: "/tmp"}
 }
@@ -263,6 +263,95 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	}
 	if fake.lastDecision != "approve" {
 		t.Fatalf("unexpected decision %q", fake.lastDecision)
+	}
+}
+
+func TestLeaseExpiryClosesSession(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	fake := &fakeSession{
+		id:         "lease-1",
+		events:     make(chan protocol.Event, 4),
+		approvals:  make(chan string, 1),
+		prompts:    make(chan string, 1),
+		stopCalled: make(chan struct{}, 1),
+	}
+	sess := &session{
+		id:      "lease-1",
+		meta:    fake.Meta(),
+		adapter: fake,
+		events:  fake.events,
+		status:  protocol.StatusRunning,
+		lease:   true,
+		lastHB:  time.Now().Add(-30 * time.Second),
+		clients: map[*client]struct{}{},
+	}
+	srv.sessions["lease-1"] = sess
+
+	srv.sweepOnce()
+
+	srv.mu.Lock()
+	_, stillThere := srv.sessions["lease-1"]
+	srv.mu.Unlock()
+	if stillThere {
+		t.Fatal("expired-lease session should have been removed")
+	}
+	select {
+	case <-fake.stopCalled:
+	default:
+		t.Fatal("expected adapter.Stop to be called")
+	}
+}
+
+func TestHeartbeatRenewsLease(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	fake := &fakeSession{
+		id:         "hb-1",
+		events:     make(chan protocol.Event, 4),
+		approvals:  make(chan string, 1),
+		prompts:    make(chan string, 1),
+		stopCalled: make(chan struct{}, 1),
+	}
+	srv.sessions["hb-1"] = &session{
+		id:      "hb-1",
+		meta:    fake.Meta(),
+		adapter: fake,
+		events:  fake.events,
+		status:  protocol.StatusRunning,
+		clients: map[*client]struct{}{},
+	}
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp, err := http.Post(ts.URL+"/api/sessions/hb-1/heartbeat", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	srv.mu.Lock()
+	s := srv.sessions["hb-1"]
+	srv.mu.Unlock()
+	if s == nil || !s.lease {
+		t.Fatal("heartbeat should enable lease")
+	}
+	if time.Since(s.lastHB) > 2*time.Second {
+		t.Fatal("heartbeat should refresh lastHB")
 	}
 }
 

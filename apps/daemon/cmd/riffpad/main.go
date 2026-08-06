@@ -484,7 +484,7 @@ func attachCodexTUI(base, sessionID string) error {
 	// signal, let codex exit normally (or kill it after a timeout), then
 	// close the session.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	exited := make(chan struct{})
 	go func() {
 		select {
@@ -497,6 +497,24 @@ func attachCodexTUI(base, sessionID string) error {
 				}
 			}
 		case <-exited:
+		}
+	}()
+	// Lease heartbeat: renew every 5s so the daemon can close the session if
+	// this CLI dies without running cleanup (SIGKILL, panic, network loss).
+	hbStop := make(chan struct{})
+	defer close(hbStop)
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if resp, err := http.Post(base+"/api/sessions/"+sessionID+"/heartbeat", "application/json", nil); err == nil {
+					_ = resp.Body.Close()
+				}
+			case <-hbStop:
+				return
+			}
 		}
 	}()
 	runErr := cmd.Run()

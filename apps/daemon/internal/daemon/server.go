@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +51,8 @@ type session struct {
 	events  <-chan protocol.Event
 	status  string
 	ended   bool
+	lease   bool      // local TUI attached: session closes when heartbeat lapses
+	lastHB  time.Time // last lease heartbeat from the local CLI
 	mu      sync.Mutex
 	history []protocol.Event
 	clients map[*client]struct{}
@@ -92,6 +96,7 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		messageBuf:   map[string]string{},
 	}
 	s.loadDevices()
+	s.cleanupCodexProcesses()
 	if cfg.RelayURL != "" {
 		hostID := cfg.HostID
 		if hostID == "" {
@@ -104,6 +109,74 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		s.rc = newRelayClient(cfg.RelayURL, hostID, cfg.HostSecret, logger, s.handleRelayJoin)
 	}
 	return s
+}
+
+// cleanupCodexProcesses kills app-server processes left over from an unclean
+// daemon shutdown and removes their stale socket/pid files.
+func (s *Server) cleanupCodexProcesses() {
+	dir := filepath.Join(s.dataDir, "codex")
+	// Kill leftover app-server processes by pid file (written by current
+	// adapters) and, on Linux, by scanning /proc cmdlines for any app-server
+	// listening under our codex dir (covers processes spawned before pid
+	// files existed, e.g. unclean upgrades).
+	if runtime.GOOS == "linux" {
+		s.killCodexByProcScan(dir)
+	}
+	pidFiles, err := filepath.Glob(filepath.Join(dir, "*.pid"))
+	if err != nil {
+		return
+	}
+	for _, pf := range pidFiles {
+		data, err := os.ReadFile(pf)
+		if err != nil {
+			continue
+		}
+		var pid int
+		n, _ := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &pid)
+		if n != 1 || pid <= 0 {
+			_ = os.Remove(pf)
+			continue
+		}
+		if proc, err := os.FindProcess(pid); err == nil {
+			_ = proc.Kill()
+		}
+		_ = os.Remove(pf)
+		_ = os.Remove(strings.TrimSuffix(pf, ".pid") + ".sock")
+		s.log.Printf("cleaned up stale codex app-server pid=%d", pid)
+	}
+	// Remove any remaining stale sockets (their processes, if any, were
+	// killed above or by pid file).
+	if socks, err := filepath.Glob(filepath.Join(dir, "*.sock")); err == nil {
+		for _, sf := range socks {
+			_ = os.Remove(sf)
+		}
+	}
+}
+
+func (s *Server) killCodexByProcScan(dir string) {
+	procs, err := filepath.Glob("/proc/[0-9]*/cmdline")
+	if err != nil {
+		return
+	}
+	for _, cmdlinePath := range procs {
+		data, err := os.ReadFile(cmdlinePath)
+		if err != nil {
+			continue
+		}
+		cmdline := strings.ReplaceAll(string(data), "\x00", " ")
+		if !strings.Contains(cmdline, "app-server") || !strings.Contains(cmdline, dir) {
+			continue
+		}
+		pidStr := strings.Trim(filepath.Base(filepath.Dir(cmdlinePath)), "/")
+		pid, err := strconv.Atoi(pidStr)
+		if err != nil || pid <= 0 {
+			continue
+		}
+		if proc, err := os.FindProcess(pid); err == nil {
+			_ = proc.Kill()
+		}
+		s.log.Printf("cleaned up stale codex app-server pid=%d (proc scan)", pid)
+	}
 }
 
 // DefaultFactory maps CLI names to adapters.
@@ -517,24 +590,58 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		s.handleSessionConnect(w, r, strings.TrimSuffix(id, "/connect"))
 		return
 	}
+	if strings.HasSuffix(id, "/heartbeat") {
+		s.handleSessionHeartbeat(w, strings.TrimSuffix(id, "/heartbeat"))
+		return
+	}
 	if !strings.HasSuffix(id, "/stop") {
 		http.NotFound(w, r)
 		return
 	}
 	id = strings.TrimSuffix(id, "/stop")
 	s.mu.Lock()
-	sess, ok := s.sessions[id]
+	_, ok := s.sessions[id]
 	s.mu.Unlock()
 	if !ok {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
+	s.stopSession(id)
+	writeJSON(w, http.StatusOK, map[string]any{"stopped": true})
+}
+
+// handleSessionHeartbeat renews the local-TUI lease for a session. The first
+// heartbeat enables the lease; once enabled, the session is closed if no
+// heartbeat arrives within the lease window (see sweepOnce).
+func (s *Server) handleSessionHeartbeat(w http.ResponseWriter, id string) {
 	s.mu.Lock()
-	delete(s.sessions, id)
+	sess, ok := s.sessions[id]
+	if ok {
+		sess.lease = true
+		sess.lastHB = time.Now()
+	}
 	s.mu.Unlock()
+	if !ok {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// stopSession removes a session from the live list and stops its adapter.
+func (s *Server) stopSession(id string) {
+	s.mu.Lock()
+	sess, ok := s.sessions[id]
+	if ok {
+		delete(s.sessions, id)
+	}
+	s.mu.Unlock()
+	if !ok {
+		return
+	}
 	s.announceSessions()
 	_ = sess.adapter.Stop()
-	writeJSON(w, http.StatusOK, map[string]any{"stopped": true})
+	s.log.Printf("session %s stopped", id)
 }
 
 // handleSessionConnect returns the local connect info (app-server socket +
@@ -620,6 +727,15 @@ func (s *Server) sweepOnce() {
 	}
 	s.mu.Unlock()
 	for _, sess := range sessions {
+		s.mu.Lock()
+		leaseExpired := sess.lease && time.Since(sess.lastHB) > 20*time.Second
+		alreadyEnded := sess.ended
+		s.mu.Unlock()
+		if leaseExpired && !alreadyEnded {
+			s.log.Printf("session %s lease expired (no local TUI heartbeat); closing", sess.id)
+			s.stopSession(sess.id)
+			continue
+		}
 		if sess.status != protocol.StatusRunning {
 			continue
 		}
