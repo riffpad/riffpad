@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
+	"github.com/riffpad/riffpad/apps/daemon/internal/codex"
 	"github.com/riffpad/riffpad/packages/protocol"
 )
 
@@ -206,27 +207,47 @@ func (s *Server) restoreSessions() {
 		if ps.Ended {
 			continue
 		}
-		events, err := loadSessionEvents(s.dataDir, ps.ID, key)
+		history, err := loadSessionEvents(s.dataDir, ps.ID, key)
 		if err != nil {
 			s.log.Printf("load events for %s: %v", ps.ID, err)
 			continue
 		}
-		adapter := &restoredAdapter{id: ps.ID}
+		var sessAdapter adapter.Session = &restoredAdapter{id: ps.ID}
+		events := sessAdapter.Events()
+		status := "restored"
+		if ps.CLI == "codex" && ps.Connect["threadId"] != "" {
+			// Phase 2: reattach the real Codex adapter to the persisted thread
+			// so the session becomes remotely controllable again.
+			ca := codex.New(adapter.CreateRequest{
+				ID: ps.ID, Name: ps.Name, CLI: "codex", Cwd: ps.Cwd, DataDir: s.dataDir,
+			})
+			if err := ca.Restore(ps.Connect["threadId"]); err != nil {
+				s.log.Printf("codex restore %s: %v; keeping read-only", ps.ID, err)
+			} else {
+				sessAdapter = ca
+				events = ca.Events()
+				status = protocol.StatusRunning
+			}
+		}
 		sess := &session{
 			id:      ps.ID,
 			meta:    protocol.SessionStartPayload{Name: ps.Name, CLI: ps.CLI, Cwd: ps.Cwd},
-			adapter: adapter,
-			events:  adapter.Events(),
-			status:  "restored",
+			adapter: sessAdapter,
+			events:  events,
+			status:  status,
 			ended:   false,
 			created: ps.CreatedAt,
-			history: events,
+			connect: ps.Connect,
+			history: history,
 			clients: map[*client]struct{}{},
 		}
 		s.mu.Lock()
 		s.sessions[ps.ID] = sess
 		s.mu.Unlock()
-		s.log.Printf("restored session %s (%s) with %d events", ps.ID, ps.CLI, len(events))
+		s.log.Printf("restored session %s (%s) with %d events", ps.ID, ps.CLI, len(history))
+		if status == protocol.StatusRunning {
+			go s.pump(sess)
+		}
 	}
 }
 
@@ -236,9 +257,19 @@ func (s *Server) persistEvent(sess *session, ev protocol.Event) {
 		return
 	}
 	_ = appendSessionEvent(s.dataDir, sess.id, key, ev)
+	// Keep meta (status + codex connect info) fresh on every event so a
+	// restart can reattach to the latest thread.
+	s.persistSession(sess)
 }
 
 func (s *Server) persistSession(sess *session) {
+	if ci, ok := sess.adapter.(interface {
+		CurrentConnect() (socket string, threadID string)
+	}); ok {
+		if sock, tid := ci.CurrentConnect(); sock != "" && tid != "" {
+			sess.connect = map[string]string{"socket": sock, "threadId": tid}
+		}
+	}
 	_ = persistSessionMeta(s.dataDir, &PersistedSession{
 		ID:        sess.id,
 		Name:      sess.meta.Name,
@@ -246,6 +277,7 @@ func (s *Server) persistSession(sess *session) {
 		Cwd:       sess.meta.Cwd,
 		Status:    sess.status,
 		Ended:     sess.ended,
+		Connect:   sess.connect,
 		CreatedAt: sess.created,
 		UpdatedAt: time.Now(),
 	})
