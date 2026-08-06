@@ -3,26 +3,37 @@ services:
     build:
       context: ..
       dockerfile: infra/relay/Dockerfile
+    image: riffpad-relay:latest
+    restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     environment:
       RELAY_PORT: "9090"
+      RELAY_LISTEN: "0.0.0.0"
       RELAY_DATA_DIR: /data
-      DATABASE_URL: postgres://riffpad:riffpad@postgres:5432/riffpad?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-riffpad}:${POSTGRES_PASSWORD:-riffpad}@postgres:5432/${POSTGRES_DB:-riffpad}?sslmode=disable
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - relay-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/api/status"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: riffpad
-      POSTGRES_PASSWORD: riffpad
-      POSTGRES_DB: riffpad
+      POSTGRES_USER: ${POSTGRES_USER:-riffpad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riffpad}
+      POSTGRES_DB: ${POSTGRES_DB:-riffpad}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U riffpad"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-riffpad} -d ${POSTGRES_DB:-riffpad}"]
       interval: 3s
       timeout: 3s
       retries: 10
