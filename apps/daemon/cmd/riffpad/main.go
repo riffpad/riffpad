@@ -638,7 +638,7 @@ func defaultDaemonPort(base string) int {
 // loginCmd logs into the Riffpad relay and stores the token in the daemon
 // config. `riffpad relay login` is kept as an alias.
 func loginCmd(args []string, dataDir string) error {
-	return relayCmd(args, dataDir)
+	return doLogin(args, dataDir)
 }
 
 // logoutCmd clears the stored relay token. `riffpad relay logout` is kept as
@@ -662,77 +662,83 @@ func relayCmd(args []string, dataDir string) error {
 	}
 	switch args[0] {
 	case "login":
-		fs := flag.NewFlagSet("login", flag.ExitOnError)
-		url := fs.String("url", os.Getenv("RIFFPAD_RELAY_URL"), "relay URL (wss:// or ws://)")
-		username := fs.String("username", os.Getenv("RIFFPAD_RELAY_USER"), "relay username")
-		github := fs.Bool("github", false, "log in with GitHub OAuth (opens browser)")
-		_ = fs.Parse(args[1:])
-		if *url == "" {
-			return fmt.Errorf("--url is required")
-		}
-		httpURL := strings.TrimSuffix(*url, "/")
-		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
-		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
-		if *github {
-			return oauthDeviceLogin(httpURL, *url, dataDir)
-		}
-		if *username == "" {
-			return fmt.Errorf("--username is required (or use --github)")
-		}
-		password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
-		if password == "" {
-			fmt.Print(t.T("login_password"))
-			b, err := term.ReadPassword(int(os.Stdin.Fd()))
-			if err != nil {
-				return err
-			}
-			fmt.Println()
-			password = string(b)
-		}
-		body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
-		resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
-		if err != nil {
-			return fmt.Errorf("%s: %w", t.T("login_failed"), err)
-		}
-		defer resp.Body.Close()
-		var out struct {
-			Token string `json:"token"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-			return err
-		}
-		if out.Token == "" {
-			return fmt.Errorf("%s", t.T("login_failed_status", resp.StatusCode))
-		}
-		cfg, err := config.Load(dataDir)
-		if err != nil {
-			return err
-		}
-		cfg.RelayURL = *url
-		cfg.RelayToken = out.Token
-		if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
-			return err
-		}
-		cfg.RelayUser = *username
-		if err := config.Save(dataDir, cfg); err != nil {
-			return err
-		}
-		fmt.Println(t.T("login_success", *username))
-		return nil
+		return doLogin(args[1:], dataDir)
 	case "logout":
-		cfg, err := config.Load(dataDir)
-		if err != nil {
-			return err
-		}
-		cfg.RelayToken = ""
-		if err := config.Save(dataDir, cfg); err != nil {
-			return err
-		}
-		fmt.Println(t.T("logout_done"))
-		return nil
+		return logoutCmd(dataDir)
 	default:
 		return fmt.Errorf("usage: riffpad relay login|logout")
 	}
+}
+
+// doLogin implements `riffpad login` / `riffpad relay login`. With no
+// --username it starts the GitHub device flow against the default relay
+// (flag > env > config > wss://api.riffpad.ai).
+func doLogin(args []string, dataDir string) error {
+	fs := flag.NewFlagSet("login", flag.ExitOnError)
+	url := fs.String("url", "", "relay URL (wss:// or ws://)")
+	username := fs.String("username", os.Getenv("RIFFPAD_RELAY_USER"), "relay username (password login)")
+	github := fs.Bool("github", false, "log in with GitHub OAuth (opens browser)")
+	_ = fs.Parse(args)
+
+	relayURL := *url
+	if relayURL == "" {
+		relayURL = os.Getenv("RIFFPAD_RELAY_URL")
+	}
+	if relayURL == "" {
+		if cfg, err := config.Load(dataDir); err == nil {
+			relayURL = cfg.RelayURL
+		}
+	}
+	if relayURL == "" {
+		relayURL = "wss://api.riffpad.ai"
+	}
+	httpURL := strings.TrimSuffix(relayURL, "/")
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+
+	if *github || *username == "" {
+		return oauthDeviceLogin(httpURL, relayURL, dataDir)
+	}
+	password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
+	if password == "" {
+		fmt.Print(t.T("login_password"))
+		b, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		fmt.Println()
+		password = string(b)
+	}
+	body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
+	resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.T("login_failed"), err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return err
+	}
+	if out.Token == "" {
+		return fmt.Errorf("%s", t.T("login_failed_status", resp.StatusCode))
+	}
+	cfg, err := config.Load(dataDir)
+	if err != nil {
+		return err
+	}
+	cfg.RelayURL = relayURL
+	cfg.RelayToken = out.Token
+	if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+		return err
+	}
+	cfg.RelayUser = *username
+	if err := config.Save(dataDir, cfg); err != nil {
+		return err
+	}
+	fmt.Println(t.T("login_success", *username))
+	return nil
 }
 
 // oauthDeviceLogin uses the relay's GitHub device flow so passwordless

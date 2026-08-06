@@ -13,8 +13,8 @@ Usage:
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
-  riffpad login [--url wss://… --username … | --github]
-                                log in to Riffpad cloud (relay)
+  riffpad login [--url wss://…]  log in to Riffpad cloud (GitHub OAuth by default;
+                                --username … for password login)
   riffpad logout                clear the saved login token
   riffpad setup                 install daemon auto-start (Linux systemd user service)
   riffpad kill                  stop all sessions and revoke all devices
@@ -70,7 +70,7 @@ Usage:
 		"resolve_data_dir":            "resolve data dir: %v",
 		"unsupported_cli":             "unsupported cli %q",
 		"usage_daemon":                "usage: riffpad daemon start|stop",
-		"usage_login":                 "usage: riffpad login|logout",
+		"usage_login":                 "usage: riffpad login [--url wss://…] | riffpad logout",
 		"usage_run":                   "usage: riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]",
 	},
 	"zh": {
@@ -86,8 +86,8 @@ Usage:
                                 创建并启动会话
   riffpad attach                注入 Claude Code hooks，让 daemon 捕获你自己启动的会话
   riffpad detach                移除注入的 hooks
-  riffpad login [--url wss://… --username … | --github]
-                                登录 Riffpad 云服务（relay）
+  riffpad login [--url wss://…]  登录 Riffpad 云服务（默认 GitHub 授权；
+                                --username … 使用密码登录）
   riffpad logout                清除登录 token
   riffpad setup                 安装 daemon 自启（Linux systemd user service）
   riffpad kill                  熔断：停止所有会话并撤销所有设备
@@ -143,7 +143,7 @@ Usage:
 		"resolve_data_dir":            "解析数据目录失败: %v",
 		"unsupported_cli":             "不支持的 CLI %q",
 		"usage_daemon":                "用法：riffpad daemon start|stop",
-		"usage_login":                 "用法：riffpad login|logout",
+		"usage_login":                 "用法：riffpad login [--url wss://…] | riffpad logout",
 		"usage_run":                   "用法：riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]",
 	},
 }
