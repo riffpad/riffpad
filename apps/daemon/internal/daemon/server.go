@@ -524,6 +524,10 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
+	s.mu.Lock()
+	delete(s.sessions, id)
+	s.mu.Unlock()
+	s.announceSessions()
 	_ = sess.adapter.Stop()
 	writeJSON(w, http.StatusOK, map[string]any{"stopped": true})
 }

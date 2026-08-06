@@ -60,8 +60,10 @@ type Codex struct {
 	exited        bool
 	threadID      string
 	turnActive    bool
+	promptSent    bool
 	initError     error
 	nextRequestID int
+	pendingRes    map[int]chan json.RawMessage
 	pending       map[string]pendingApproval
 	messages      map[string]*strings.Builder
 }
@@ -84,6 +86,7 @@ func New(req adapter.CreateRequest) *Codex {
 		doneCh:        make(chan struct{}),
 		ready:         make(chan struct{}),
 		nextRequestID: 1,
+		pendingRes:    make(map[int]chan json.RawMessage),
 		pending:       make(map[string]pendingApproval),
 		messages:      make(map[string]*strings.Builder),
 	}
@@ -247,6 +250,21 @@ func (c *Codex) SendPrompt(text string) error {
 	if err := c.waitReady(); err != nil {
 		return err
 	}
+	c.mu.Lock()
+	needResume := c.promptSent
+	c.promptSent = true
+	c.mu.Unlock()
+	if needResume {
+		// Re-attach to the thread before injecting: app-server only streams
+		// turn/item events to connections subscribed to the thread. After the
+		// local TUI resumes the same thread, our subscription must be
+		// refreshed or events silently stop reaching the daemon (and phone).
+		// The first prompt skips this: thread/start already subscribed and a
+		// fresh thread has no rollout yet (resume would fail).
+		if _, err := c.requestSync("thread/resume", map[string]any{"threadId": c.threadID}, 5*time.Second); err != nil {
+			log.Printf("codex[%s] thread/resume: %v", c.id, err)
+		}
+	}
 	input := []any{map[string]any{"type": "text", "text": text}}
 	c.mu.Lock()
 	active := c.turnActive
@@ -325,6 +343,39 @@ func (c *Codex) request(method string, params map[string]any) error {
 	return c.writeJSON(map[string]any{"method": method, "id": id, "params": params})
 }
 
+// requestSync sends a JSON-RPC request and waits for its response.
+func (c *Codex) requestSync(method string, params map[string]any, timeout time.Duration) (json.RawMessage, error) {
+	c.mu.Lock()
+	id := c.nextRequestID
+	c.nextRequestID++
+	ch := make(chan json.RawMessage, 1)
+	c.pendingRes[id] = ch
+	c.mu.Unlock()
+	if err := c.writeJSON(map[string]any{"method": method, "id": id, "params": params}); err != nil {
+		c.mu.Lock()
+		delete(c.pendingRes, id)
+		c.mu.Unlock()
+		return nil, err
+	}
+	select {
+	case res := <-ch:
+		var e struct {
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(res, &e) == nil && e.Message != "" {
+			return nil, fmt.Errorf("codex %s: %s", method, e.Message)
+		}
+		return res, nil
+	case <-time.After(timeout):
+		c.mu.Lock()
+		delete(c.pendingRes, id)
+		c.mu.Unlock()
+		return nil, fmt.Errorf("request %s timed out", method)
+	case <-c.stopCh:
+		return nil, fmt.Errorf("session stopped")
+	}
+}
+
 func (c *Codex) writeJSON(v any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -383,6 +434,19 @@ func (c *Codex) handleLine(line []byte) {
 			Message string `json:"message"`
 		}
 		_ = json.Unmarshal(msg.Error, &e)
+		var rid int
+		if json.Unmarshal(msg.ID, &rid) == nil {
+			c.mu.Lock()
+			ch, ok := c.pendingRes[rid]
+			if ok {
+				delete(c.pendingRes, rid)
+			}
+			c.mu.Unlock()
+			if ok {
+				ch <- json.RawMessage(msg.Error)
+				return
+			}
+		}
 		c.mu.Lock()
 		c.initError = fmt.Errorf("codex app-server error: %s", e.Message)
 		c.mu.Unlock()
@@ -412,6 +476,16 @@ func (c *Codex) closeReady() {
 func (c *Codex) handleResponse(id json.RawMessage, result json.RawMessage) {
 	var rid int
 	if json.Unmarshal(id, &rid) != nil {
+		return
+	}
+	c.mu.Lock()
+	ch, ok := c.pendingRes[rid]
+	if ok {
+		delete(c.pendingRes, rid)
+	}
+	c.mu.Unlock()
+	if ok {
+		ch <- result
 		return
 	}
 	switch rid {

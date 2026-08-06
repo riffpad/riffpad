@@ -247,22 +247,36 @@ const wsReady = new Promise((resolve) => {
     resolve();
   };
 });
-ws.onmessage = async (msg) => {
-  try {
-    if (DEBUG) console.log("[ws] recv", String(msg.data).slice(0, 200));
-    const data = JSON.parse(String(msg.data));
-    if (data.kind === "hello") {
-      sessionKey = await deriveSessionKey(eph.privateKey, data.serverEphPub, deviceSecret, sid);
-      return;
-    }
-    if (sessionKey && data.nonce && data.ciphertext) {
-      const ev = await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext);
-      events.push(ev);
-    }
-  } catch (e) {
-    wsError = e?.message || "decrypt error";
+const wsQueue = [];
+let wsDraining = false;
+ws.onmessage = (msg) => {
+  wsQueue.push(String(msg.data));
+  if (!wsDraining) {
+    wsDraining = true;
+    void drainWs();
   }
 };
+
+async function drainWs() {
+  while (wsQueue.length > 0) {
+    const raw = wsQueue.shift();
+    try {
+      if (DEBUG) console.log("[ws] recv", raw.slice(0, 200));
+      const data = JSON.parse(raw);
+      if (data.kind === "hello") {
+        sessionKey = await deriveSessionKey(eph.privateKey, data.serverEphPub, deviceSecret, sid);
+        continue;
+      }
+      if (sessionKey && data.nonce && data.ciphertext) {
+        const ev = await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext);
+        events.push(ev);
+      }
+    } catch (e) {
+      wsError = e?.message || "decrypt error";
+    }
+  }
+  wsDraining = false;
+}
 
 await Promise.race([wsReady, sleep(15_000)]);
 const helloDeadline = Date.now() + 15_000;
