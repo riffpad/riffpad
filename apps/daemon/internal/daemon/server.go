@@ -118,18 +118,33 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 // daemon shutdown and removes their stale socket/pid files.
 func (s *Server) cleanupCodexProcesses() {
 	dir := filepath.Join(s.dataDir, "codex")
+	// Sockets belonging to persisted sessions may be reused by
+	// restoreSessions after a daemon restart; do not kill those app-servers
+	// (their attached TUI must survive the restart).
+	keep := map[string]bool{}
+	if persisted, err := loadPersistedSessions(s.dataDir); err == nil {
+		for _, ps := range persisted {
+			if sock := ps.Connect["socket"]; sock != "" {
+				keep[sock] = true
+			}
+		}
+	}
 	// Kill leftover app-server processes by pid file (written by current
 	// adapters) and, on Linux, by scanning /proc cmdlines for any app-server
 	// listening under our codex dir (covers processes spawned before pid
 	// files existed, e.g. unclean upgrades).
 	if runtime.GOOS == "linux" {
-		s.killCodexByProcScan(dir)
+		s.killCodexByProcScan(dir, keep)
 	}
 	pidFiles, err := filepath.Glob(filepath.Join(dir, "*.pid"))
 	if err != nil {
 		return
 	}
 	for _, pf := range pidFiles {
+		sock := strings.TrimSuffix(pf, ".pid")
+		if keep[sock] {
+			continue
+		}
 		data, err := os.ReadFile(pf)
 		if err != nil {
 			continue
@@ -144,19 +159,22 @@ func (s *Server) cleanupCodexProcesses() {
 			_ = proc.Kill()
 		}
 		_ = os.Remove(pf)
-		_ = os.Remove(strings.TrimSuffix(pf, ".pid") + ".sock")
+		_ = os.Remove(strings.TrimSuffix(pf, ".pid"))
 		s.log.Printf("cleaned up stale codex app-server pid=%d", pid)
 	}
 	// Remove any remaining stale sockets (their processes, if any, were
 	// killed above or by pid file).
 	if socks, err := filepath.Glob(filepath.Join(dir, "*.sock")); err == nil {
 		for _, sf := range socks {
+			if keep[sf] {
+				continue
+			}
 			_ = os.Remove(sf)
 		}
 	}
 }
 
-func (s *Server) killCodexByProcScan(dir string) {
+func (s *Server) killCodexByProcScan(dir string, keep map[string]bool) {
 	procs, err := filepath.Glob("/proc/[0-9]*/cmdline")
 	if err != nil {
 		return
@@ -168,6 +186,16 @@ func (s *Server) killCodexByProcScan(dir string) {
 		}
 		cmdline := strings.ReplaceAll(string(data), "\x00", " ")
 		if !strings.Contains(cmdline, "app-server") || !strings.Contains(cmdline, dir) {
+			continue
+		}
+		skip := false
+		for sock := range keep {
+			if strings.Contains(cmdline, sock) {
+				skip = true
+				break
+			}
+		}
+		if skip {
 			continue
 		}
 		pidStr := strings.Trim(filepath.Base(filepath.Dir(cmdlinePath)), "/")
