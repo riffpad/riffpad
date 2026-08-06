@@ -494,7 +494,10 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 	}
 	host, err := h.store.GetHost(p.HostID)
 	if err != nil || host.OwnerID != u.ID {
-		writeError(w, http.StatusUnauthorized, "pairing code belongs to another user")
+		// Keep the response identical to a missing/expired code so that
+		// callers cannot tell whether a live code exists for another user.
+		h.log.Printf("pair rejected: code exists but host %s is not owned by user %s", p.HostID, u.Username)
+		writeError(w, http.StatusUnauthorized, "invalid or expired pairing code")
 		return
 	}
 	name := req.Name

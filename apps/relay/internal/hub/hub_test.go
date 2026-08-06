@@ -199,6 +199,59 @@ func TestPairingRequiresOnlineAndOwnedHost(t *testing.T) {
 	}
 }
 
+func TestPairForeignOwnerReturnsGenericError(t *testing.T) {
+	_, ts := newTestHub(t)
+	alice := registerUser(t, ts, "alice")
+	hostID, hostSecret := registerHost(t, ts, alice, "laptop")
+
+	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + hostID + "&token=" + hostSecret
+	hostConn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hostConn.Close()
+
+	resp, err := authPost(ts, "/api/pairings", alice, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pr struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if pr.Code == "" {
+		t.Fatal("no pairing code returned")
+	}
+
+	// A different user must not be able to tell that the code is live.
+	mallory := registerUser(t, ts, "mallory")
+	resp, err = authPost(ts, "/api/pair", mallory, `{"code":"`+pr.Code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Error string `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized || out.Error != "invalid or expired pairing code" {
+		t.Fatalf("foreign pair status %d error %q, want generic 401", resp.StatusCode, out.Error)
+	}
+
+	// The owner can still use the same code afterwards.
+	resp, err = authPost(ts, "/api/pair", alice, `{"code":"`+pr.Code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("owner pair status %d", resp.StatusCode)
+	}
+}
+
 func TestPersistenceAcrossRestart(t *testing.T) {
 	h, ts := newTestHub(t)
 	token := registerUser(t, ts, "carol")
