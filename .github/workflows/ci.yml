@@ -28,8 +28,86 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck client-beta
+        run: pnpm --filter client-beta typecheck
+
+      - name: Build client-beta
+        run: pnpm --filter client-beta build
+
       - name: Lint landing
         run: pnpm --filter landing lint
 
       - name: Build landing
         run: pnpm --filter landing build
+
+  go:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            apps/daemon/go.sum
+            apps/relay/go.sum
+            packages/protocol/go.sum
+
+      - name: Test daemon
+        working-directory: apps/daemon
+        run: go test ./...
+
+      - name: Test relay
+        working-directory: apps/relay
+        run: go test ./...
+
+      - name: Test protocol
+        working-directory: packages/protocol
+        run: go test ./...
+
+  e2e:
+    name: Web UI smoke (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build client-beta (embedded into daemon)
+        run: pnpm --filter client-beta build
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: apps/daemon/go.sum
+
+      - name: Build daemon
+        working-directory: apps/daemon
+        run: go build -o bin/riffpad ./cmd/riffpad
+
+      - name: Install Playwright browsers
+        working-directory: apps/client-beta
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run UI smoke tests
+        working-directory: apps/client-beta
+        env:
+          RIFFPAD_DAEMON: ${{ github.workspace }}/apps/daemon/bin/riffpad
+        run: pnpm test:e2e
