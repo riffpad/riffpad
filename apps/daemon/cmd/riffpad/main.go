@@ -91,6 +91,8 @@ func main() {
 		err = relayCmd(os.Args[2:], dataDir)
 	case "setup":
 		err = setupCmd(os.Args[2:], dataDir)
+	case "kill":
+		err = killCmd(base)
 	case "update":
 		err = updateCmd(os.Args[2:], dataDir)
 	case "version":
@@ -734,6 +736,25 @@ func reachable(base string) bool {
 // updateCmd checks the latest GitHub release, downloads the binary for the
 // current platform, verifies its SHA256, and atomically replaces this
 // executable (keeping a .riffpad.bak backup).
+// killCmd triggers the daemon kill switch: stops all agent sessions and
+// revokes all paired devices (local + cloud).
+func killCmd(base string) error {
+	resp, err := http.Post(base+"/api/killswitch", "application/json", nil)
+	if err != nil {
+		return fmt.Errorf("daemon not reachable at %s: %w", base, err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Killed   bool `json:"killed"`
+		Sessions int  `json:"sessions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return err
+	}
+	fmt.Println(t.T("kill_done", out.Sessions))
+	return nil
+}
+
 func updateCmd(args []string, dataDir string) error {
 	fs := flag.NewFlagSet("update", flag.ExitOnError)
 	force := fs.Bool("force", false, "reinstall even if already up to date")

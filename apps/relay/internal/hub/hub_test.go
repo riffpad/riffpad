@@ -214,6 +214,62 @@ func TestPersistenceAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestDevicesListAndRevoke(t *testing.T) {
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "dave")
+	hostID, _ := registerHost(t, ts, token, "laptop")
+	// Resolve the user id, then pair a device directly via the store.
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	me, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meData struct {
+		User struct {
+			ID string `json:"id"`
+		} `json:"user"`
+	}
+	if err := json.NewDecoder(me.Body).Decode(&meData); err != nil {
+		t.Fatal(err)
+	}
+	me.Body.Close()
+	if _, err := h.store.CreateDevice(meData.User.ID, hostID, "phone", "p256", "pub"); err != nil {
+		t.Fatal(err)
+	}
+	req, _ = http.NewRequest(http.MethodGet, ts.URL+"/api/devices", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var list struct {
+		Devices []Device `json:"devices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if len(list.Devices) != 1 {
+		t.Fatalf("unexpected devices: %+v", list.Devices)
+	}
+	// Revoke via API.
+	did := list.Devices[0].ID
+	req, _ = http.NewRequest(http.MethodDelete, ts.URL+"/api/devices/"+did, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rev, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rev.Body.Close()
+	if rev.StatusCode != http.StatusOK {
+		t.Fatalf("revoke status %d", rev.StatusCode)
+	}
+	if _, err := h.store.GetDevice(did); err == nil {
+		t.Fatal("device should be deleted")
+	}
+}
+
 func TestPairingRateLimit(t *testing.T) {
 	_, ts := newTestHub(t)
 	token := registerUser(t, ts, "dave")

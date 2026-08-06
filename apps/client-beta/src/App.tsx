@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AuthView from "./components/AuthView";
+import DeviceManager from "./components/DeviceManager";
 import PairView from "./components/PairView";
 import SessionDetailView from "./components/SessionDetailView";
 import SessionListView from "./components/SessionListView";
@@ -79,25 +80,28 @@ export default function App() {
           />
         )}
         {phase === "sessions" && !openSession && (
-          <SessionListView
-            onOpen={(sid, name) => {
-              setConn("离线");
-              setOpenSession({ sid, name });
-            }}
-            onLogout={
-              isRelay
-                ? async () => {
-                    try {
-                      await api("/api/auth/logout", { method: "POST" });
-                    } catch {
-                      // ignore
+          <>
+            <SessionListView
+              onOpen={(sid, name) => {
+                setConn("离线");
+                setOpenSession({ sid, name });
+              }}
+              onLogout={
+                isRelay
+                  ? async () => {
+                      try {
+                        await api("/api/auth/logout", { method: "POST" });
+                      } catch {
+                        // ignore
+                      }
+                      relayStore.clear();
+                      setPhase("auth");
                     }
-                    relayStore.clear();
-                    setPhase("auth");
-                  }
-                : undefined
-            }
-          />
+                  : undefined
+              }
+            />
+            <DeviceManager />
+          </>
         )}
         {openSession && (
           <SessionDetailView
