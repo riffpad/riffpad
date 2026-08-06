@@ -6,6 +6,7 @@
 
 AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时间自主工作，用户不该守在电脑前。Riffpad 提供：
 
+- **无感托管**：daemon 接管会话后，电脑终端照常显示并可操作 coding agent 的 TUI，用户感受不到差异；手机是离席时的镜像与遥控器
 - **监督**：手机上实时查看 agent 的进度、工具调用、文件变更
 - **审批**：agent 等待确认时推送通知，手机一键同意/拒绝/修改条件
 - **转向**：文字下达新指令，远程影响本地会话
@@ -25,6 +26,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 ### daemon（用户电脑）
 
 - 主路径：按 CLI 适配器订阅结构化事件（如 Claude Code 的 `stream-json`、Codex 的 JSON 输出），渲染为结构化事件
+- 托管模式：daemon 用 PTY/共享会话运行 CLI，并把 TUI 透传到当前终端（本地输入照常）；不同 CLI 的接入路径差异由适配器层吸收（Claude = PTY + hooks、Codex = `--remote` 共享 app-server、Kimi = 后续渲染）
 - 兜底路径：挂接 tmux 控制模式（`tmux -CC`）或 PTY，原始字节流供移动端 xterm.js 渲染
 - 设备配对：二维码扫码交换密钥，之后只接受已配对设备
 

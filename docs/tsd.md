@@ -148,7 +148,7 @@ type Adapter interface {
 
 ### 5.3 两种运行模式
 
-- **包装模式**：`riffpad run -- claude` 或 `codex exec --json`，daemon 持有协议流，手机是主交互端；适合新会话
+- **包装模式（无感托管）**：`riffpad run --cli claude/codex/kimi`，daemon 持有会话并把 TUI 透传到当前终端，本地体验与直接运行一致；手机是离席时的遥控器
 - **附着模式**：用户照常启动 TUI（Claude Code 建议在 tmux 内），daemon 通过 L2 hooks 接收结构化事件与审批请求，审批由 hook 阻塞等待手机响应后返回 `permissionDecision`，指令注入走 tmux send-keys；Codex 可复用 `codex app-server`（实验性）让终端与手机共享同一会话（参考 codex-relay 的 `codex resume --remote unix://` 模式）
 - 所有适配器必须能降级到 L3；实验性接口需要 pin CLI 版本
 
