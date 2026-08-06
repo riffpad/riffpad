@@ -192,6 +192,7 @@
 | M3.14 | 托管模式无感化：`riffpad run` 后电脑终端照常显示/操作 CLI TUI，手机同步遥控 | `[~]` | Codex：`--remote` 共享 app-server 已完成（#74 #79）；Claude：daemon PTY + hooks 收编；Kimi：后续；Ctrl-C 退出即退出，持久会话由用户 tmux（docs 强烈推荐） | #74 #79 |
 | M3.15 | 容器化部署：relay + Postgres 容器化 | `[x]` | 已随 M1.18 完成：relay 仅监听 127.0.0.1:9090、Postgres 17、healthcheck/restart、nginx/certbot 留宿主；生产运行中 | — |
 | M3.16 | 元数据存储 SQLite → Postgres 迁移 | `[x]` | 已随 M1.18 完成：`apps/relay/cmd/migrate-sqlite` 逐表迁移 + 行数校验，生产已切换 Postgres | — |
+| M3.17 | CI/CD：main push → 自动部署 relay（GitHub Actions + SSH 受限部署密钥） | `[~]` | CI 三 job 通过后自动执行 `/usr/local/bin/riffpad-deploy.sh`（git pull --ff-only + compose up -d --build + 健康检查）；部署密钥仅能执行固定脚本 | #108 |
 
 ---
 

@@ -115,3 +115,19 @@ jobs:
         env:
           RIFFPAD_DAEMON: ${{ github.workspace }}/apps/daemon/bin/riffpad
         run: pnpm test:e2e
+
+  deploy:
+    name: Deploy relay (CD)
+    needs: [frontend, go, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 23.254.185.39
+          username: riffpad-deploy
+          key: ${{ secrets.RACKNERD_DEPLOY_KEY }}
+          port: 22
+          fingerprint: SHA256:xlQdeF605d0a+zM6/IVazenOHuCLEHQNxfT0VXJycnY
+          script: /usr/local/bin/riffpad-deploy.sh
