@@ -31,6 +31,7 @@ AI coding CLI（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）已经从“
 Riffpad 不是一个新的 AI coding 工具，而是**已有 AI coding agent 的“手机遥控器 + 陪伴层”**：
 
 - **不替代**：agent 继续跑在用户自己的电脑上，用自己的 API key、自己的仓库、自己的工具链
+- **无感托管**：`riffpad run` 后终端体验与直接运行 CLI 完全一致——电脑始终是主屏，手机是镜像与遥控器；会话生命周期遵循用户自己的终端习惯（想持久化就用 tmux，不强加 detach 魔法）
 - **跨 CLI 通用**：Claude Code、Codex、DeepSeek CLI、Kimi CLI……一个 app 全管
 - **监督**：手机上实时查看进度、工具调用、文件变更
 - **审批**：agent 等待确认时推送通知，手机一键同意 / 拒绝 / 修改条件

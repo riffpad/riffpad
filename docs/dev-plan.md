@@ -186,6 +186,7 @@
 | M3.11 | CLI 命令完善：`login/logout` + `update` 自更新 | `[x]` | 旧命令保留别名；update 校验/备份/原子替换 | #64 #65 |
 | M3.12 | CLI 多语种（i18n） | `[x]` | zh/en 语言包；`--lang` > 环境变量 > 英文兜底 | #67 |
 | M3.13 | 第三方登录：Google / GitHub / Email（OAuth + 邮箱验证码） | `[ ]` | 与现有 username/password 账号体系统一；OAuth 回调、绑定与迁移；Email 验证码防滥用（暂缓实现） | — |
+| M3.14 | 托管模式无感化：`riffpad run` 后电脑终端照常显示/操作 CLI TUI，手机同步遥控 | `[ ]` | Claude：daemon PTY + hooks 收编；Codex：`--remote` 共享 app-server；Kimi：后续；Ctrl-C 退出即退出，持久会话由用户 tmux（docs 强烈推荐） | — |
 
 ---
 
