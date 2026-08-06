@@ -133,9 +133,10 @@
 |---|---|---|---|---|
 | M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[x]` | CI 三 job：Go 全量测试（daemon/relay/protocol）、client-beta typecheck/build、Playwright UI 冒烟；审批闭环/E2EE 由 Go 测试与 e2e-acceptance.mjs 覆盖 | #91 #92 |
 | M1.17 | MVP 体验打磨（app.riffpad.ai / 本地 8787）：onboarding、空状态、错误提示、移动端适配、配对/审批流程细节 | `[ ]` | 外部用户零指导完成全流程；无明显粗糙交互（先于 M1.16 执行） | — |
+| M1.18 | 账号与部署升级：GitHub OAuth 登录 + SQLite→Postgres + relay/postgres Docker Compose 容器化（app.riffpad.ai 前端继续内嵌 relay） | `[~]` | GitHub 登录可用（密码登录保留）；relay 数据在 Postgres；`docker compose up -d` 一键上线（nginx/certbot 留宿主） | — |
 | M1.16 | 种子用户招募与反馈收集 | `[ ]` | ≥ 10 个用户；留存数据可看 | — |
 
-**M1 出口条件**：M1.1–M1.17 全部完成（M1.13 由原生推送替代、M1.14 暂缓，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
+**M1 出口条件**：M1.1–M1.18 全部完成（M1.13 由原生推送替代、M1.14 暂缓，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
 
 ### M1 验证记录（2026-08-05/06，relay 地基 + 适配器）
 
@@ -186,10 +187,10 @@
 | M3.10 | 单二进制 + 一键安装 + GitHub Releases | `[x]` | `riffpad _daemon` 内嵌；install.sh + SHA256；tag v* 交叉编译 4 平台 | #62 |
 | M3.11 | CLI 命令完善：`login/logout` + `update` 自更新 | `[x]` | 旧命令保留别名；update 校验/备份/原子替换 | #64 #65 |
 | M3.12 | CLI 多语种（i18n） | `[x]` | zh/en 语言包；`--lang` > 环境变量 > 英文兜底 | #67 |
-| M3.13 | 第三方登录：Google / GitHub / Email（OAuth + 邮箱验证码） | `[ ]` | 与现有 username/password 账号体系统一；OAuth 回调、绑定与迁移；Email 验证码防滥用（暂缓实现） | — |
+| M3.13 | 第三方登录：Google / Email（OAuth + 邮箱验证码） | `[ ]` | GitHub OAuth 已提前到 M1.18；Google（国内可用性低）、Email（需 SMTP）暂缓 | — |
 | M3.14 | 托管模式无感化：`riffpad run` 后电脑终端照常显示/操作 CLI TUI，手机同步遥控 | `[~]` | Codex：`--remote` 共享 app-server 已完成（#74 #79）；Claude：daemon PTY + hooks 收编；Kimi：后续；Ctrl-C 退出即退出，持久会话由用户 tmux（docs 强烈推荐） | #74 #79 |
-| M3.15 | 容器化部署：relay + Postgres 容器化（完善 infra/docker-compose + Dockerfile + nginx/TLS/证书入栈） | `[ ]` | 一键 compose up 即可上线；数据卷备份/恢复文档；与裸机部署可切换（暂缓，当前裸机 systemd 稳定） | — |
-| M3.16 | 元数据存储 SQLite → Postgres 迁移 | `[ ]` | GORM 已支持 DATABASE_URL；迁移脚本 + 数据导出/校验；生产切换后回滚方案（暂缓，单机规模 SQLite 够用） | — |
+| M3.15 | 容器化部署：relay + Postgres 容器化 | `[~]` | 已提前到 M1.18（compose + Dockerfile 完善、数据卷备份文档、nginx/certbot 留宿主） | — |
+| M3.16 | 元数据存储 SQLite → Postgres 迁移 | `[~]` | 已提前到 M1.18（GORM 已支持 DATABASE_URL；迁移脚本 + 数据校验） | — |
 
 ---
 
