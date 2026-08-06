@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../lib/store";
+import { api, isRelay } from "../lib/store";
 import type { SessionInfo } from "../lib/types";
 
 interface Props {
@@ -88,6 +88,24 @@ export default function SessionListView({ onOpen, onLogout }: Props) {
         ))}
         {sessions.length === 0 && <li className="muted">暂无会话</li>}
       </ul>
+      {sessions.length === 0 && (
+        <section className="card">
+          <h3>还没有会话？三步开始</h3>
+          <ol className="steps">
+            <li>
+              {isRelay ? (
+                <>在电脑上安装并启动 daemon：<code>curl -fsSL https://riffpad.ai/install.sh | sh</code></>
+              ) : (
+                <>daemon 已就绪（服务在线）</>
+              )}
+            </li>
+            <li>
+              在电脑上创建会话，例如：<code>riffpad run --cli claude --prompt "你的任务"</code>
+            </li>
+            <li>会话会出现在上方列表，点开即可在手机上查看、审批、下达新指令。</li>
+          </ol>
+        </section>
+      )}
     </>
   );
 }
