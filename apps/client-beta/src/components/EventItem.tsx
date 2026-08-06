@@ -42,6 +42,7 @@ export default function EventItem({
 }) {
   const [sending, setSending] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, string>>({});
+  const [err, setErr] = useState("");
 
   async function approve(p: ApprovalPayload, decision: "approve" | "reject") {
     setSending(decision);
@@ -49,11 +50,13 @@ export default function EventItem({
       const sent = await send("approval_response", { requestId: p.requestId, decision });
       if (!sent) {
         setSending(null);
+        setErr("审批发送失败：连接已断开，请刷新页面重试");
         return;
       }
       setDone((d) => ({ ...d, [p.requestId]: decision === "approve" ? "已同意" : "已拒绝" }));
     } catch {
       setSending(null);
+      setErr("审批发送失败，请重试");
     }
   }
 
@@ -81,6 +84,7 @@ export default function EventItem({
           </button>
         </div>
         {p.args && <pre className="ev-body">{argsPreview(p.args as Record<string, unknown>)}</pre>}
+        {err && <div className="err">{err}</div>}
       </div>
     );
   }

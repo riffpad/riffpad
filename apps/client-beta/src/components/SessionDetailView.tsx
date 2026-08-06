@@ -15,6 +15,7 @@ export default function SessionDetailView({ sid, name, onConn, onLeave }: Props)
   const [events, setEvents] = useState<RiffpadEvent[]>([]);
   const [prompt, setPrompt] = useState("");
   const [stopping, setStopping] = useState(false);
+  const [err, setErr] = useState("");
   const sockRef = useRef<SessionSocket | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -60,10 +61,12 @@ export default function SessionDetailView({ sid, name, onConn, onLeave }: Props)
     const text = prompt.trim();
     if (!text || !sockRef.current) return;
     setPrompt("");
-    await sockRef.current.send("prompt", { text });
+    const sent = await sockRef.current.send("prompt", { text });
+    setErr(sent ? "" : "未连接：设备可能已失效或会话已结束，请刷新页面重试");
   }
 
   async function stop() {
+    if (!window.confirm("确定停止这个会话？agent 进程会被终止。")) return;
     setStopping(true);
     try {
       await fetch("/api/sessions/" + sid + "/stop", { method: "POST" });
@@ -110,6 +113,7 @@ export default function SessionDetailView({ sid, name, onConn, onLeave }: Props)
           <button type="submit" className="primary">发送</button>
         </div>
       </form>
+      {err && <div className="err">{err}</div>}
     </section>
   );
 }
