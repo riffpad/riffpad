@@ -32,6 +32,9 @@ jobs:
       - name: Typecheck client-beta
         run: pnpm --filter client-beta typecheck
 
+      - name: Unit test client-beta
+        run: pnpm --filter client-beta test
+
       - name: Build client-beta
         run: pnpm --filter client-beta build
 
