@@ -129,5 +129,5 @@ jobs:
           username: riffpad-deploy
           key: ${{ secrets.RACKNERD_DEPLOY_KEY }}
           port: 22
-          fingerprint: SHA256:xlQdeF605d0a+zM6/IVazenOHuCLEHQNxfT0VXJycnY
+          fingerprint: SHA256:pBp+dwvplwm+FG38+E5nJrBjIsFdui5lilwJkTV3C+Y
           script: /usr/local/bin/riffpad-deploy.sh
