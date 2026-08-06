@@ -185,6 +185,7 @@
 | M3.10 | 单二进制 + 一键安装 + GitHub Releases | `[x]` | `riffpad _daemon` 内嵌；install.sh + SHA256；tag v* 交叉编译 4 平台 | #62 |
 | M3.11 | CLI 命令完善：`login/logout` + `update` 自更新 | `[x]` | 旧命令保留别名；update 校验/备份/原子替换 | #64 #65 |
 | M3.12 | CLI 多语种（i18n） | `[x]` | zh/en 语言包；`--lang` > 环境变量 > 英文兜底 | #67 |
+| M3.13 | 第三方登录：Google / GitHub / Email（OAuth + 邮箱验证码） | `[ ]` | 与现有 username/password 账号体系统一；OAuth 回调、绑定与迁移；Email 验证码防滥用（暂缓实现） | — |
 
 ---
 
