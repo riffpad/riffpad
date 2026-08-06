@@ -149,6 +149,9 @@ func (c *Codex) spawn(ctx context.Context) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s app-server: %w", c.binary, err)
 	}
+	// Record the app-server pid so a later daemon start can clean up
+	// processes left behind by an unclean shutdown (SIGKILL etc).
+	_ = os.WriteFile(socketPath+".pid", []byte(fmt.Sprintf("%d\n", cmd.Process.Pid)), 0o600)
 	c.mu.Lock()
 	c.cmd = cmd
 	c.socketPath = socketPath
@@ -231,6 +234,12 @@ func (c *Codex) Stop() error {
 	if c.cmd != nil && c.cmd.Process != nil {
 		_ = c.cmd.Process.Kill()
 	}
+	c.mu.Lock()
+	if c.socketPath != "" {
+		_ = os.Remove(c.socketPath + ".pid")
+		_ = os.Remove(c.socketPath)
+	}
+	c.mu.Unlock()
 	<-c.doneCh
 	return nil
 }
