@@ -62,16 +62,18 @@ type Hub struct {
 	dataDir string
 	store   *Store
 
-	mu           sync.Mutex
-	hosts        map[string]*hostConn
-	sessions     map[string]SessionMeta
-	sessionHosts map[string]string
-	viewers      map[string]*viewerConn
-	pairings     map[string]Pairing
-	rateLimits   map[string]ipCounter
-	oauthStates  map[string]time.Time
-	githubID     string
-	githubSecret string
+	mu             sync.Mutex
+	hosts          map[string]*hostConn
+	sessions       map[string]SessionMeta
+	sessionHosts   map[string]string
+	viewers        map[string]*viewerConn
+	pairings       map[string]Pairing
+	rateLimits     map[string]ipCounter
+	oauthStates    map[string]time.Time
+	githubID       string
+	githubSecret   string
+	githubTokenURL string
+	githubUserURL  string
 }
 
 type ipCounter struct {
@@ -85,18 +87,20 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		return nil, err
 	}
 	return &Hub{
-		log:          logger,
-		dataDir:      dataDir,
-		store:        store,
-		hosts:        map[string]*hostConn{},
-		sessions:     map[string]SessionMeta{},
-		sessionHosts: map[string]string{},
-		viewers:      map[string]*viewerConn{},
-		pairings:     map[string]Pairing{},
-		rateLimits:   map[string]ipCounter{},
-		oauthStates:  map[string]time.Time{},
-		githubID:     os.Getenv("GITHUB_CLIENT_ID"),
-		githubSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		log:            logger,
+		dataDir:        dataDir,
+		store:          store,
+		hosts:          map[string]*hostConn{},
+		sessions:       map[string]SessionMeta{},
+		sessionHosts:   map[string]string{},
+		viewers:        map[string]*viewerConn{},
+		pairings:       map[string]Pairing{},
+		rateLimits:     map[string]ipCounter{},
+		oauthStates:    map[string]time.Time{},
+		githubID:       os.Getenv("GITHUB_CLIENT_ID"),
+		githubSecret:   os.Getenv("GITHUB_CLIENT_SECRET"),
+		githubTokenURL: "https://github.com/login/oauth/access_token",
+		githubUserURL:  "https://api.github.com/user",
 	}, nil
 }
 
@@ -309,7 +313,14 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	form.Set("client_secret", h.githubSecret)
 	form.Set("code", code)
 	form.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
-	tokenResp, err := http.PostForm("https://github.com/login/oauth/access_token", form)
+	tokenReq, err := http.NewRequest(http.MethodPost, h.githubTokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "github token exchange failed")
+		return
+	}
+	tokenReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	tokenReq.Header.Set("Accept", "application/json")
+	tokenResp, err := http.DefaultClient.Do(tokenReq)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "github token exchange failed")
 		return
@@ -325,7 +336,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Fetch the GitHub user.
-	userReq, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user", nil)
+	userReq, _ := http.NewRequest(http.MethodGet, h.githubUserURL, nil)
 	userReq.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 	userReq.Header.Set("Accept", "application/vnd.github+json")
 	userResp, err := http.DefaultClient.Do(userReq)

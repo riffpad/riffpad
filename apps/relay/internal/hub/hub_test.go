@@ -214,6 +214,59 @@ func TestPersistenceAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestGitHubOAuthCallback(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.githubID = "test-client-id"
+	h.githubSecret = "test-client-secret"
+	var gotAccept, gotContentType string
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAccept = r.Header.Get("Accept")
+		gotContentType = r.Header.Get("Content-Type")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"access_token":"gh_token_123","token_type":"bearer"}`)
+	}))
+	defer tokenSrv.Close()
+	userSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer gh_token_123" {
+			t.Errorf("unexpected authorization header: %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":424242,"login":"octocat","email":"octo@example.com"}`)
+	}))
+	defer userSrv.Close()
+	h.githubTokenURL = tokenSrv.URL
+	h.githubUserURL = userSrv.URL
+	h.mu.Lock()
+	h.oauthStates["teststate"] = time.Now().Add(time.Minute)
+	h.mu.Unlock()
+
+	resp, err := http.Get(ts.URL + "/api/auth/github/callback?code=testcode&state=teststate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("callback status %d: %s", resp.StatusCode, body)
+	}
+	if gotAccept != "application/json" {
+		t.Errorf("token exchange Accept = %q, want application/json", gotAccept)
+	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("token exchange Content-Type = %q, want application/x-www-form-urlencoded", gotContentType)
+	}
+	if !strings.Contains(string(body), "riffpad-oauth") || !strings.Contains(string(body), `token: "`) {
+		t.Fatalf("callback did not hand token back: %s", body)
+	}
+	var u User
+	if err := h.store.db.Where("username = ?", "octocat").First(&u).Error; err != nil {
+		t.Fatalf("github user not created: %v", err)
+	}
+	if u.Email != "octo@example.com" {
+		t.Fatalf("unexpected email: %s", u.Email)
+	}
+}
+
 func TestDevicesListAndRevoke(t *testing.T) {
 	h, ts := newTestHub(t)
 	token := registerUser(t, ts, "dave")
