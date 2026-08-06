@@ -9,9 +9,9 @@ import (
 
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-func newCode() string {
+func newCodeN(n int) string {
 	var b strings.Builder
-	for i := 0; i < 6; i++ {
+	for i := 0; i < n; i++ {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(codeAlphabet))))
 		if err != nil {
 			panic(err)
@@ -19,6 +19,14 @@ func newCode() string {
 		b.WriteByte(codeAlphabet[n.Int64()])
 	}
 	return b.String()
+}
+
+func newCode() string {
+	return newCodeN(6)
+}
+
+func newDeviceCode() string {
+	return newCodeN(8)
 }
 
 func newSecret() string {

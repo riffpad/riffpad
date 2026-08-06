@@ -13,7 +13,7 @@ Usage:
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
-  riffpad login [--url wss://… --username …]
+  riffpad login [--url wss://… --username … | --github]
                                 log in to Riffpad cloud (relay)
   riffpad logout                clear the saved login token
   riffpad setup                 install daemon auto-start (Linux systemd user service)
@@ -40,6 +40,13 @@ Usage:
 		"login_failed":                "login failed",
 		"login_failed_status":         "login failed (status %d)",
 		"login_success":               "Logged in as %s; token saved to config.",
+		"login_oauth_open":            "Open this URL and authorize with GitHub:\n%s\n\nAuthorization code: %s",
+		"login_oauth_timeout":         "authorization timed out; please try again",
+		"login_oauth_failed":          "starting device login failed",
+		"login_oauth_failed_status":   "device login failed (status %d)",
+		"login_oauth_poll_failed":     "checking authorization failed",
+		"login_host_check_failed":     "could not verify host ownership",
+		"login_restart_hint":          "Restart the daemon to apply: riffpad daemon stop && riffpad daemon start",
 		"logout_done":                 "Logged out.",
 		"kill_done":                   "Kill switch engaged: %d sessions stopped, all devices revoked.",
 		"setup_removed":               "Removed riffpad systemd user service.",
@@ -79,7 +86,7 @@ Usage:
                                 创建并启动会话
   riffpad attach                注入 Claude Code hooks，让 daemon 捕获你自己启动的会话
   riffpad detach                移除注入的 hooks
-  riffpad login [--url wss://… --username …]
+  riffpad login [--url wss://… --username … | --github]
                                 登录 Riffpad 云服务（relay）
   riffpad logout                清除登录 token
   riffpad setup                 安装 daemon 自启（Linux systemd user service）
@@ -106,6 +113,13 @@ Usage:
 		"login_failed":                "登录失败",
 		"login_failed_status":         "登录失败（状态 %d）",
 		"login_success":               "已登录 %s，token 已保存到配置。",
+		"login_oauth_open":            "请在浏览器中打开下面的链接并用 GitHub 授权：\n%s\n\n授权码：%s",
+		"login_oauth_timeout":         "授权超时，请重新发起登录。",
+		"login_oauth_failed":          "发起设备登录失败",
+		"login_oauth_failed_status":   "设备登录失败（状态 %d）",
+		"login_oauth_poll_failed":     "查询授权状态失败",
+		"login_host_check_failed":     "无法校验主机归属",
+		"login_restart_hint":          "重启 daemon 生效：riffpad daemon stop && riffpad daemon start",
 		"logout_done":                 "已退出登录。",
 		"kill_done":                   "已熔断：停止 %d 个会话，撤销所有设备。",
 		"setup_removed":               "已移除 riffpad systemd user 服务。",

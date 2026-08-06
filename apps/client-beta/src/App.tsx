@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AuthView from "./components/AuthView";
+import DeviceAuthView from "./components/DeviceAuthView";
 import DeviceManager from "./components/DeviceManager";
 import PairView from "./components/PairView";
 import SessionDetailView from "./components/SessionDetailView";
@@ -27,6 +28,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [conn, setConn] = useState("离线");
   const [openSession, setOpenSession] = useState<{ sid: string; name: string } | null>(null);
+  const isDevicePage = window.location.pathname.startsWith("/device");
 
   const afterAuth = useCallback(async () => {
     const dev = await ensureIdentity();
@@ -39,6 +41,7 @@ export default function App() {
   }, []);
 
   const boot = useCallback(async () => {
+    if (window.location.pathname.startsWith("/device")) return;
     if (isRelay) {
       const rel = relayStore.get();
       if (rel?.token) {
@@ -66,7 +69,7 @@ export default function App() {
   }, [boot]);
 
   useEffect(() => {
-    if (isRelay || openSession) return;
+    if (isRelay || openSession || window.location.pathname.startsWith("/device")) return;
     let alive = true;
     const tick = async () => {
       try {
@@ -84,6 +87,20 @@ export default function App() {
       clearInterval(timer);
     };
   }, [openSession, phase]);
+
+  if (isDevicePage) {
+    return (
+      <>
+        <header>
+          <h1>Riffpad</h1>
+          <span className="muted">CLI 授权</span>
+        </header>
+        <main>
+          <DeviceAuthView />
+        </main>
+      </>
+    );
+  }
 
   return (
     <>

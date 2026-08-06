@@ -265,6 +265,15 @@ func (s *Store) HostIDsForUser(userID string) ([]string, error) {
 	return ids, nil
 }
 
+// HostsForUser lists the hosts owned by a user (secrets excluded).
+func (s *Store) HostsForUser(userID string) ([]HostRecord, error) {
+	var list []HostRecord
+	if err := s.db.Where("owner_id = ?", userID).Order("created_at desc").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 func (s *Store) SessionsForHosts(hostIDs []string) ([]SessionMeta, error) {
 	var out []SessionMeta
 	if len(hostIDs) == 0 {

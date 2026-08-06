@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -664,9 +665,19 @@ func relayCmd(args []string, dataDir string) error {
 		fs := flag.NewFlagSet("login", flag.ExitOnError)
 		url := fs.String("url", os.Getenv("RIFFPAD_RELAY_URL"), "relay URL (wss:// or ws://)")
 		username := fs.String("username", os.Getenv("RIFFPAD_RELAY_USER"), "relay username")
+		github := fs.Bool("github", false, "log in with GitHub OAuth (opens browser)")
 		_ = fs.Parse(args[1:])
-		if *url == "" || *username == "" {
-			return fmt.Errorf("--url and --username are required")
+		if *url == "" {
+			return fmt.Errorf("--url is required")
+		}
+		httpURL := strings.TrimSuffix(*url, "/")
+		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+		if *github {
+			return oauthDeviceLogin(httpURL, *url, dataDir)
+		}
+		if *username == "" {
+			return fmt.Errorf("--username is required (or use --github)")
 		}
 		password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
 		if password == "" {
@@ -678,9 +689,6 @@ func relayCmd(args []string, dataDir string) error {
 			fmt.Println()
 			password = string(b)
 		}
-		httpURL := strings.TrimSuffix(*url, "/")
-		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
-		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
 		body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
 		resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
 		if err != nil {
@@ -702,6 +710,10 @@ func relayCmd(args []string, dataDir string) error {
 		}
 		cfg.RelayURL = *url
 		cfg.RelayToken = out.Token
+		if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+			return err
+		}
+		cfg.RelayUser = *username
 		if err := config.Save(dataDir, cfg); err != nil {
 			return err
 		}
@@ -721,6 +733,138 @@ func relayCmd(args []string, dataDir string) error {
 	default:
 		return fmt.Errorf("usage: riffpad relay login|logout")
 	}
+}
+
+// oauthDeviceLogin uses the relay's GitHub device flow so passwordless
+// accounts can log in from the CLI. The CLI polls until the user authorizes
+// in the browser (https://app.riffpad.ai/device?code=…).
+func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
+	body, _ := json.Marshal(map[string]string{})
+	resp, err := http.Post(httpURL+"/api/auth/oauth/device", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.T("login_oauth_failed"), err)
+	}
+	defer resp.Body.Close()
+	var dev struct {
+		UserCode        string `json:"userCode"`
+		VerificationURL string `json:"verificationURL"`
+		ExpiresIn       int    `json:"expiresIn"`
+		Interval        int    `json:"interval"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&dev); err != nil {
+		return err
+	}
+	if dev.UserCode == "" {
+		return fmt.Errorf("%s", t.T("login_oauth_failed_status", resp.StatusCode))
+	}
+	if dev.VerificationURL == "" {
+		dev.VerificationURL = strings.TrimSuffix(httpURL, "/") + "/device?code=" + url.QueryEscape(dev.UserCode)
+	}
+	fmt.Println(t.T("login_oauth_open", dev.VerificationURL, dev.UserCode))
+	openBrowser(dev.VerificationURL)
+	if dev.Interval <= 0 {
+		dev.Interval = 3
+	}
+	if dev.ExpiresIn <= 0 {
+		dev.ExpiresIn = 600
+	}
+	deadline := time.Now().Add(time.Duration(dev.ExpiresIn) * time.Second)
+	for time.Now().Before(deadline) {
+		time.Sleep(time.Duration(dev.Interval) * time.Second)
+		payload, _ := json.Marshal(map[string]string{"code": dev.UserCode})
+		presp, err := http.Post(httpURL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
+		if err != nil {
+			return fmt.Errorf("%s: %w", t.T("login_oauth_poll_failed"), err)
+		}
+		var out struct {
+			Pending  bool   `json:"pending"`
+			Token    string `json:"token"`
+			Username string `json:"username"`
+		}
+		decodeErr := json.NewDecoder(presp.Body).Decode(&out)
+		presp.Body.Close()
+		if decodeErr != nil {
+			return fmt.Errorf("%s: %w", t.T("login_oauth_poll_failed"), decodeErr)
+		}
+		if out.Pending {
+			continue
+		}
+		if out.Token == "" || out.Username == "" {
+			return fmt.Errorf("%s", t.T("login_oauth_failed_status", presp.StatusCode))
+		}
+		cfg, err := config.Load(dataDir)
+		if err != nil {
+			return err
+		}
+		cfg.RelayURL = relayURL
+		cfg.RelayToken = out.Token
+		if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+			return err
+		}
+		cfg.RelayUser = out.Username
+		if err := config.Save(dataDir, cfg); err != nil {
+			return err
+		}
+		fmt.Println(t.T("login_success", out.Username))
+		fmt.Println(t.T("login_restart_hint"))
+		return nil
+	}
+	return fmt.Errorf("%s", t.T("login_oauth_timeout"))
+}
+
+// syncHostCreds clears stale host credentials when the stored host belongs to
+// a different relay account than the one just logged into. A transient API
+// failure never destroys the stored credentials.
+func syncHostCreds(httpURL, token string, cfg *config.Config) error {
+	if cfg.HostID == "" || cfg.HostSecret == "" {
+		return nil
+	}
+	req, err := http.NewRequest(http.MethodGet, httpURL+"/api/hosts", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.T("login_host_check_failed"), err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	var out struct {
+		Hosts []struct {
+			ID string `json:"id"`
+		} `json:"hosts"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil
+	}
+	owned := false
+	for _, h := range out.Hosts {
+		if h.ID == cfg.HostID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		cfg.HostID = ""
+		cfg.HostSecret = ""
+	}
+	return nil
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }
 
 func reachable(base string) bool {

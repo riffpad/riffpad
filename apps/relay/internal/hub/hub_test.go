@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -290,7 +291,7 @@ func TestGitHubOAuthCallback(t *testing.T) {
 	h.githubTokenURL = tokenSrv.URL
 	h.githubUserURL = userSrv.URL
 	h.mu.Lock()
-	h.oauthStates["teststate"] = time.Now().Add(time.Minute)
+	h.oauthStates["teststate"] = oauthState{expires: time.Now().Add(time.Minute)}
 	h.mu.Unlock()
 
 	resp, err := http.Get(ts.URL + "/api/auth/github/callback?code=testcode&state=teststate")
@@ -317,6 +318,111 @@ func TestGitHubOAuthCallback(t *testing.T) {
 	}
 	if u.Email != "octo@example.com" {
 		t.Fatalf("unexpected email: %s", u.Email)
+	}
+}
+
+func TestDeviceLoginFlow(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.githubID = "test-client-id"
+	h.githubSecret = "test-client-secret"
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"access_token":"gh_token_123","token_type":"bearer"}`)
+	}))
+	defer tokenSrv.Close()
+	userSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":424243,"login":"cli-user","email":""}`)
+	}))
+	defer userSrv.Close()
+	h.githubTokenURL = tokenSrv.URL
+	h.githubUserURL = userSrv.URL
+
+	resp, err := http.Post(ts.URL+"/api/auth/oauth/device", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dev struct {
+		UserCode        string `json:"userCode"`
+		VerificationURL string `json:"verificationURL"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&dev); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if dev.UserCode == "" || !strings.Contains(dev.VerificationURL, "code="+dev.UserCode) {
+		t.Fatalf("unexpected device response: %+v", dev)
+	}
+
+	// Poll before authorization -> pending.
+	payload, _ := json.Marshal(map[string]string{"code": dev.UserCode})
+	resp, err = http.Post(ts.URL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pending struct {
+		Pending bool `json:"pending"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pending); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if !pending.Pending {
+		t.Fatal("expected pending before authorization")
+	}
+
+	// Authorize via the GitHub callback, as the device page would.
+	h.mu.Lock()
+	h.oauthStates["devstate"] = oauthState{expires: time.Now().Add(time.Minute), device: dev.UserCode}
+	h.mu.Unlock()
+	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=testcode&state=devstate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "授权成功") {
+		t.Fatalf("authorize status %d: %s", resp.StatusCode, body)
+	}
+
+	// Poll after authorization -> token, one-time only.
+	resp, err = http.Post(ts.URL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Pending  bool   `json:"pending"`
+		Token    string `json:"token"`
+		Username string `json:"username"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if out.Pending || out.Token == "" || out.Username != "cli-user" {
+		t.Fatalf("unexpected poll result: %+v", out)
+	}
+	resp, err = http.Post(ts.URL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var again struct {
+		Error string `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&again)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized || again.Error != "invalid or expired code" {
+		t.Fatalf("second poll status %d error %q, want uniform 401", resp.StatusCode, again.Error)
+	}
+
+	// A device flow with an unknown code cannot start GitHub auth.
+	resp, err = http.Get(ts.URL + "/api/auth/github/login?device=UNKNOWN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unknown device code status %d, want 400", resp.StatusCode)
 	}
 }
 
