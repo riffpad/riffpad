@@ -84,7 +84,7 @@
 
 ### M0 已知边界（2026-08 整理后）
 
-- 会话在内存中，daemon 重启即丢（M1.4 恢复未完成）
+- 会话状态与历史已加密持久化；daemon 重启后 Codex 会话自动重连（TUI 无感），Kimi/Claude 恢复为只读（历史可回看，agent 需手动重连）
 - 控制只有 stop；pause/resume 未实现
 - 审批只支持同意/拒绝，条件编辑字段预留未用
 - Claude **host 托管模式**（`riffpad run --cli claude`）注入与事件已通，但工具权限审批仍被 CLI 自动拒绝（`--permission-prompt-tool` 已移除）——审批继续走附着模式 hooks 或预设 `--permission-mode`
@@ -105,7 +105,7 @@
 | M1.1 | Claude Code 适配器：host 控制协议（托管）+ 附着 hooks（attach） | `[x]` | 多轮注入、事件流、attach 审批闭环；2.1.220 实测 | #55 |
 | M1.2 | Codex 适配器：`codex app-server`（thread/turn/steer + requestApproval） | `[x]` | 注入、流式事件、命令/文件/权限审批映射；真机实测 | #55 |
 | M1.3 | Kimi Code 适配器：ACP client（`kimi acp`） | `[x]` | session/prompt、session/update、request_permission 全协议内；真机实测 | #55 |
-| M1.4 | 会话管理：多会话 + daemon 重启恢复 | `[~]` | 多会话并行已支持；重启恢复未做 | — |
+| M1.4 | 会话管理：多会话 + daemon 重启恢复 | `[x]` | 多会话并行；状态/历史加密持久化（AES-GCM）；重启后 Codex 自动重连（TUI 无感），Kimi/Claude 只读恢复；`riffpad update` 自动重启并恢复 | #86 #87 #88 #89 |
 | M1.5 | 断线重连 + 本地回放 | `[~]` | daemon/relay 断线重连已做（重连后重播会话）；手机端缺口补齐未做 | — |
 | M1.6 | 设备管理：多手机、撤销、一键熔断 | `[~]` | 多设备已支持；撤销/熔断未做 | — |
 
