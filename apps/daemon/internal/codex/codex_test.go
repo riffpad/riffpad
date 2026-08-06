@@ -77,6 +77,22 @@ func TestTurnCompletedStatus(t *testing.T) {
 	}
 }
 
+func TestUserMessageEmitted(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"method":"item/completed","params":{"item":{"id":"u1","type":"userMessage","content":[{"type":"text","text":"hello from tui"}]}}}`))
+	ev := nextEvent(t, c)
+	if ev.Type != protocol.EventUserMessage {
+		t.Fatalf("expected user_message, got %s", ev.Type)
+	}
+	var p protocol.AgentMessagePayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Text != "hello from tui" {
+		t.Fatalf("expected text %q, got %q", "hello from tui", p.Text)
+	}
+}
+
 func TestCommandApproval(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	fw := &fakeWriteCloser{}
