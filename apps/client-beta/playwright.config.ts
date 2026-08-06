@@ -6,6 +6,7 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL: "http://127.0.0.1:8792",
+    locale: "zh-CN",
   },
   webServer: {
     command:
