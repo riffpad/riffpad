@@ -10,6 +10,7 @@ Usage:
   riffpad status                show daemon status
   riffpad pair                  print a pairing code and QR
   riffpad sessions              list sessions
+  riffpad auth                  show the logged-in relay account
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
@@ -47,6 +48,11 @@ Usage:
 		"login_oauth_poll_failed":     "checking authorization failed",
 		"login_host_check_failed":     "could not verify host ownership",
 		"login_restart_hint":          "Restart the daemon to apply: riffpad daemon stop && riffpad daemon start",
+		"auth_not_logged_in":          "Not logged in. Run: riffpad login",
+		"auth_logged_in":              "Logged in as %s (relay: %s)",
+		"auth_logged_in_cached":       "Logged in as %s (relay: %s, relay unreachable — showing cached login)",
+		"auth_token_invalid":          "Saved login for %s is no longer valid (relay: %s). Run: riffpad login",
+		"auth_relay_error":            "could not verify login with relay: %s",
 		"logout_done":                 "Logged out.",
 		"kill_done":                   "Kill switch engaged: %d sessions stopped, all devices revoked.",
 		"setup_removed":               "Removed riffpad systemd user service.",
@@ -82,6 +88,7 @@ Usage:
   riffpad status                查看 daemon 状态
   riffpad pair                  打印配对码和二维码
   riffpad sessions              列出会话
+  riffpad auth                  查看当前登录的 relay 账号
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
                                 创建并启动会话
   riffpad attach                注入 Claude Code hooks，让 daemon 捕获你自己启动的会话
@@ -120,6 +127,11 @@ Usage:
 		"login_oauth_poll_failed":     "查询授权状态失败",
 		"login_host_check_failed":     "无法校验主机归属",
 		"login_restart_hint":          "重启 daemon 生效：riffpad daemon stop && riffpad daemon start",
+		"auth_not_logged_in":          "未登录。运行：riffpad login",
+		"auth_logged_in":              "当前登录：%s（relay：%s）",
+		"auth_logged_in_cached":       "当前登录：%s（relay：%s，relay 不可达，显示缓存）",
+		"auth_token_invalid":          "保存的登录 %s 已失效（relay：%s）。请重新运行 riffpad login",
+		"auth_relay_error":            "无法向 relay 校验登录状态：%s",
 		"logout_done":                 "已退出登录。",
 		"kill_done":                   "已熔断：停止 %d 个会话，撤销所有设备。",
 		"setup_removed":               "已移除 riffpad systemd user 服务。",

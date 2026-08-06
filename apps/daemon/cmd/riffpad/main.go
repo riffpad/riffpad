@@ -84,6 +84,8 @@ func main() {
 		err = withDaemon(func() error { return attachCmd(base) }, base, dataDir)
 	case "detach":
 		err = detachCmd()
+	case "auth":
+		err = authCmd(dataDir)
 	case "login":
 		err = loginCmd(os.Args[2:], dataDir)
 	case "logout":
@@ -639,6 +641,55 @@ func defaultDaemonPort(base string) int {
 // config. `riffpad relay login` is kept as an alias.
 func loginCmd(args []string, dataDir string) error {
 	return doLogin(args, dataDir)
+}
+
+// authCmd prints which relay account the daemon is logged in as, verifying
+// the saved token against the relay when possible.
+func authCmd(dataDir string) error {
+	cfg, err := config.Load(dataDir)
+	if err != nil {
+		return err
+	}
+	if cfg.RelayToken == "" {
+		fmt.Println(t.T("auth_not_logged_in"))
+		return nil
+	}
+	user := cfg.RelayUser
+	relayURL := cfg.RelayURL
+	if relayURL == "" {
+		relayURL = "wss://api.riffpad.ai"
+	}
+	httpURL := strings.TrimSuffix(relayURL, "/")
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+	req, err := http.NewRequest(http.MethodGet, httpURL+"/api/auth/me", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.RelayToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(t.T("auth_logged_in_cached", user, relayURL))
+		return nil
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var out struct {
+			User struct {
+				Username string `json:"username"`
+			} `json:"user"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err == nil && out.User.Username != "" {
+			user = out.User.Username
+		}
+		fmt.Println(t.T("auth_logged_in", user, relayURL))
+	case http.StatusUnauthorized:
+		fmt.Println(t.T("auth_token_invalid", user, relayURL))
+	default:
+		fmt.Println(t.T("auth_relay_error", resp.Status))
+	}
+	return nil
 }
 
 // logoutCmd clears the stored relay token. `riffpad relay logout` is kept as
