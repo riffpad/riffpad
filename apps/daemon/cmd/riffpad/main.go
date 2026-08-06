@@ -804,6 +804,7 @@ func doLogin(args []string, dataDir string) error {
 		return err
 	}
 	fmt.Println(t.T("login_success", *username))
+	restartDaemon(dataDir)
 	return nil
 }
 
@@ -878,7 +879,7 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 			return err
 		}
 		fmt.Println(t.T("login_success", out.Username))
-		fmt.Println(t.T("login_restart_hint"))
+		restartDaemon(dataDir)
 		return nil
 	}
 	return fmt.Errorf("%s", t.T("login_oauth_timeout"))
@@ -937,6 +938,38 @@ func openBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	_ = cmd.Start()
+}
+
+// restartDaemon applies a new relay login to the running daemon. systemd-managed
+// daemons are restarted via systemctl; plain `riffpad daemon start` processes
+// are stopped and started again. A daemon that is not running is left alone.
+func restartDaemon(dataDir string) {
+	base := os.Getenv("RIFFPAD_URL")
+	if base == "" {
+		base = "http://127.0.0.1:8787"
+	}
+	if runtime.GOOS == "linux" {
+		if out, err := exec.Command("systemctl", "--user", "is-active", "riffpad.service").CombinedOutput(); err == nil && strings.TrimSpace(string(out)) == "active" {
+			if err := exec.Command("systemctl", "--user", "restart", "riffpad.service").Run(); err != nil {
+				fmt.Println(t.T("login_restart_failed", err))
+			} else {
+				fmt.Println(t.T("login_restarted"))
+			}
+			return
+		}
+	}
+	if !reachable(base) {
+		return
+	}
+	if err := daemonStop(base); err != nil {
+		fmt.Println(t.T("login_restart_failed", err))
+		return
+	}
+	if err := daemonStart(base, dataDir); err != nil {
+		fmt.Println(t.T("login_restart_failed", err))
+		return
+	}
+	fmt.Println(t.T("login_restarted"))
 }
 
 func reachable(base string) bool {
