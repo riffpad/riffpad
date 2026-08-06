@@ -74,7 +74,15 @@ export default function SessionListView({ onOpen, onLogout }: Props) {
       <ul id="session-list">
         {sessions.map((s) => (
           <li key={s.id} onClick={() => onOpen(s.id, s.name || s.id)}>
-            <span>{(s.name || s.id) + " · " + s.id.slice(0, 8)}</span>
+            <span
+              className="truncate"
+              title={`${s.cli || ""} ${s.cwd || ""} ${s.id}`}
+            >
+              {s.name ||
+                [s.cli, s.cwd?.split("/").filter(Boolean).pop(), s.id.slice(0, 8)]
+                  .filter(Boolean)
+                  .join(" · ")}
+            </span>
             <span className={"status " + (s.status || "")}>{s.status || ""}</span>
           </li>
         ))}
