@@ -1,10 +1,23 @@
-import { useState } from "react";
-import { api } from "../lib/store";
+import { useEffect, useState } from "react";
+import { api, isRelay, relayStore } from "../lib/store";
 
 export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== "https://api.riffpad.ai") return;
+      const d = e.data;
+      if (d?.type === "riffpad-oauth" && d.token) {
+        relayStore.set({ token: d.token, username: d.user || "" });
+        onAuthed();
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [onAuthed]);
 
   async function submit(path: string) {
     setErr("");
@@ -26,6 +39,18 @@ export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
   return (
     <section id="auth-view" className="card">
       <h2>登录 / 注册</h2>
+      {isRelay && (
+        <>
+          <button
+            className="primary"
+            style={{ width: "100%" }}
+            onClick={() => window.open("/api/auth/github/login", "_blank", "width=560,height=680")}
+          >
+            使用 GitHub 登录
+          </button>
+          <p className="muted" style={{ textAlign: "center" }}>或</p>
+        </>
+      )}
       <div className="row">
         <input
           placeholder="用户名"

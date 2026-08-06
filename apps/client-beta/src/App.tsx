@@ -28,19 +28,23 @@ export default function App() {
   const [conn, setConn] = useState("离线");
   const [openSession, setOpenSession] = useState<{ sid: string; name: string } | null>(null);
 
+  const afterAuth = useCallback(async () => {
+    const dev = await ensureIdentity();
+    if (dev.deviceId && !(await deviceStillValid(dev))) {
+      deviceStore.set({ ...dev, deviceId: null, serverPub: null });
+      setPhase("pair");
+      return;
+    }
+    setPhase(dev.deviceId ? "sessions" : "pair");
+  }, []);
+
   const boot = useCallback(async () => {
     if (isRelay) {
       const rel = relayStore.get();
       if (rel?.token) {
         const res = await api("/api/auth/me");
         if (res.ok) {
-          const dev = await ensureIdentity();
-          if (dev.deviceId && !(await deviceStillValid(dev))) {
-            deviceStore.set({ ...dev, deviceId: null, serverPub: null });
-            setPhase("pair");
-            return;
-          }
-          setPhase(dev.deviceId ? "sessions" : "pair");
+          await afterAuth();
           return;
         }
         relayStore.clear();
@@ -91,9 +95,7 @@ export default function App() {
         {phase === "loading" && null}
         {phase === "auth" && (
           <AuthView
-            onAuthed={() => {
-              setPhase("sessions");
-            }}
+            onAuthed={() => void afterAuth()}
           />
         )}
         {phase === "pair" && (

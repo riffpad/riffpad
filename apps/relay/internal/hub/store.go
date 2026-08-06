@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"github.com/riffpad/riffpad/packages/protocol"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -20,7 +22,17 @@ type User struct {
 	ID           string    `gorm:"primaryKey" json:"id"`
 	Username     string    `gorm:"uniqueIndex" json:"username"`
 	PasswordHash string    `json:"-"`
+	Email        string    `json:"email,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
+}
+
+// OAuthAccount links an external provider identity (e.g. GitHub) to a user.
+type OAuthAccount struct {
+	ID          string `gorm:"primaryKey"`
+	UserID      string `gorm:"index"`
+	Provider    string `gorm:"uniqueIndex:idx_provider_uid,priority:1"`
+	ProviderUID string `gorm:"uniqueIndex:idx_provider_uid,priority:2"`
+	CreatedAt   time.Time
 }
 
 // AuthToken is an opaque bearer token (stored as SHA-256).
@@ -85,7 +97,7 @@ func OpenStore(dataDir, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&User{}, &AuthToken{}, &HostRecord{}, &Device{}, &SessionMeta{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &SessionMeta{}); err != nil {
 		return nil, err
 	}
 	return &Store{db: db}, nil
@@ -112,6 +124,51 @@ func (s *Store) VerifyLogin(username, password string) (*User, error) {
 		return nil, errors.New("invalid credentials")
 	}
 	return &u, nil
+}
+
+// FindOrCreateGitHubUser returns the user linked to a GitHub uid, creating
+// the account (and a passwordless user) on first sign-in.
+func (s *Store) FindOrCreateGitHubUser(ghID, ghLogin, email string) (*User, error) {
+	var link OAuthAccount
+	if err := s.db.Where("provider = ? AND provider_uid = ?", "github", ghID).First(&link).Error; err == nil {
+		var u User
+		if err := s.db.First(&u, "id = ?", link.UserID).Error; err != nil {
+			return nil, err
+		}
+		return &u, nil
+	}
+	// Create a passwordless user with a unique username derived from the
+	// GitHub login.
+	username := ghLogin
+	if username == "" {
+		username = "gh-" + ghID[:8]
+	}
+	base := username
+	for i := 0; i < 5; i++ {
+		if err := s.db.Where("username = ?", username).First(&User{}).Error; err != nil {
+			break
+		}
+		username = fmt.Sprintf("%s-%04d", base, time.Now().UnixNano()%10000)
+	}
+	u := &User{
+		ID:       protocol.NewID(),
+		Username: username,
+		Email:    email,
+	}
+	if err := s.db.Create(u).Error; err != nil {
+		return nil, err
+	}
+	link = OAuthAccount{
+		ID:          protocol.NewID(),
+		UserID:      u.ID,
+		Provider:    "github",
+		ProviderUID: ghID,
+		CreatedAt:   time.Now(),
+	}
+	if err := s.db.Create(&link).Error; err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 func (s *Store) CreateToken(userID string, ttl time.Duration) (string, error) {

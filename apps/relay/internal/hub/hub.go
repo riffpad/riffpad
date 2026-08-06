@@ -5,8 +5,12 @@ package hub
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -65,6 +69,9 @@ type Hub struct {
 	viewers      map[string]*viewerConn
 	pairings     map[string]Pairing
 	rateLimits   map[string]ipCounter
+	oauthStates  map[string]time.Time
+	githubID     string
+	githubSecret string
 }
 
 type ipCounter struct {
@@ -87,6 +94,9 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		viewers:      map[string]*viewerConn{},
 		pairings:     map[string]Pairing{},
 		rateLimits:   map[string]ipCounter{},
+		oauthStates:  map[string]time.Time{},
+		githubID:     os.Getenv("GITHUB_CLIENT_ID"),
+		githubSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 	}, nil
 }
 
@@ -103,6 +113,8 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/api/auth/login", h.handleLogin)
 	mux.HandleFunc("/api/auth/logout", h.handleLogout)
 	mux.HandleFunc("/api/auth/me", h.handleMe)
+	mux.HandleFunc("/api/auth/github/login", h.handleGitHubLogin)
+	mux.HandleFunc("/api/auth/github/callback", h.handleGitHubCallback)
 	mux.HandleFunc("/api/hosts/register", h.handleRegisterHost)
 	mux.HandleFunc("/api/pairings", h.handleCreatePairing)
 	mux.HandleFunc("/api/pair", h.handlePair)
@@ -246,6 +258,114 @@ func (h *Hub) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": u})
+}
+
+// handleGitHubLogin starts the GitHub OAuth flow (Authorization Code + state).
+func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
+	if h.githubID == "" || h.githubSecret == "" {
+		writeError(w, http.StatusServiceUnavailable, "github oauth not configured")
+		return
+	}
+	state := protocol.NewID()
+	h.mu.Lock()
+	h.oauthStates[state] = time.Now().Add(10 * time.Minute)
+	h.mu.Unlock()
+	redirect, _ := url.Parse("https://github.com/login/oauth/authorize")
+	q := redirect.Query()
+	q.Set("client_id", h.githubID)
+	q.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
+	q.Set("scope", "read:user")
+	q.Set("state", state)
+	redirect.RawQuery = q.Encode()
+	http.Redirect(w, r, redirect.String(), http.StatusFound)
+}
+
+// handleGitHubCallback exchanges the code for a token, resolves the GitHub
+// user, and hands the Riffpad token back to the opener via postMessage.
+func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
+	if h.githubID == "" || h.githubSecret == "" {
+		writeError(w, http.StatusServiceUnavailable, "github oauth not configured")
+		return
+	}
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	if code == "" || state == "" {
+		writeError(w, http.StatusBadRequest, "missing code or state")
+		return
+	}
+	h.mu.Lock()
+	exp, ok := h.oauthStates[state]
+	if ok {
+		delete(h.oauthStates, state)
+	}
+	h.mu.Unlock()
+	if !ok || time.Now().After(exp) {
+		writeError(w, http.StatusUnauthorized, "invalid state")
+		return
+	}
+	// Exchange code for an access token.
+	form := url.Values{}
+	form.Set("client_id", h.githubID)
+	form.Set("client_secret", h.githubSecret)
+	form.Set("code", code)
+	form.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
+	tokenResp, err := http.PostForm("https://github.com/login/oauth/access_token", form)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "github token exchange failed")
+		return
+	}
+	defer tokenResp.Body.Close()
+	var tok struct {
+		AccessToken string `json:"access_token"`
+		Error       string `json:"error"`
+	}
+	if err := json.NewDecoder(tokenResp.Body).Decode(&tok); err != nil || tok.AccessToken == "" {
+		h.log.Printf("github token exchange error: %s", tok.Error)
+		writeError(w, http.StatusBadGateway, "github token exchange failed")
+		return
+	}
+	// Fetch the GitHub user.
+	userReq, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user", nil)
+	userReq.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	userReq.Header.Set("Accept", "application/vnd.github+json")
+	userResp, err := http.DefaultClient.Do(userReq)
+	if err != nil || userResp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusBadGateway, "github user fetch failed")
+		return
+	}
+	defer userResp.Body.Close()
+	var ghUser struct {
+		ID    int    `json:"id"`
+		Login string `json:"login"`
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(userResp.Body).Decode(&ghUser); err != nil || ghUser.ID == 0 {
+		writeError(w, http.StatusBadGateway, "invalid github user")
+		return
+	}
+	u, err := h.store.FindOrCreateGitHubUser(fmt.Sprintf("%d", ghUser.ID), ghUser.Login, ghUser.Email)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "account failed")
+		return
+	}
+	token, err := h.store.CreateToken(u.ID, 30*24*time.Hour)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "token failed")
+		return
+	}
+	h.log.Printf("github oauth user=%s gh=%s", u.Username, ghUser.Login)
+	// Hand the token back to the opener window (the web app on app.riffpad.ai).
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = io.WriteString(w, `<script>
+const data = {type: "riffpad-oauth", token: `+jsonQuote(token)+`, user: `+jsonQuote(u.Username)+`};
+if (window.opener) { window.opener.postMessage(data, "https://app.riffpad.ai"); window.close(); }
+document.write("登录成功，请回到 Riffpad 页面。");
+</script>`)
+}
+
+func jsonQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // ---------- hosts / pairing / sessions ----------
