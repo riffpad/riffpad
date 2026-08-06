@@ -11,3 +11,5 @@ __pycache__/
 .DS_Store
 .vercel
 .env*
+apps/client-beta/test-results/
+apps/client-beta/playwright-report/
