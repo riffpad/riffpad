@@ -131,10 +131,11 @@
 
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
-| M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[ ]` | CI 全绿（当前 CI 覆盖 landing 构建；Go 测试需接入） | — |
+| M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[x]` | CI 三 job：Go 全量测试（daemon/relay/protocol）、client-beta typecheck/build、Playwright UI 冒烟；审批闭环/E2EE 由 Go 测试与 e2e-acceptance.mjs 覆盖 | #91 #92 |
+| M1.17 | MVP 体验打磨（app.riffpad.ai / 本地 8787）：onboarding、空状态、错误提示、移动端适配、配对/审批流程细节 | `[ ]` | 外部用户零指导完成全流程；无明显粗糙交互（先于 M1.16 执行） | — |
 | M1.16 | 种子用户招募与反馈收集 | `[ ]` | ≥ 10 个用户；留存数据可看 | — |
 
-**M1 出口条件**：M1.1–M1.16 全部完成（M1.13 由原生推送替代、M1.14 暂缓，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
+**M1 出口条件**：M1.1–M1.17 全部完成（M1.13 由原生推送替代、M1.14 暂缓，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
 
 ### M1 验证记录（2026-08-05/06，relay 地基 + 适配器）
 
