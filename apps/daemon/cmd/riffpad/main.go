@@ -416,6 +416,13 @@ func runCmd(args []string, base string) error {
 	cwd := fs.String("cwd", "", "working directory")
 	cli := fs.String("cli", "claude", "agent CLI (claude|kimi|codex)")
 	_ = fs.Parse(args)
+	if *cwd == "" {
+		// Default to the directory where the user ran the command, not the
+		// daemon's own cwd (the daemon may have been started elsewhere).
+		if wd, err := os.Getwd(); err == nil {
+			*cwd = wd
+		}
+	}
 	body, _ := json.Marshal(map[string]string{
 		"name": *name, "prompt": *prompt, "cwd": *cwd, "cli": *cli,
 	})
