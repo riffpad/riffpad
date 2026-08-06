@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -83,6 +84,8 @@ func main() {
 		err = withDaemon(func() error { return attachCmd(base) }, base, dataDir)
 	case "detach":
 		err = detachCmd()
+	case "auth":
+		err = authCmd(dataDir)
 	case "login":
 		err = loginCmd(os.Args[2:], dataDir)
 	case "logout":
@@ -637,17 +640,81 @@ func defaultDaemonPort(base string) int {
 // loginCmd logs into the Riffpad relay and stores the token in the daemon
 // config. `riffpad relay login` is kept as an alias.
 func loginCmd(args []string, dataDir string) error {
-	return relayCmd(args, dataDir)
+	return doLogin(args, dataDir)
+}
+
+// authCmd prints which relay account the daemon is logged in as, verifying
+// the saved token against the relay when possible.
+func authCmd(dataDir string) error {
+	cfg, err := config.Load(dataDir)
+	if err != nil {
+		return err
+	}
+	if cfg.RelayToken == "" {
+		fmt.Println(t.T("auth_not_logged_in"))
+		return nil
+	}
+	user := cfg.RelayUser
+	relayURL := cfg.RelayURL
+	if relayURL == "" {
+		relayURL = "wss://api.riffpad.ai"
+	}
+	httpURL := strings.TrimSuffix(relayURL, "/")
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+	req, err := http.NewRequest(http.MethodGet, httpURL+"/api/auth/me", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.RelayToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(t.T("auth_logged_in_cached", user, relayURL))
+		return nil
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var out struct {
+			User struct {
+				Username string `json:"username"`
+			} `json:"user"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err == nil && out.User.Username != "" {
+			user = out.User.Username
+		}
+		fmt.Println(t.T("auth_logged_in", user, relayURL))
+	case http.StatusUnauthorized:
+		fmt.Println(t.T("auth_token_invalid", user, relayURL))
+	default:
+		fmt.Println(t.T("auth_relay_error", resp.Status))
+	}
+	return nil
 }
 
 // logoutCmd clears the stored relay token. `riffpad relay logout` is kept as
-// an alias.
+// an alias. It also revokes the token on the relay (best effort) and forgets
+// the saved username.
 func logoutCmd(dataDir string) error {
 	cfg, err := config.Load(dataDir)
 	if err != nil {
 		return err
 	}
+	if cfg.RelayToken != "" && cfg.RelayURL != "" {
+		httpURL := strings.TrimSuffix(cfg.RelayURL, "/")
+		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+		req, err := http.NewRequest(http.MethodPost, httpURL+"/api/auth/logout", nil)
+		if err == nil {
+			req.Header.Set("Authorization", "Bearer "+cfg.RelayToken)
+			client := &http.Client{Timeout: 5 * time.Second}
+			if resp, err := client.Do(req); err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
 	cfg.RelayToken = ""
+	cfg.RelayUser = ""
 	if err := config.Save(dataDir, cfg); err != nil {
 		return err
 	}
@@ -661,66 +728,248 @@ func relayCmd(args []string, dataDir string) error {
 	}
 	switch args[0] {
 	case "login":
-		fs := flag.NewFlagSet("login", flag.ExitOnError)
-		url := fs.String("url", os.Getenv("RIFFPAD_RELAY_URL"), "relay URL (wss:// or ws://)")
-		username := fs.String("username", os.Getenv("RIFFPAD_RELAY_USER"), "relay username")
-		_ = fs.Parse(args[1:])
-		if *url == "" || *username == "" {
-			return fmt.Errorf("--url and --username are required")
-		}
-		password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
-		if password == "" {
-			fmt.Print(t.T("login_password"))
-			b, err := term.ReadPassword(int(os.Stdin.Fd()))
-			if err != nil {
-				return err
-			}
-			fmt.Println()
-			password = string(b)
-		}
-		httpURL := strings.TrimSuffix(*url, "/")
-		httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
-		httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
-		body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
-		resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
-		if err != nil {
-			return fmt.Errorf("%s: %w", t.T("login_failed"), err)
-		}
-		defer resp.Body.Close()
-		var out struct {
-			Token string `json:"token"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-			return err
-		}
-		if out.Token == "" {
-			return fmt.Errorf("%s", t.T("login_failed_status", resp.StatusCode))
-		}
-		cfg, err := config.Load(dataDir)
-		if err != nil {
-			return err
-		}
-		cfg.RelayURL = *url
-		cfg.RelayToken = out.Token
-		if err := config.Save(dataDir, cfg); err != nil {
-			return err
-		}
-		fmt.Println(t.T("login_success", *username))
-		return nil
+		return doLogin(args[1:], dataDir)
 	case "logout":
-		cfg, err := config.Load(dataDir)
-		if err != nil {
-			return err
-		}
-		cfg.RelayToken = ""
-		if err := config.Save(dataDir, cfg); err != nil {
-			return err
-		}
-		fmt.Println(t.T("logout_done"))
-		return nil
+		return logoutCmd(dataDir)
 	default:
 		return fmt.Errorf("usage: riffpad relay login|logout")
 	}
+}
+
+// doLogin implements `riffpad login` / `riffpad relay login`. With no
+// --username it starts the GitHub device flow against the default relay
+// (flag > env > config > wss://api.riffpad.ai).
+func doLogin(args []string, dataDir string) error {
+	fs := flag.NewFlagSet("login", flag.ExitOnError)
+	url := fs.String("url", "", "relay URL (wss:// or ws://)")
+	username := fs.String("username", os.Getenv("RIFFPAD_RELAY_USER"), "relay username (password login)")
+	github := fs.Bool("github", false, "log in with GitHub OAuth (opens browser)")
+	_ = fs.Parse(args)
+
+	relayURL := *url
+	if relayURL == "" {
+		relayURL = os.Getenv("RIFFPAD_RELAY_URL")
+	}
+	if relayURL == "" {
+		if cfg, err := config.Load(dataDir); err == nil {
+			relayURL = cfg.RelayURL
+		}
+	}
+	if relayURL == "" {
+		relayURL = "wss://api.riffpad.ai"
+	}
+	httpURL := strings.TrimSuffix(relayURL, "/")
+	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
+	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
+
+	if *github || *username == "" {
+		return oauthDeviceLogin(httpURL, relayURL, dataDir)
+	}
+	password := os.Getenv("RIFFPAD_RELAY_PASSWORD")
+	if password == "" {
+		fmt.Print(t.T("login_password"))
+		b, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		fmt.Println()
+		password = string(b)
+	}
+	body, _ := json.Marshal(map[string]string{"username": *username, "password": password})
+	resp, err := http.Post(httpURL+"/api/auth/login", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.T("login_failed"), err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return err
+	}
+	if out.Token == "" {
+		return fmt.Errorf("%s", t.T("login_failed_status", resp.StatusCode))
+	}
+	cfg, err := config.Load(dataDir)
+	if err != nil {
+		return err
+	}
+	cfg.RelayURL = relayURL
+	cfg.RelayToken = out.Token
+	if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+		return err
+	}
+	cfg.RelayUser = *username
+	if err := config.Save(dataDir, cfg); err != nil {
+		return err
+	}
+	fmt.Println(t.T("login_success", *username))
+	restartDaemon(dataDir)
+	return nil
+}
+
+// oauthDeviceLogin uses the relay's GitHub device flow so passwordless
+// accounts can log in from the CLI. The CLI polls until the user authorizes
+// in the browser (https://app.riffpad.ai/device?code=…).
+func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
+	body, _ := json.Marshal(map[string]string{})
+	resp, err := http.Post(httpURL+"/api/auth/oauth/device", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.T("login_oauth_failed"), err)
+	}
+	defer resp.Body.Close()
+	var dev struct {
+		UserCode        string `json:"userCode"`
+		VerificationURL string `json:"verificationURL"`
+		ExpiresIn       int    `json:"expiresIn"`
+		Interval        int    `json:"interval"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&dev); err != nil {
+		return err
+	}
+	if dev.UserCode == "" {
+		return fmt.Errorf("%s", t.T("login_oauth_failed_status", resp.StatusCode))
+	}
+	if dev.VerificationURL == "" {
+		dev.VerificationURL = strings.TrimSuffix(httpURL, "/") + "/device?code=" + url.QueryEscape(dev.UserCode)
+	}
+	fmt.Println(t.T("login_oauth_open", dev.VerificationURL, dev.UserCode))
+	openBrowser(dev.VerificationURL)
+	if dev.Interval <= 0 {
+		dev.Interval = 3
+	}
+	if dev.ExpiresIn <= 0 {
+		dev.ExpiresIn = 600
+	}
+	deadline := time.Now().Add(time.Duration(dev.ExpiresIn) * time.Second)
+	for time.Now().Before(deadline) {
+		time.Sleep(time.Duration(dev.Interval) * time.Second)
+		payload, _ := json.Marshal(map[string]string{"code": dev.UserCode})
+		presp, err := http.Post(httpURL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
+		if err != nil {
+			return fmt.Errorf("%s: %w", t.T("login_oauth_poll_failed"), err)
+		}
+		var out struct {
+			Pending  bool   `json:"pending"`
+			Token    string `json:"token"`
+			Username string `json:"username"`
+		}
+		decodeErr := json.NewDecoder(presp.Body).Decode(&out)
+		presp.Body.Close()
+		if decodeErr != nil {
+			return fmt.Errorf("%s: %w", t.T("login_oauth_poll_failed"), decodeErr)
+		}
+		if out.Pending {
+			continue
+		}
+		if out.Token == "" || out.Username == "" {
+			return fmt.Errorf("%s", t.T("login_oauth_failed_status", presp.StatusCode))
+		}
+		cfg, err := config.Load(dataDir)
+		if err != nil {
+			return err
+		}
+		cfg.RelayURL = relayURL
+		cfg.RelayToken = out.Token
+		if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+			return err
+		}
+		cfg.RelayUser = out.Username
+		if err := config.Save(dataDir, cfg); err != nil {
+			return err
+		}
+		fmt.Println(t.T("login_success", out.Username))
+		restartDaemon(dataDir)
+		return nil
+	}
+	return fmt.Errorf("%s", t.T("login_oauth_timeout"))
+}
+
+// syncHostCreds clears stale host credentials when the stored host belongs to
+// a different relay account than the one just logged into. A transient API
+// failure never destroys the stored credentials.
+func syncHostCreds(httpURL, token string, cfg *config.Config) error {
+	if cfg.HostID == "" || cfg.HostSecret == "" {
+		return nil
+	}
+	req, err := http.NewRequest(http.MethodGet, httpURL+"/api/hosts", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.T("login_host_check_failed"), err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	var out struct {
+		Hosts []struct {
+			ID string `json:"id"`
+		} `json:"hosts"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil
+	}
+	owned := false
+	for _, h := range out.Hosts {
+		if h.ID == cfg.HostID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		cfg.HostID = ""
+		cfg.HostSecret = ""
+	}
+	return nil
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
+}
+
+// restartDaemon applies a new relay login to the running daemon. systemd-managed
+// daemons are restarted via systemctl; plain `riffpad daemon start` processes
+// are stopped and started again. A daemon that is not running is left alone.
+func restartDaemon(dataDir string) {
+	base := os.Getenv("RIFFPAD_URL")
+	if base == "" {
+		base = "http://127.0.0.1:8787"
+	}
+	if runtime.GOOS == "linux" {
+		if out, err := exec.Command("systemctl", "--user", "is-active", "riffpad.service").CombinedOutput(); err == nil && strings.TrimSpace(string(out)) == "active" {
+			if err := exec.Command("systemctl", "--user", "restart", "riffpad.service").Run(); err != nil {
+				fmt.Println(t.T("login_restart_failed", err))
+			} else {
+				fmt.Println(t.T("login_restarted"))
+			}
+			return
+		}
+	}
+	if !reachable(base) {
+		return
+	}
+	if err := daemonStop(base); err != nil {
+		fmt.Println(t.T("login_restart_failed", err))
+		return
+	}
+	if err := daemonStart(base, dataDir); err != nil {
+		fmt.Println(t.T("login_restart_failed", err))
+		return
+	}
+	fmt.Println(t.T("login_restarted"))
 }
 
 func reachable(base string) bool {

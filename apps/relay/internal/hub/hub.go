@@ -5,8 +5,12 @@ package hub
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -18,12 +22,36 @@ import (
 
 const version = "0.1.0-m1"
 
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
 type Pairing struct {
 	Code      string
 	HostID    string
 	Curve     string
 	PublicKey string
 	Expires   time.Time
+}
+
+// oauthState tracks a pending GitHub authorization. device is set when the
+// flow was started from the CLI device-login page.
+type oauthState struct {
+	expires time.Time
+	device  string
+}
+
+// deviceLogin is a pending CLI login. The user opens verificationURL, signs
+// in with GitHub, and the CLI polls until Ready.
+type deviceLogin struct {
+	UserCode  string
+	ExpiresAt time.Time
+	Ready     bool
+	Token     string
+	Username  string
 }
 
 type hostConn struct {
@@ -58,13 +86,20 @@ type Hub struct {
 	dataDir string
 	store   *Store
 
-	mu           sync.Mutex
-	hosts        map[string]*hostConn
-	sessions     map[string]SessionMeta
-	sessionHosts map[string]string
-	viewers      map[string]*viewerConn
-	pairings     map[string]Pairing
-	rateLimits   map[string]ipCounter
+	mu             sync.Mutex
+	hosts          map[string]*hostConn
+	sessions       map[string]SessionMeta
+	sessionHosts   map[string]string
+	viewers        map[string]*viewerConn
+	pairings       map[string]Pairing
+	rateLimits     map[string]ipCounter
+	oauthStates    map[string]oauthState
+	deviceLogins   map[string]*deviceLogin
+	githubID       string
+	githubSecret   string
+	githubTokenURL string
+	githubUserURL  string
+	appURL         string
 }
 
 type ipCounter struct {
@@ -78,15 +113,22 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		return nil, err
 	}
 	return &Hub{
-		log:          logger,
-		dataDir:      dataDir,
-		store:        store,
-		hosts:        map[string]*hostConn{},
-		sessions:     map[string]SessionMeta{},
-		sessionHosts: map[string]string{},
-		viewers:      map[string]*viewerConn{},
-		pairings:     map[string]Pairing{},
-		rateLimits:   map[string]ipCounter{},
+		log:            logger,
+		dataDir:        dataDir,
+		store:          store,
+		hosts:          map[string]*hostConn{},
+		sessions:       map[string]SessionMeta{},
+		sessionHosts:   map[string]string{},
+		viewers:        map[string]*viewerConn{},
+		pairings:       map[string]Pairing{},
+		rateLimits:     map[string]ipCounter{},
+		oauthStates:    map[string]oauthState{},
+		deviceLogins:   map[string]*deviceLogin{},
+		githubID:       os.Getenv("GITHUB_CLIENT_ID"),
+		githubSecret:   os.Getenv("GITHUB_CLIENT_SECRET"),
+		githubTokenURL: "https://github.com/login/oauth/access_token",
+		githubUserURL:  "https://api.github.com/user",
+		appURL:         envOr("RIFFPAD_APP_URL", "https://app.riffpad.ai"),
 	}, nil
 }
 
@@ -103,6 +145,11 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/api/auth/login", h.handleLogin)
 	mux.HandleFunc("/api/auth/logout", h.handleLogout)
 	mux.HandleFunc("/api/auth/me", h.handleMe)
+	mux.HandleFunc("/api/auth/github/login", h.handleGitHubLogin)
+	mux.HandleFunc("/api/auth/github/callback", h.handleGitHubCallback)
+	mux.HandleFunc("/api/auth/oauth/device", h.handleDeviceLogin)
+	mux.HandleFunc("/api/auth/oauth/device/poll", h.handleDeviceLoginPoll)
+	mux.HandleFunc("/api/hosts", h.handleHosts)
 	mux.HandleFunc("/api/hosts/register", h.handleRegisterHost)
 	mux.HandleFunc("/api/pairings", h.handleCreatePairing)
 	mux.HandleFunc("/api/pair", h.handlePair)
@@ -116,7 +163,7 @@ func (h *Hub) Handler() http.Handler {
 }
 
 func (h *Hub) handleRoot(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/" && r.URL.Path != "/device" {
 		http.NotFound(w, r)
 		return
 	}
@@ -248,6 +295,222 @@ func (h *Hub) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": u})
 }
 
+// handleDeviceLogin starts a CLI device-login session. The CLI polls the
+// /poll endpoint until the user authorizes it in the web app via GitHub.
+func (h *Hub) handleDeviceLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if !h.allowRate("oauth-device", clientIP(r), 10, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
+	code := newDeviceCode()
+	h.mu.Lock()
+	h.deviceLogins[code] = &deviceLogin{
+		UserCode:  code,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+	}
+	h.mu.Unlock()
+	verificationURL := strings.TrimSuffix(h.appURL, "/") + "/device?code=" + url.QueryEscape(code)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"userCode":        code,
+		"verificationURL": verificationURL,
+		"expiresIn":       600,
+		"interval":        3,
+	})
+}
+
+// handleDeviceLoginPoll is the CLI polling endpoint. It returns
+// {"pending":true} until the user authorizes, then hands the token once.
+func (h *Hub) handleDeviceLoginPoll(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if !h.allowRate("oauth-device-poll", clientIP(r), 30, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	code := strings.ToUpper(strings.TrimSpace(req.Code))
+	h.mu.Lock()
+	d, ok := h.deviceLogins[code]
+	if ok && time.Now().After(d.ExpiresAt) {
+		delete(h.deviceLogins, code)
+		ok = false
+	}
+	if ok && d.Ready {
+		delete(h.deviceLogins, code)
+	}
+	h.mu.Unlock()
+	if !ok {
+		// Uniform error: never reveal whether a code ever existed.
+		writeError(w, http.StatusUnauthorized, "invalid or expired code")
+		return
+	}
+	if !d.Ready {
+		writeJSON(w, http.StatusOK, map[string]any{"pending": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"pending":  false,
+		"token":    d.Token,
+		"username": d.Username,
+	})
+}
+
+// handleGitHubLogin starts the GitHub OAuth flow (Authorization Code + state).
+func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
+	if h.githubID == "" || h.githubSecret == "" {
+		writeError(w, http.StatusServiceUnavailable, "github oauth not configured")
+		return
+	}
+	device := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("device")))
+	state := protocol.NewID()
+	h.mu.Lock()
+	if device != "" {
+		d, ok := h.deviceLogins[device]
+		if !ok || d.Ready || time.Now().After(d.ExpiresAt) {
+			h.mu.Unlock()
+			writeError(w, http.StatusBadRequest, "invalid or expired code")
+			return
+		}
+	}
+	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device}
+	h.mu.Unlock()
+	redirect, _ := url.Parse("https://github.com/login/oauth/authorize")
+	q := redirect.Query()
+	q.Set("client_id", h.githubID)
+	q.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
+	q.Set("scope", "read:user")
+	q.Set("state", state)
+	redirect.RawQuery = q.Encode()
+	http.Redirect(w, r, redirect.String(), http.StatusFound)
+}
+
+// handleGitHubCallback exchanges the code for a token, resolves the GitHub
+// user, and hands the Riffpad token back to the opener via postMessage.
+func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
+	if h.githubID == "" || h.githubSecret == "" {
+		writeError(w, http.StatusServiceUnavailable, "github oauth not configured")
+		return
+	}
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	if code == "" || state == "" {
+		writeError(w, http.StatusBadRequest, "missing code or state")
+		return
+	}
+	h.mu.Lock()
+	st, ok := h.oauthStates[state]
+	if ok {
+		delete(h.oauthStates, state)
+	}
+	h.mu.Unlock()
+	if !ok || time.Now().After(st.expires) {
+		writeError(w, http.StatusUnauthorized, "invalid state")
+		return
+	}
+	// Exchange code for an access token.
+	form := url.Values{}
+	form.Set("client_id", h.githubID)
+	form.Set("client_secret", h.githubSecret)
+	form.Set("code", code)
+	form.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
+	tokenReq, err := http.NewRequest(http.MethodPost, h.githubTokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "github token exchange failed")
+		return
+	}
+	tokenReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	tokenReq.Header.Set("Accept", "application/json")
+	tokenResp, err := http.DefaultClient.Do(tokenReq)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "github token exchange failed")
+		return
+	}
+	defer tokenResp.Body.Close()
+	var tok struct {
+		AccessToken string `json:"access_token"`
+		Error       string `json:"error"`
+	}
+	if err := json.NewDecoder(tokenResp.Body).Decode(&tok); err != nil || tok.AccessToken == "" {
+		h.log.Printf("github token exchange error: %s", tok.Error)
+		writeError(w, http.StatusBadGateway, "github token exchange failed")
+		return
+	}
+	// Fetch the GitHub user.
+	userReq, _ := http.NewRequest(http.MethodGet, h.githubUserURL, nil)
+	userReq.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	userReq.Header.Set("Accept", "application/vnd.github+json")
+	userResp, err := http.DefaultClient.Do(userReq)
+	if err != nil || userResp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusBadGateway, "github user fetch failed")
+		return
+	}
+	defer userResp.Body.Close()
+	var ghUser struct {
+		ID    int    `json:"id"`
+		Login string `json:"login"`
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(userResp.Body).Decode(&ghUser); err != nil || ghUser.ID == 0 {
+		writeError(w, http.StatusBadGateway, "invalid github user")
+		return
+	}
+	u, err := h.store.FindOrCreateGitHubUser(fmt.Sprintf("%d", ghUser.ID), ghUser.Login, ghUser.Email)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "account failed")
+		return
+	}
+	token, err := h.store.CreateToken(u.ID, 30*24*time.Hour)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "token failed")
+		return
+	}
+	h.log.Printf("github oauth user=%s gh=%s", u.Username, ghUser.Login)
+	if st.device != "" {
+		h.mu.Lock()
+		d, ok := h.deviceLogins[st.device]
+		if !ok || d.Ready || time.Now().After(d.ExpiresAt) {
+			ok = false
+		} else {
+			d.Ready = true
+			d.Token = token
+			d.Username = u.Username
+		}
+		h.mu.Unlock()
+		if !ok {
+			writeError(w, http.StatusBadRequest, "device login expired")
+			return
+		}
+		h.log.Printf("device login authorized user=%s", u.Username)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:0 1rem"><h2>CLI 登录授权成功</h2><p>可以回到终端了，登录会自动完成。</p></body></html>`)
+		return
+	}
+	// Hand the token back to the opener window (the web app on app.riffpad.ai).
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = io.WriteString(w, `<script>
+const data = {type: "riffpad-oauth", token: `+jsonQuote(token)+`, user: `+jsonQuote(u.Username)+`};
+if (window.opener) { window.opener.postMessage(data, "https://app.riffpad.ai"); window.close(); }
+document.write("登录成功，请回到 Riffpad 页面。");
+</script>`)
+}
+
+func jsonQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
 // ---------- hosts / pairing / sessions ----------
 
 func (h *Hub) handleRegisterHost(w http.ResponseWriter, r *http.Request) {
@@ -274,6 +537,27 @@ func (h *Hub) handleRegisterHost(w http.ResponseWriter, r *http.Request) {
 	}
 	h.log.Printf("host registered id=%s name=%s owner=%s", rec.ID, rec.Name, u.Username)
 	writeJSON(w, http.StatusOK, map[string]any{"hostId": rec.ID, "hostSecret": rec.Secret})
+}
+
+// handleHosts lists the hosts owned by the authenticated user. The daemon CLI
+// uses it after login to detect stale host credentials from a previous
+// account.
+func (h *Hub) handleHosts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	u, ok := h.authUser(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	hosts, err := h.store.HostsForUser(u.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"hosts": hosts})
 }
 
 func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
@@ -363,7 +647,10 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 	}
 	host, err := h.store.GetHost(p.HostID)
 	if err != nil || host.OwnerID != u.ID {
-		writeError(w, http.StatusUnauthorized, "pairing code belongs to another user")
+		// Keep the response identical to a missing/expired code so that
+		// callers cannot tell whether a live code exists for another user.
+		h.log.Printf("pair rejected: code exists but host %s is not owned by user %s", p.HostID, u.Username)
+		writeError(w, http.StatusUnauthorized, "invalid or expired pairing code")
 		return
 	}
 	name := req.Name

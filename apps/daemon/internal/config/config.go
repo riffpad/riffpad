@@ -21,7 +21,7 @@ type Config struct {
 	HostToken     string `json:"hostToken,omitempty"`
 	HostSecret    string `json:"hostSecret,omitempty"`
 	RelayToken    string `json:"relayToken,omitempty"`
-	RelayUser     string `json:"-"`
+	RelayUser     string `json:"relayUser,omitempty"`
 	RelayPassword string `json:"-"`
 }
 

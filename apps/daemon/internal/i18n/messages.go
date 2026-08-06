@@ -10,11 +10,12 @@ Usage:
   riffpad status                show daemon status
   riffpad pair                  print a pairing code and QR
   riffpad sessions              list sessions
+  riffpad auth                  show the logged-in relay account
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
   riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
   riffpad detach                remove injected hooks
-  riffpad login [--url wss://… --username …]
-                                log in to Riffpad cloud (relay)
+  riffpad login [--url wss://…]  log in to Riffpad cloud (GitHub OAuth by default;
+                                --username … for password login)
   riffpad logout                clear the saved login token
   riffpad setup                 install daemon auto-start (Linux systemd user service)
   riffpad kill                  stop all sessions and revoke all devices
@@ -40,6 +41,19 @@ Usage:
 		"login_failed":                "login failed",
 		"login_failed_status":         "login failed (status %d)",
 		"login_success":               "Logged in as %s; token saved to config.",
+		"login_oauth_open":            "Open this URL and authorize with GitHub:\n%s\n\nAuthorization code: %s",
+		"login_oauth_timeout":         "authorization timed out; please try again",
+		"login_oauth_failed":          "starting device login failed",
+		"login_oauth_failed_status":   "device login failed (status %d)",
+		"login_oauth_poll_failed":     "checking authorization failed",
+		"login_host_check_failed":     "could not verify host ownership",
+		"login_restarted":             "Daemon restarted; new login is now active.",
+		"login_restart_failed":        "Login saved, but restarting the daemon failed: %v",
+		"auth_not_logged_in":          "Not logged in. Run: riffpad login",
+		"auth_logged_in":              "Logged in as %s (relay: %s)",
+		"auth_logged_in_cached":       "Logged in as %s (relay: %s, relay unreachable — showing cached login)",
+		"auth_token_invalid":          "Saved login for %s is no longer valid (relay: %s). Run: riffpad login",
+		"auth_relay_error":            "could not verify login with relay: %s",
 		"logout_done":                 "Logged out.",
 		"kill_done":                   "Kill switch engaged: %d sessions stopped, all devices revoked.",
 		"setup_removed":               "Removed riffpad systemd user service.",
@@ -63,7 +77,7 @@ Usage:
 		"resolve_data_dir":            "resolve data dir: %v",
 		"unsupported_cli":             "unsupported cli %q",
 		"usage_daemon":                "usage: riffpad daemon start|stop",
-		"usage_login":                 "usage: riffpad login|logout",
+		"usage_login":                 "usage: riffpad login [--url wss://…] | riffpad logout",
 		"usage_run":                   "usage: riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]",
 	},
 	"zh": {
@@ -75,12 +89,13 @@ Usage:
   riffpad status                查看 daemon 状态
   riffpad pair                  打印配对码和二维码
   riffpad sessions              列出会话
+  riffpad auth                  查看当前登录的 relay 账号
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
                                 创建并启动会话
   riffpad attach                注入 Claude Code hooks，让 daemon 捕获你自己启动的会话
   riffpad detach                移除注入的 hooks
-  riffpad login [--url wss://… --username …]
-                                登录 Riffpad 云服务（relay）
+  riffpad login [--url wss://…]  登录 Riffpad 云服务（默认 GitHub 授权；
+                                --username … 使用密码登录）
   riffpad logout                清除登录 token
   riffpad setup                 安装 daemon 自启（Linux systemd user service）
   riffpad kill                  熔断：停止所有会话并撤销所有设备
@@ -106,6 +121,19 @@ Usage:
 		"login_failed":                "登录失败",
 		"login_failed_status":         "登录失败（状态 %d）",
 		"login_success":               "已登录 %s，token 已保存到配置。",
+		"login_oauth_open":            "请在浏览器中打开下面的链接并用 GitHub 授权：\n%s\n\n授权码：%s",
+		"login_oauth_timeout":         "授权超时，请重新发起登录。",
+		"login_oauth_failed":          "发起设备登录失败",
+		"login_oauth_failed_status":   "设备登录失败（状态 %d）",
+		"login_oauth_poll_failed":     "查询授权状态失败",
+		"login_host_check_failed":     "无法校验主机归属",
+		"login_restarted":             "daemon 已重启，新登录已生效。",
+		"login_restart_failed":        "登录已保存，但重启 daemon 失败：%v",
+		"auth_not_logged_in":          "未登录。运行：riffpad login",
+		"auth_logged_in":              "当前登录：%s（relay：%s）",
+		"auth_logged_in_cached":       "当前登录：%s（relay：%s，relay 不可达，显示缓存）",
+		"auth_token_invalid":          "保存的登录 %s 已失效（relay：%s）。请重新运行 riffpad login",
+		"auth_relay_error":            "无法向 relay 校验登录状态：%s",
 		"logout_done":                 "已退出登录。",
 		"kill_done":                   "已熔断：停止 %d 个会话，撤销所有设备。",
 		"setup_removed":               "已移除 riffpad systemd user 服务。",
@@ -129,7 +157,7 @@ Usage:
 		"resolve_data_dir":            "解析数据目录失败: %v",
 		"unsupported_cli":             "不支持的 CLI %q",
 		"usage_daemon":                "用法：riffpad daemon start|stop",
-		"usage_login":                 "用法：riffpad login|logout",
+		"usage_login":                 "用法：riffpad login [--url wss://…] | riffpad logout",
 		"usage_run":                   "用法：riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]",
 	},
 }

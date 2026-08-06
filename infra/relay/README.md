@@ -72,14 +72,51 @@ systemctl reload caddy
 
 ## Docker Compose（relay + Postgres 一体）
 
-如果不想用托管数据库，可以在单机上用 compose 把 relay 和 Postgres 一起跑：
+生产推荐：nginx/certbot 留在宿主，relay 与 Postgres 用 compose 容器化。
+先准备密钥文件（600 权限，不进 git）：
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d --build
+install -m 600 /dev/null /opt/riffpad/.env
+# 填入 POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB / GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
+$EDITOR /opt/riffpad/.env
+
+cd /path/to/riffpad   # 仓库根目录（compose build context）
+docker compose --env-file /opt/riffpad/.env -f infra/docker-compose.yml up -d --build
 ```
 
-relay 会自动通过 `DATABASE_URL` 连接 Postgres 并建表（AutoMigrate）。
+relay 会自动通过 `DATABASE_URL` 连接 Postgres 并建表（AutoMigrate），并只监听
+`127.0.0.1:9090`，由宿主 nginx 反代（api.riffpad.ai / app.riffpad.ai）。
 想回到 SQLite 模式，去掉 `DATABASE_URL` 环境变量即可。
+
+### 从 SQLite 迁移到 Postgres
+
+先只启动 Postgres（relay 尚未切换，原服务不受影响）：
+
+```bash
+docker compose --env-file /opt/riffpad/.env -f infra/docker-compose.yml up -d postgres
+```
+
+然后停掉旧 relay（避免迁移期间写入），用迁移工具拷贝数据：
+
+```bash
+sudo systemctl stop riffpad-relay
+go run ./apps/relay/cmd/migrate-sqlite \
+  -sqlite /var/lib/riffpad-relay/relay.db \
+  -postgres 'postgres://<user>:<password>@127.0.0.1:5432/riffpad?sslmode=disable'
+```
+
+迁移工具会逐表复制 users / oauth_accounts / auth_tokens / host_records / devices /
+session_meta，目标表非空时拒绝执行（`--force` 可覆盖，慎用）。完成后启动 compose：
+
+```bash
+docker compose --env-file /opt/riffpad/.env -f infra/docker-compose.yml up -d
+```
+
+确认 `/api/status` 正常、登录/配对/审批全流程可用后，再停掉 systemd 旧服务：
+
+```bash
+sudo systemctl disable --now riffpad-relay
+```
 
 ## 同 WiFi 真机测试（零部署）
 
