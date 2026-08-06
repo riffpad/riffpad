@@ -506,7 +506,25 @@ func (c *Codex) handleResponse(id json.RawMessage, result json.RawMessage) {
 			c.initError = fmt.Errorf("thread/start returned no thread id")
 		}
 		c.mu.Unlock()
-		c.closeReady()
+		// A fresh thread has no persisted rollout yet, so `codex resume` (the
+		// local TUI bootstrap) would fail with "no rollout found". Setting a
+		// name persists the rollout at zero cost; only then mark ready so the
+		// CLI can attach the TUI.
+		go func() {
+			c.mu.Lock()
+			tid := c.threadID
+			c.mu.Unlock()
+			if tid != "" {
+				name := c.name
+				if name == "" {
+					name = "riffpad"
+				}
+				if _, err := c.requestSync("thread/name/set", map[string]any{"threadId": tid, "name": name}, 5*time.Second); err != nil {
+					log.Printf("codex[%s] thread/name/set: %v", c.id, err)
+				}
+			}
+			c.closeReady()
+		}()
 	default:
 		var res struct {
 			Turn struct {
