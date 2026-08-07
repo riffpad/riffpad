@@ -33,9 +33,7 @@ export function Footer() {
               {t.footer.github}
             </a>
             <a
-              href="https://github.com/riffpad/riffpad#readme"
-              target="_blank"
-              rel="noreferrer"
+              href="/docs"
               className="transition-colors hover:text-ink"
             >
               {t.footer.docs}

@@ -31,9 +31,7 @@ export function Hero() {
             {t.hero.ctaPrimary}
           </a>
           <a
-            href="https://github.com/riffpad/riffpad#readme"
-            target="_blank"
-            rel="noreferrer"
+            href="/docs"
             className="btn btn-secondary w-full sm:w-auto"
           >
             {t.hero.ctaSecondary}
