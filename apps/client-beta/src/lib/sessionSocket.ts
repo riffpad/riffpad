@@ -13,6 +13,7 @@ import type { Device, RiffpadEvent } from "./types";
 export interface SessionSocket {
   close(): void;
   send(type: string, payload: Record<string, unknown>): Promise<boolean>;
+  requestHistory(before: string, limit: number): boolean;
 }
 
 export interface SocketHandlers {
@@ -20,6 +21,7 @@ export interface SocketHandlers {
   onEvent(ev: RiffpadEvent): void;
   onError(message: string): void;
   onFatal?(message: string): void;
+  onHistory?(events: RiffpadEvent[]): void;
 }
 
 // Outbox keeps outgoing events that could not be written while the socket was
@@ -67,6 +69,7 @@ export async function openSessionSocket(
   let reconnectAttempt = 0;
   let everConnected = false;
   const seenIds = new Set<string>();
+  let historyState: { remaining: number; events: RiffpadEvent[] } | null = null;
   const outbox = new Outbox<{
     id: string;
     sessionId: string;
@@ -101,9 +104,23 @@ export async function openSessionSocket(
           handlers.onConn(t("connected_encrypted"));
           continue;
         }
+        if (data.kind === "history") {
+          historyState = { remaining: Number(data.count) || 0, events: [] };
+          continue;
+        }
+        if (data.kind === "history_done") {
+          finalizeHistory();
+          continue;
+        }
         if (sessionKey) {
           const pt = await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext);
           const ev = pt as RiffpadEvent;
+          if (historyState) {
+            if (historyState.remaining > 0) historyState.remaining--;
+            if (!dedupeEvent(seenIds, ev)) historyState.events.push(ev);
+            if (historyState.remaining <= 0) finalizeHistory();
+            continue;
+          }
           if (dedupeEvent(seenIds, ev)) continue; // replay dedup across reconnects
           handlers.onEvent(ev);
         }
@@ -112,6 +129,13 @@ export async function openSessionSocket(
       }
     }
     draining = false;
+  }
+
+  function finalizeHistory() {
+    if (!historyState) return;
+    const batch = historyState.events;
+    historyState = null;
+    handlers.onHistory?.(batch);
   }
 
   async function flushOutbox() {
@@ -164,6 +188,7 @@ export async function openSessionSocket(
     };
     ws.onclose = () => {
       sessionKey = null;
+      historyState = null;
       if (closed) {
         handlers.onConn(t("disconnected"));
         return;
@@ -215,6 +240,11 @@ export async function openSessionSocket(
       } catch {
         outbox.push(ev);
       }
+      return true;
+    },
+    requestHistory(before: string, limit: number): boolean {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      ws.send(JSON.stringify({ kind: "history_query", before, limit }));
       return true;
     },
   };

@@ -3,6 +3,7 @@ import { ensureIdentity } from "../lib/device";
 import { openSessionSocket, type SessionSocket } from "../lib/sessionSocket";
 import { useI18n } from "../lib/i18n";
 import type { RiffpadEvent } from "../lib/types";
+import DotMatrix from "./DotMatrix";
 import EventItem from "./EventItem";
 import ToolLog, { type ToolLine } from "./ToolLog";
 
@@ -18,6 +19,8 @@ interface Props {
 type Row =
   | { id: string; kind: "event"; ev: RiffpadEvent }
   | { id: string; kind: "tool"; key: string };
+
+const HISTORY_PAGE_SIZE = 100;
 
 function statusClass(status: string): string {
   if (/未连接|未配对|握手失败|连接失败|失败|断开/.test(status)) return "bad";
@@ -87,6 +90,8 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const [prompt, setPrompt] = useState("");
   const [err, setErr] = useState("");
   const [fatal, setFatal] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
   const [status, setStatus] = useState(t("connecting"));
   const [agentStatus, setAgentStatus] = useState("");
   const [meta, setMeta] = useState<{ cwd?: string; cli?: string }>({ cwd, cli });
@@ -95,6 +100,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const listRef = useRef<HTMLDivElement | null>(null);
   const toolsRef = useRef<Record<string, ToolLine>>({});
   const rowsRef = useRef<Row[]>([]);
+  const anchorRef = useRef<number | null>(null);
 
   const updateScroll = useCallback(() => {
     const el = listRef.current;
@@ -111,6 +117,8 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     rowsRef.current = [];
     setTools({});
     toolsRef.current = {};
+    setHasMoreHistory(true);
+    setHistoryLoading(false);
     setStatus(t("connecting"));
     setFatal("");
     setAgentStatus("");
@@ -175,7 +183,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
               toolsRef.current = next;
               setTools(next);
               if (!rowsRef.current.some((r) => r.kind === "tool" && r.key === target)) {
-                rowsRef.current = [...rowsRef.current, { id: target, kind: "tool", key: target }];
+                rowsRef.current = [...rowsRef.current, { id: ev.id, kind: "tool", key: target }];
               }
               setRows([...rowsRef.current]);
               return;
@@ -185,6 +193,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
           },
           onError: (message) => setStatus(t("handshake_failed") + message),
           onFatal: (message) => setFatal(message),
+          onHistory: (events) => applyHistory(events),
         });
       })
       .then((sock) => {
@@ -205,10 +214,67 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
+    if (anchorRef.current != null) {
+      el.scrollTop = el.scrollTop + (el.scrollHeight - anchorRef.current);
+      anchorRef.current = null;
+      return;
+    }
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
     if (nearBottom || rows.length === 0) el.scrollTop = el.scrollHeight;
     updateScroll();
   }, [rows, tools, updateScroll]);
+
+  function applyHistory(batch: RiffpadEvent[]) {
+    if (batch.length === 0) {
+      setHasMoreHistory(false);
+      setHistoryLoading(false);
+      return;
+    }
+    const el = listRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    const nearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 60 : true;
+    const prepend: Row[] = [];
+    for (const ev of batch) {
+      const tool = toolLineFromEvent(ev, t);
+      if (tool) {
+        const cur = toolsRef.current;
+        const ex = cur[tool.key];
+        const status = ex && (ex.status === "done" || ex.status === "fail") ? ex.status : tool.status;
+        toolsRef.current = { ...cur, [tool.key]: { ...tool, glyph: ex ? ex.glyph : tool.glyph, detail: tool.detail || ex?.detail || "", status } };
+        if (!rowsRef.current.some((r) => r.kind === "tool" && r.key === tool.key)) {
+          prepend.push({ id: ev.id, kind: "tool", key: tool.key });
+        }
+      } else {
+        prepend.push({ id: ev.id, kind: "event", ev });
+      }
+    }
+    rowsRef.current = [...prepend, ...rowsRef.current];
+    setTools({ ...toolsRef.current });
+    setRows([...rowsRef.current]);
+    setHasMoreHistory(batch.length >= HISTORY_PAGE_SIZE);
+    setHistoryLoading(false);
+    if (el && !nearBottom) {
+      anchorRef.current = prevHeight;
+    }
+  }
+
+  function handleScroll() {
+    const el = listRef.current;
+    if (!el) return;
+    updateScroll();
+    const anchor = rowsRef.current[0]?.id;
+    if (
+      el.scrollTop < 80 &&
+      anchor &&
+      !historyLoading &&
+      hasMoreHistory &&
+      sockRef.current
+    ) {
+      setHistoryLoading(true);
+      const ok = sockRef.current.requestHistory(anchor, HISTORY_PAGE_SIZE);
+      if (!ok) setHistoryLoading(false);
+    }
+  }
 
   function scrollToBottom() {
     const el = listRef.current;
@@ -246,7 +312,13 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
         </div>
         <span id="session-conn" className={"conn-dot " + statusClass(status)} title={status} aria-label={status} />
       </div>
-      <div id="events" ref={listRef} className={"events" + (fadeClass ? " " + fadeClass : "")} onScroll={updateScroll}>
+      <div id="events" ref={listRef} className={"events" + (fadeClass ? " " + fadeClass : "")} onScroll={handleScroll}>
+        {historyLoading && (
+          <div className="history-loading">
+            <DotMatrix />
+            {t("history_loading")}
+          </div>
+        )}
         {rows.map((row) =>
           row.kind === "tool" ? (
             <ToolLog key={row.key} line={tools[row.key]} />

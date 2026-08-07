@@ -13,6 +13,37 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(*http.Request) bool { return true },
 }
 
+const (
+	// historyReplayLimit is how many recent events a viewer gets on connect.
+	historyReplayLimit = 100
+	// historyQueryLimit caps how many older events a page request may fetch.
+	historyQueryLimit = 200
+)
+
+// historySlice returns the events strictly before the event with the given
+// id, oldest first, at most limit entries. Events are already in
+// chronological order.
+func historySlice(events []protocol.Event, before string, limit int) []protocol.Event {
+	if before == "" || limit <= 0 {
+		return nil
+	}
+	idx := -1
+	for i, ev := range events {
+		if ev.ID == before {
+			idx = i
+			break
+		}
+	}
+	if idx <= 0 {
+		return nil
+	}
+	start := idx - limit
+	if start < 0 {
+		start = 0
+	}
+	return events[start:idx]
+}
+
 type wsTransport struct {
 	conn *websocket.Conn
 }
@@ -114,8 +145,9 @@ func (s *Server) attachViewer(tr viewerTransport, deviceID, sid string, ephPub [
 	}
 	helloData, _ := json.Marshal(hello)
 	c.sendRaw(helloData)
-	s.log.Printf("hello queued device=%s session=%s replay=%d", deviceID, sid, len(sess.snapshot()))
-	for _, ev := range sess.snapshot() {
+	replay := sess.snapshotLast(historyReplayLimit)
+	s.log.Printf("hello queued device=%s session=%s replay=%d", deviceID, sid, len(replay))
+	for _, ev := range replay {
 		c.sendEvent(ev)
 	}
 	go c.writeLoop()
@@ -134,6 +166,15 @@ func (c *client) readLoop(s *Server) {
 		if err != nil {
 			return
 		}
+		var ctrl struct {
+			Kind   string `json:"kind"`
+			Before string `json:"before"`
+			Limit  int    `json:"limit"`
+		}
+		if json.Unmarshal(data, &ctrl) == nil && ctrl.Kind == "history_query" {
+			s.handleHistoryQuery(c, ctrl.Before, ctrl.Limit)
+			continue
+		}
 		var env protocol.Envelope
 		if json.Unmarshal(data, &env) != nil {
 			continue
@@ -149,6 +190,31 @@ func (c *client) readLoop(s *Server) {
 		s.log.Printf("client event session=%s type=%s device=%s", c.session.id, ev.Type, c.deviceID)
 		s.dispatch(c.session, ev)
 	}
+}
+
+// handleHistoryQuery sends older events (before the given event id) to the
+// viewer: a plaintext "history" marker, the encrypted events, then a
+// "history_done" marker.
+func (s *Server) handleHistoryQuery(c *client, before string, limit int) {
+	if limit <= 0 || limit > historyQueryLimit {
+		limit = historyQueryLimit
+	}
+	key, err := s.sessionEncKey()
+	if err != nil {
+		return
+	}
+	events, err := loadSessionEvents(s.dataDir, c.session.id, key)
+	if err != nil {
+		return
+	}
+	slice := historySlice(events, before, limit)
+	start, _ := json.Marshal(map[string]any{"kind": "history", "count": len(slice)})
+	c.sendRaw(start)
+	for _, ev := range slice {
+		c.sendEvent(ev)
+	}
+	done, _ := json.Marshal(map[string]any{"kind": "history_done", "count": len(slice)})
+	c.sendRaw(done)
 }
 
 func (s *Server) dispatch(sess *session, ev protocol.Event) {

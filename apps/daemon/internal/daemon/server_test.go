@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -18,6 +19,40 @@ import (
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/packages/protocol"
 )
+
+func TestHistorySlice(t *testing.T) {
+	events := []protocol.Event{
+		{ID: "e1"}, {ID: "e2"}, {ID: "e3"}, {ID: "e4"}, {ID: "e5"},
+	}
+	got := historySlice(events, "e3", 2)
+	if len(got) != 2 || got[0].ID != "e1" || got[1].ID != "e2" {
+		t.Fatalf("unexpected slice: %+v", got)
+	}
+	got = historySlice(events, "e5", 200)
+	if len(got) != 4 || got[0].ID != "e1" {
+		t.Fatalf("limit above available: %+v", got)
+	}
+	if got := historySlice(events, "unknown", 2); got != nil {
+		t.Fatalf("unknown anchor should return nil, got %+v", got)
+	}
+	if got := historySlice(events, "e1", 2); got != nil {
+		t.Fatalf("first event has no history, got %+v", got)
+	}
+}
+
+func TestSnapshotLast(t *testing.T) {
+	sess := &session{}
+	for i := 0; i < 5; i++ {
+		sess.history = append(sess.history, protocol.Event{ID: fmt.Sprintf("e%d", i)})
+	}
+	got := sess.snapshotLast(3)
+	if len(got) != 3 || got[0].ID != "e2" {
+		t.Fatalf("unexpected snapshotLast: %+v", got)
+	}
+	if all := sess.snapshotLast(10); len(all) != 5 {
+		t.Fatalf("snapshotLast over count: %d", len(all))
+	}
+}
 
 type fakeSession struct {
 	id           string

@@ -931,6 +931,15 @@ button.github {
   margin-left: auto;
 }
 
+.history-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--chat-mute);
+}
+
 .agent-running {
   display: flex;
   align-items: center;
