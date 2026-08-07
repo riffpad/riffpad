@@ -450,7 +450,7 @@ func TestDeviceLoginFlow(t *testing.T) {
 
 	// Authorize via the GitHub callback, as the device page would.
 	h.mu.Lock()
-	h.oauthStates["devstate"] = oauthState{expires: time.Now().Add(time.Minute), device: dev.UserCode}
+	h.oauthStates["devstate"] = oauthState{expires: time.Now().Add(time.Minute), device: dev.UserCode, lang: "en"}
 	h.mu.Unlock()
 	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=testcode&state=devstate")
 	if err != nil {
@@ -458,8 +458,11 @@ func TestDeviceLoginFlow(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "授权成功") {
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "CLI login authorized") {
 		t.Fatalf("authorize status %d: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), "Return to your terminal") {
+		t.Fatalf("english receipt not rendered: %s", body)
 	}
 
 	// Poll after authorization -> token, one-time only.
