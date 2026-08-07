@@ -20,7 +20,7 @@ import (
 	"github.com/riffpad/riffpad/packages/webui"
 )
 
-const version = "0.1.0-m1"
+const version = "0.2.0"
 
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
