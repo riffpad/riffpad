@@ -95,7 +95,7 @@ function PlaintextCard({ label, lines }: { label: string; lines: string[] }) {
 function CipherFlow({ t }: { t: Messages }) {
   const f = t.security.flow;
   return (
-    <div className="py-2">
+    <div className="min-w-0 py-2">
       <PlaintextCard label={f.daemonLabel} lines={f.plainLines} />
 
       <FlowGate label={f.encryptLabel} locked />
@@ -137,11 +137,11 @@ export function Security() {
   return (
     <section
       id="security"
-      className="mx-auto max-w-frame scroll-mt-20 px-4 py-24 sm:px-6 sm:py-32"
+      className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
       <div className="mx-auto max-w-content">
         <div className="grid items-start gap-10 lg:grid-cols-2">
-          <div>
+          <div className="min-w-0">
             <span className="label">{`// ${t.security.label}`}</span>
             <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
               {t.security.title}

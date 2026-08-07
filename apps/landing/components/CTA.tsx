@@ -6,7 +6,7 @@ export function CTA() {
   const { t } = useLanguage();
 
   return (
-    <section className="mx-auto max-w-frame px-4 py-24 text-center sm:px-6 sm:py-32">
+    <section className="mx-auto max-w-frame px-4 py-12 text-center sm:px-6 sm:py-16 lg:py-32">
       <h2 className="mx-auto max-w-content text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
         {t.cta.title}
       </h2>

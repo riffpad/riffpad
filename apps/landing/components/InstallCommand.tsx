@@ -60,7 +60,9 @@ export function InstallCommand() {
           onClick={copy}
           className="flex w-full cursor-pointer items-center justify-center px-4 py-4"
         >
-          <code className="whitespace-nowrap text-sm">{COMMANDS[platform]}</code>
+          <code className="break-all text-[13px] sm:text-sm">
+            {COMMANDS[platform]}
+          </code>
         </button>
       </div>
     </div>
