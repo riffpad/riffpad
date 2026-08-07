@@ -134,28 +134,30 @@ export default function App() {
         <span className="brand-name">riffpad</span>
       </div>
       <div className="topbar-actions">
-        <button
-          id="theme-toggle"
-          className="icon-btn"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          title={theme === "dark" ? t("theme_light") : t("theme_dark")}
-          aria-label={theme === "dark" ? t("theme_light") : t("theme_dark")}
-        >
-          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-        </button>
-        <button
-          id="lang-toggle"
-          className="lang-toggle"
-          onClick={() => setLang(lang === "zh" ? "en" : "zh")}
-          title={lang === "zh" ? "English" : "中文"}
-        >
-          {t("lang_toggle")}
-        </button>
         {isRelay && phase === "sessions" && (
           <button id="logout-btn" className="lang-toggle" onClick={() => void logout()}>
             {t("logout")}
           </button>
         )}
+        <div className="sidebar-toggles">
+          <button
+            id="theme-toggle"
+            className="icon-btn"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title={theme === "dark" ? t("theme_light") : t("theme_dark")}
+            aria-label={theme === "dark" ? t("theme_light") : t("theme_dark")}
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
+          <button
+            id="lang-toggle"
+            className="lang-toggle"
+            onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+            title={lang === "zh" ? "English" : "中文"}
+          >
+            {t("lang_toggle")}
+          </button>
+        </div>
       </div>
       <button id="sidebar-close" className="icon-btn sidebar-close" onClick={() => setSidebarOpen(false)} aria-label={t("sidebar_close")}>
         ×
