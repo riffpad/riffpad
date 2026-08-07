@@ -14,7 +14,12 @@ export function CTA() {
         {t.cta.description}
       </p>
 
-      <a href="mailto:hi@riffpad.ai" className="btn btn-primary mt-10 h-12 px-8">
+      <a
+        href="https://app.riffpad.ai"
+        target="_blank"
+        rel="noreferrer"
+        className="btn btn-primary mt-10 h-12 px-8"
+      >
         {t.cta.button} <span aria-hidden="true">→</span>
       </a>
       <p className="mt-4 text-xs text-mute">{t.cta.note}</p>

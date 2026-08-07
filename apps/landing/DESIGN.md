@@ -185,7 +185,7 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 - Height 56px, `surface` background, 1px `hairline` bottom rule.
 - Left: Riffpad logo mark + `riffpad` wordmark.
-- Center: plain nav links: Features / How it works / Security / FAQ.
+- Center: plain nav links: Architecture / How it works / Security / FAQ.
 - Right: text-only language toggle `EN / 中`, theme toggle `Dark / Light`,
   amber CTA.
 - Mobile: nav collapses to a `menu` button; CTA stays visible.
@@ -198,32 +198,43 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 ### Device scene (hero)
 
-- Left: macOS-style terminal window (`console` surface, square corners,
-  1px hairline): traffic-light dots, `codex — riffpad` title,
-  `codex exec --json` prompt, tool-call lines with `✓` / `▸` / `!` states,
-  and a daemon status line.
+- Left: macOS-style terminal window (theme-aware `term-*` palette —
+  light terminal on the light page, dark on dark; square corners, 1px
+  hairline): traffic-light dots only (no title), an in-progress
+  user ↔ coding-CLI conversation in real-TUI style — full-width
+  highlighted user bar (`❯`), mute "Thought for 4s…" lines, tool calls
+  (`●` + `Edit(src/auth/middleware.ts)` with `└` sub-lines) — stuck at a
+  full-width permission panel (blue top border, `Bash command`,
+  `Do you want to proceed?`, highlighted `❯ 1. Yes`, key-hint footer),
+  plus a TUI-style input box at the bottom (`›` prompt, blinking cursor).
 - Right: Riffpad phone app (`surface`, square corners, hairline): status
-  bar, `riffpad` header with `● synced`, session card
-  (`s_9f2a · claude · running · 2 tool calls`), approval card with
-  Approve / Reject chips, message input, bottom tabs.
-- Between them: a sync connector — hairline line, pulsing amber dot,
-  `e2ee / synced / 84ms`.
-- Both devices mirror the same session: the terminal waits for approval,
-  the phone shows the approval card. This is the product story.
+  bar, `riffpad` header with `● synced`, session card for the same
+  session, an approval card mirroring the terminal's pending approval
+  with Approve / Reject chips, message input, bottom tabs.
+- Between them: a two-lane sync connector — accent lane (events) and
+  info-blue lane (commands) with tiny packets travelling both ways,
+  `e2ee · 84ms` caption.
+- The scene is interactive: approving/rejecting on the phone resolves
+  the terminal's approval block; sending a preset message injects it
+  into the terminal conversation (`⏎ phone`) and the agent answers on
+  both sides.
 
-### Feature bento
+### Architecture diagram
 
-- `// features` label, then a bento grid: `md:grid-cols-12` with 7/5
-  column spans (`surface`, `md` radius, 1px hairline).
-- Two cards, each with bold title, body description, and a small
-  product-flavored visual pinned to the card bottom (`mt-auto`):
-  - *Real-time sync, both ways*: a two-column visual showing both
-    directions — an `agent → phone` event tail with a blinking accent
-    cursor, and a `phone → agent` chat bubble pair.
-  - *Approve from anywhere*: a mini approval card.
-  Visuals sit in hairline boxes on `surface-muted`; status colors appear
-  only inside these approval/log artifacts.
-- Hover: border turns `hairline-strong`, transition 200ms.
+- `// architecture` label, title, description — same section header pattern
+  as every other section.
+- The diagram sits on a blueprint grid background (hairline grid lines,
+  radial fade at the edges) — no window chrome.
+- Animated SVG of the system, straight lanes only: `client` (your phone) ⇄
+  `relay` (zero-knowledge) ⇄ `daemon` (your computer), the daemon fanning
+  out to three icon-only CLI chips using the vendored brand icons
+  (`components/brand-icons.ts`).
+- Two straight flow lanes per link: accent dashed lane for events
+  (daemon → phone), info-blue dashed lane for approvals (phone → daemon).
+  Dashes scroll via `.flow-dash-line`; encrypted-envelope packets travel
+  the lanes with SMIL `animateMotion` (hidden under
+  `prefers-reduced-motion`).
+- Node accent dots pulse; diagram scrolls horizontally below ~680px.
 
 ### How it works
 
@@ -237,10 +248,16 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 ### Security console
 
-- Left: `// security` label, title, description.
-- Right: a console log card with colored lines:
-  `[ok] e2ee aes-256-gcm`, `[ok] relay zero-knowledge`,
-  `[ok] local-first`, `[warn] read-only by default`.
+- Left: `// security` label, title, description, and the security items
+  as hairline-divided rows.
+- Right: an animated end-to-end-encryption diagram (`.card`): plaintext
+  lines leave the `daemon` card, pass an `encrypt` gate (padlock,
+  accent dashed connector), turn into a dashed-border `relay` band of
+  endlessly scrolling ciphertext (`.cipher-stream` marquee, duplicated
+  content sliding -50%, alternating speeds/directions), then a
+  `decrypt` gate (open padlock) restores the same plaintext at the
+  `client` card. Ciphertext strings come from a seeded PRNG so SSR and
+  client render match.
 
 ### FAQ
 

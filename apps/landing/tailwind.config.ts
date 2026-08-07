@@ -39,6 +39,8 @@ const config: Config = {
         "term-yellow": "var(--term-yellow)",
         "term-orange": "var(--term-orange)",
         "term-cyan": "var(--term-cyan)",
+        "term-elevate": "var(--term-elevate)",
+        "term-elevate-strong": "var(--term-elevate-strong)",
         "device-frame": "var(--device-frame)",
         "mac-red": "var(--mac-red)",
         "mac-yellow": "var(--mac-yellow)",

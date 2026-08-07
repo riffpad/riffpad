@@ -22,7 +22,12 @@ export function Hero() {
           {t.hero.description}
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href="mailto:hi@riffpad.ai" className="btn btn-primary w-full sm:w-auto">
+          <a
+            href="https://app.riffpad.ai"
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-primary w-full sm:w-auto"
+          >
             {t.hero.ctaPrimary}
           </a>
           <a

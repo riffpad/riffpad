@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useLanguage } from "./LanguageProvider";
 
 const COMMANDS = {
-  unix: "curl -fsSL riffpad.ai/install.sh | sh",
-  windows: "irm riffpad.ai/install.ps1 | iex",
+  unix: "curl -fsSL https://riffpad.ai/install.sh | sh",
 } as const;
 
 type Platform = keyof typeof COMMANDS;
@@ -27,7 +26,6 @@ export function InstallCommand() {
 
   const tabs: { id: Platform; label: string }[] = [
     { id: "unix", label: t.install.unix },
-    { id: "windows", label: t.install.windows },
   ];
 
   return (
