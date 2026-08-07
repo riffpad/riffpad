@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/banner.png" alt="Riffpad — a laptop terminal and a phone connected by an encrypted sync line" width="100%" />
+<img src=".github/assets/banner.png" alt="Riffpad banner" width="100%" />
 
 # Riffpad
 
