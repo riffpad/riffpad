@@ -33,7 +33,7 @@ export function Footer() {
               {t.footer.github}
             </a>
             <a
-              href="/docs"
+              href="https://www.riffpad.ai/docs/guide/quickstart"
               className="transition-colors hover:text-ink"
             >
               {t.footer.docs}
