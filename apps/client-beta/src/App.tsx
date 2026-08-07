@@ -117,6 +117,19 @@ export default function App() {
     setPhase(dev.deviceId ? "sessions" : "pair");
   }, []);
 
+  const logout = useCallback(async () => {
+    if (!isRelay) return;
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+    } catch {
+      // ignore
+    }
+    relayStore.clear();
+    setPaired(false);
+    setSidebarOpen(false);
+    setPhase("auth");
+  }, []);
+
   useEffect(() => {
     boot().catch((e) => alert(e instanceof Error ? e.message : String(e)));
   }, [boot]);
@@ -150,6 +163,11 @@ export default function App() {
         >
           {t("lang_toggle")}
         </button>
+        {isRelay && phase === "sessions" && (
+          <button id="logout-btn" className="lang-toggle" onClick={() => void logout()}>
+            {t("logout")}
+          </button>
+        )}
       </div>
       <button id="sidebar-close" className="icon-btn sidebar-close" onClick={() => setSidebarOpen(false)} aria-label={t("sidebar_close")}>
         ×
@@ -203,20 +221,6 @@ export default function App() {
                 setSidebarOpen(false);
                 setOpenSession({ sid, name });
               }}
-              onLogout={
-                isRelay
-                  ? async () => {
-                      try {
-                        await api("/api/auth/logout", { method: "POST" });
-                      } catch {
-                        // ignore
-                      }
-                      relayStore.clear();
-                      setPaired(false);
-                      setPhase("auth");
-                    }
-                  : undefined
-              }
             />
             <DeviceManager />
           </>

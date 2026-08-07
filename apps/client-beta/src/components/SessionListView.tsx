@@ -5,10 +5,9 @@ import type { SessionInfo } from "../lib/types";
 
 interface Props {
   onOpen(sid: string, name: string): void;
-  onLogout?: () => void;
 }
 
-export default function SessionListView({ onOpen, onLogout }: Props) {
+export default function SessionListView({ onOpen }: Props) {
   const { t } = useI18n();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [name, setName] = useState("");
@@ -71,7 +70,6 @@ export default function SessionListView({ onOpen, onLogout }: Props) {
             {t("start_session")}
           </button>
           <button className="ghost" onClick={() => void refresh()}>{t("refresh")}</button>
-          {onLogout && <button className="ghost" onClick={onLogout}>{t("logout")}</button>}
         </div>
       </section>
       <p className="section-label"><span className="glyph">//</span>{t("sessions_label")}</p>
