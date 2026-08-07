@@ -6,6 +6,7 @@ export default defineConfig({
   title: "Riffpad",
   description: "AI coding agent 的口袋遥控器",
   base: "/docs/",
+  cleanUrls: true,
   // Build straight into the landing app so riffpad.ai/docs is served by the
   // same Vercel deployment.
   outDir: resolve(import.meta.dirname, "../../landing/public/docs"),
