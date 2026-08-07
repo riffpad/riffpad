@@ -72,7 +72,7 @@ type SessionMeta struct {
 	CLI        string    `json:"cli"`
 	Cwd        string    `json:"cwd"`
 	Status     string    `json:"status"`
-	LastSeenAt time.Time `json:"-"`
+	LastSeenAt time.Time `json:"lastSeenAt"`
 }
 
 type Store struct {

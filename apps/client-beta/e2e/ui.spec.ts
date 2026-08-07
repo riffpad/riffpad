@@ -24,7 +24,7 @@ test("mobile topbar becomes a collapsible sidebar", async ({ page }) => {
   await expect(page.locator("#menu-toggle")).toBeVisible();
   await page.click("#menu-toggle");
   await expect(page.locator("#topbar")).toHaveClass(/open/);
-  await page.click("#sidebar-close");
+  await page.click("#sidebar-backdrop");
   await expect(page.locator("#topbar")).not.toHaveClass(/open/);
 });
 

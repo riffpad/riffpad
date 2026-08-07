@@ -63,6 +63,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [theme, setTheme] = useState<Theme>(initTheme);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [page, setPage] = useState<"sessions" | "devices">("sessions");
   const [openSession, setOpenSession] = useState<{ sid: string; name: string } | null>(null);
   const isDevicePage = window.location.pathname.startsWith("/device");
 
@@ -123,6 +124,15 @@ export default function App() {
     setPhase("auth");
   }, []);
 
+  const handleCurrentRevoked = useCallback(() => {
+    const dev = deviceStore.get();
+    if (dev) deviceStore.set({ ...dev, deviceId: null, serverPub: null });
+    setOpenSession(null);
+    setPage("sessions");
+    setSidebarOpen(false);
+    setPhase("pair");
+  }, []);
+
   useEffect(() => {
     boot().catch((e) => alert(e instanceof Error ? e.message : String(e)));
   }, [boot]);
@@ -133,6 +143,50 @@ export default function App() {
         <Logo />
         <span className="brand-name">riffpad</span>
       </div>
+      {isRelay && (() => {
+        const username = relayStore.get()?.username || "";
+        if (!username) return null;
+        return (
+          <div className="sidebar-user">
+            <img
+              className="sidebar-avatar"
+              src={`https://github.com/${encodeURIComponent(username)}.png?size=96`}
+              alt=""
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+            <div className="sidebar-user-id">
+              <span className="sidebar-user-name truncate">@{username}</span>
+              <span className="sidebar-user-tag">GitHub</span>
+            </div>
+          </div>
+        );
+      })()}
+      <nav className="topbar-nav">
+        <button
+          className={"nav-item" + (page === "sessions" ? " active" : "")}
+          disabled={phase !== "sessions"}
+          onClick={() => {
+            setOpenSession(null);
+            setPage("sessions");
+            setSidebarOpen(false);
+          }}
+        >
+          {t("nav_sessions")}
+        </button>
+        <button
+          className={"nav-item" + (page === "devices" ? " active" : "")}
+          disabled={phase !== "sessions"}
+          onClick={() => {
+            setOpenSession(null);
+            setPage("devices");
+            setSidebarOpen(false);
+          }}
+        >
+          {t("nav_devices")}
+        </button>
+      </nav>
       <div className="topbar-actions">
         {isRelay && phase === "sessions" && (
           <button id="logout-btn" className="lang-toggle" onClick={() => void logout()}>
@@ -159,9 +213,6 @@ export default function App() {
           </button>
         </div>
       </div>
-      <button id="sidebar-close" className="icon-btn sidebar-close" onClick={() => setSidebarOpen(false)} aria-label={t("sidebar_close")}>
-        ×
-      </button>
     </header>
   );
 
@@ -211,15 +262,16 @@ export default function App() {
           />
         )}
         {phase === "sessions" && !openSession && (
-          <>
+          page === "sessions" ? (
             <SessionListView
               onOpen={(sid, name) => {
                 setSidebarOpen(false);
                 setOpenSession({ sid, name });
               }}
             />
-            <DeviceManager />
-          </>
+          ) : (
+            <DeviceManager onCurrentRevoked={handleCurrentRevoked} />
+          )
         )}
         {openSession && (
           <SessionDetailView

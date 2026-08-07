@@ -58,6 +58,8 @@ function CheckIcon() {
   );
 }
 
+const INSTALL_CMD = "curl -fsSL https://riffpad.ai/install.sh | sh";
+
 export default function PairView({ onPaired }: { onPaired: () => void }) {
   const { t } = useI18n();
   const [code, setCode] = useState("");
@@ -65,6 +67,8 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [installCopied, setInstallCopied] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
   const copyTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -98,6 +102,17 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
       setCopied(true);
       if (copyTimer.current) window.clearTimeout(copyTimer.current);
       copyTimer.current = window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard unavailable (non-secure context); ignore
+    }
+  }
+
+  async function copyInstall() {
+    try {
+      await navigator.clipboard.writeText(INSTALL_CMD);
+      setInstallCopied(true);
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setInstallCopied(false), 1500);
     } catch {
       // clipboard unavailable (non-secure context); ignore
     }
@@ -153,8 +168,41 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
           disabled={busy}
           autoFocus
         />
+        <button id="install-cli-link" className="install-cli-link" onClick={() => setInstallOpen(true)}>
+          {t("install_cli_link")} <span className="chevron">▾</span>
+        </button>
         {err && <div id="pair-err" className="err">{err}</div>}
       </section>
+      {installOpen && (
+        <>
+          <div className="sheet-backdrop" onClick={() => setInstallOpen(false)} />
+          <div className="bottom-sheet">
+            <div className="sheet-handle" />
+            <h2><span className="glyph">//</span>{t("install_cli_title")}</h2>
+            <div
+              className="code-card"
+              role="button"
+              tabIndex={0}
+              aria-label={t("copy_command")}
+              onClick={() => void copyInstall()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  void copyInstall();
+                }
+              }}
+            >
+              <div className="code-card-head">
+                <span>{t("bash_label")}</span>
+                <button id="install-copy" className="icon-btn copy-btn" onClick={() => void copyInstall()} aria-label={t("copy_command")}>
+                  {installCopied ? <CheckIcon /> : <CopyIcon />}
+                </button>
+              </div>
+              <code><span className="prompt">$</span> {INSTALL_CMD}</code>
+            </div>
+          </div>
+        </>
+      )}
       {scanning && (
         <ScanQR
           onClose={() => setScanning(false)}
