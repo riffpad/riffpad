@@ -180,6 +180,14 @@ export default function App() {
     );
   }
 
+  if (phase === "auth") {
+    return (
+      <main className="auth-stage">
+        <AuthView onAuthed={() => void afterAuth()} />
+      </main>
+    );
+  }
+
   return (
     <>
       <button id="menu-toggle" className="icon-btn menu-toggle" onClick={() => setSidebarOpen(true)} aria-label={t("sidebar_open")}>
@@ -189,11 +197,6 @@ export default function App() {
       {sidebarOpen && <div id="sidebar-backdrop" className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <main>
         {phase === "loading" && null}
-        {phase === "auth" && (
-          <AuthView
-            onAuthed={() => void afterAuth()}
-          />
-        )}
         {phase === "pair" && (
             <PairView
             onPaired={() => {
