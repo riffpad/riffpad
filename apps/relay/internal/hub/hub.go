@@ -51,6 +51,7 @@ type oauthState struct {
 type deviceLogin struct {
 	UserCode  string
 	ExpiresAt time.Time
+	LastPoll  time.Time
 	Ready     bool
 	Token     string
 	Username  string
@@ -373,6 +374,9 @@ func (h *Hub) handleDeviceLoginPoll(w http.ResponseWriter, r *http.Request) {
 	code := strings.ToUpper(strings.TrimSpace(req.Code))
 	h.mu.Lock()
 	d, ok := h.deviceLogins[code]
+	if ok {
+		d.LastPoll = time.Now()
+	}
 	if ok && time.Now().After(d.ExpiresAt) {
 		delete(h.deviceLogins, code)
 		ok = false
@@ -519,12 +523,14 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	if st.device != "" {
 		h.mu.Lock()
 		d, ok := h.deviceLogins[st.device]
+		stale := false
 		if !ok || d.Ready || time.Now().After(d.ExpiresAt) {
 			ok = false
 		} else {
 			d.Ready = true
 			d.Token = token
 			d.Username = u.Username
+			stale = time.Since(d.LastPoll) > 8*time.Second
 		}
 		h.mu.Unlock()
 		if !ok {
@@ -533,7 +539,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		h.log.Printf("device login authorized user=%s", u.Username)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = io.WriteString(w, receiptHTML(st.lang, "device"))
+		_, _ = io.WriteString(w, receiptHTML(st.lang, "device", stale))
 		return
 	}
 	// Hand the token back to the opener window. The default is the production
@@ -543,7 +549,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		target = "https://app.riffpad.ai"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = io.WriteString(w, receiptHTML(st.lang, "app")+`<script>
+	_, _ = io.WriteString(w, receiptHTML(st.lang, "app", false)+`<script>
 const data = {type: "riffpad-oauth", token: `+jsonQuote(token)+`, user: `+jsonQuote(u.Username)+`};
 if (window.opener) { window.opener.postMessage(data, `+jsonQuote(target)+`); window.close(); }
 </script>`)
@@ -572,7 +578,7 @@ func allowedOpener(raw string) bool {
 
 // receiptHTML renders the styled post-login receipt page for GitHub OAuth
 // (app popup or CLI device flow).
-func receiptHTML(lang, mode string) string {
+func receiptHTML(lang, mode string, stale bool) string {
 	title, desc := "登录成功", "请回到 Riffpad 页面。"
 	if lang == "en" {
 		title, desc = "Signed in", "You can go back to the Riffpad page."
@@ -583,6 +589,13 @@ func receiptHTML(lang, mode string) string {
 		} else {
 			title, desc = "CLI 登录授权成功", "可以回到终端了，登录会自动完成。"
 		}
+		if stale {
+			if lang == "en" {
+				title, desc = "Authorized, but no waiting terminal", "The terminal may have exited. If sign-in did not complete, run riffpad login again."
+			} else {
+				title, desc = "授权完成，但未检测到等待中的终端", "终端可能已退出；如果未登录成功，请重新运行 riffpad login。"
+			}
+		}
 	}
 	return `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title>
 <style>
@@ -590,9 +603,17 @@ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:c
 .card{background:#121214;border:1px solid rgba(255,255,255,.12);padding:28px 32px;max-width:380px;width:100%;box-sizing:border-box}
 .row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .check{width:12px;height:12px;background:#7ee787;flex:none}
+.warn .check{background:#d29922}
 h1{font-size:16px;margin:0}
 p{margin:0;color:#a8a8ad}
-</style></head><body><div class="card"><div class="row"><span class="check"></span><h1>` + title + `</h1></div><p>` + desc + `</p></div></body></html>`
+</style></head><body><div class="card"><div class="row` + boolStr(stale, " warn", "") + `"><span class="check"></span><h1>` + title + `</h1></div><p>` + desc + `</p></div></body></html>`
+}
+
+func boolStr(b bool, yes, no string) string {
+	if b {
+		return yes
+	}
+	return no
 }
 
 // ---------- hosts / pairing / sessions ----------
