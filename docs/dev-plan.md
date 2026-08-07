@@ -183,7 +183,7 @@
 | M3.2 | tmux / PTY 兜底（L3）正式实现 | `[ ]` | 任意 CLI 可监控 | — |
 | M3.3 | 自部署中继 | `[ ]` | 一键部署文档 + 镜像 | — |
 | M3.4 | 局域网直连 / WebRTC（relay 退化信令） | `[ ]` | 局域网内无中继可用 | — |
-| M3.5 | Windows daemon | `[~]` | v0.2 发布后立即做：syscall 兼容（codex Kill、daemon Flock 跨平台）、install.ps1、开机自启、release 矩阵增加 windows amd64/arm64 | — |
+| M3.5 | Windows daemon | `[x]` | 交叉编译通过（codex Kill、daemon Flock、Setsid 拆 build tag）；CI 增加 windows/darwin 编译守卫；scripts/install.ps1 + schtasks 开机自启；release 矩阵含 windows amd64/arm64（随下个 release 发布） | #147 |
 | M3.6 | 团队版（多人共享设备/会话） | `[ ]` | 权限模型可用 | — |
 | M3.7 | 无 tmux 注入：Kimi ACP / Codex app-server / Claude host 控制协议 | `[x]` | 三适配器实现并真机实测；`riffpad run --cli kimi/codex/claude` | #55 #52 |
 | M3.8 | daemon 无感化启动：CLI 懒启动 + Linux systemd 自启 | `[x]` | 自动拉起（文件锁防双实例）；`riffpad setup` 安装/卸载 | #57 |

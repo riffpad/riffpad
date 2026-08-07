@@ -44,13 +44,15 @@ jobs:
         working-directory: apps/daemon
         run: |
           mkdir -p dist
-          for target in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64"; do
+          for target in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64" "windows arm64"; do
             set -- $target
             os=$1
             arch=$2
+            ext=""
+            if [ "$os" = "windows" ]; then ext=".exe"; fi
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
               go build -trimpath -ldflags "-s -w" \
-              -o "dist/riffpad-$os-$arch" ./cmd/riffpad
+              -o "dist/riffpad-$os-$arch$ext" ./cmd/riffpad
           done
           (cd dist && sha256sum riffpad-* > sha256sums.txt)
 

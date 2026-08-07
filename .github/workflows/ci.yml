@@ -72,6 +72,12 @@ jobs:
         working-directory: packages/protocol
         run: go test ./...
 
+      - name: Cross-compile guard (windows/darwin)
+        working-directory: apps/daemon
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ./...
+
   e2e:
     name: Web UI smoke (Playwright)
     runs-on: ubuntu-latest
