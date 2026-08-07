@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { relayStore } from "../lib/store";
 import { useI18n } from "../lib/i18n";
 
@@ -48,6 +48,7 @@ interface Props {
 
 export default function AuthView({ onAuthed, theme, onToggleTheme }: Props) {
   const { t, lang, setLang } = useI18n();
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
@@ -69,11 +70,16 @@ export default function AuthView({ onAuthed, theme, onToggleTheme }: Props) {
         id="github-login"
         className="auth-github github"
         style={{ width: "100%" }}
-        onClick={() => window.open("/api/auth/github/login?opener=" + encodeURIComponent(location.origin), "_blank", "width=560,height=680")}
+        onClick={() => {
+          setErr("");
+          const w = window.open("/api/auth/github/login?opener=" + encodeURIComponent(location.origin) + "&lang=" + lang, "_blank", "width=560,height=680");
+          if (!w) setErr(t("auth_popup_blocked"));
+        }}
       >
         <GitHubIcon />
         {t("github_login")}
       </button>
+      {err && <div className="err">{err}</div>}
       <div className="auth-toggles">
         <button
           id="theme-toggle"

@@ -398,6 +398,38 @@ func TestGitHubOAuthLoopbackOpener(t *testing.T) {
 	}
 }
 
+func TestOAuthCallbackErrorPagesAreStyled(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.githubID = "test-client-id"
+	h.githubSecret = "test-client-secret"
+
+	// Missing code/state renders a styled HTML error, not raw JSON.
+	resp, err := http.Get(ts.URL + "/api/auth/github/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest ||
+		!strings.Contains(resp.Header.Get("Content-Type"), "text/html") ||
+		!strings.Contains(string(body), "链接不完整") {
+		t.Fatalf("missing-params status %d type %q body %s", resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	}
+
+	// Unknown state renders a styled expiry error.
+	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=x&state=unknown&lang=en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized ||
+		!strings.Contains(string(body), "Link expired") ||
+		!strings.Contains(string(body), "again") {
+		t.Fatalf("invalid-state status %d body %s", resp.StatusCode, body)
+	}
+}
+
 func TestDeviceLoginFlow(t *testing.T) {
 	h, ts := newTestHub(t)
 	h.githubID = "test-client-id"
@@ -520,6 +552,99 @@ func TestDeviceLoginFlow(t *testing.T) {
 	resp.Body.Close()
 	if !strings.Contains(string(body), "no waiting terminal") {
 		t.Fatalf("stale receipt missing: %s", body)
+	}
+}
+
+func TestDeviceLoginStatusAndOAuthErrorPages(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.githubID = "test-client-id"
+	h.githubSecret = "test-client-secret"
+
+	// Start a device login and verify the status endpoint reports it as valid.
+	resp, err := http.Post(ts.URL+"/api/auth/oauth/device", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dev struct {
+		UserCode string `json:"userCode"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&dev); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	resp, err = http.Get(ts.URL + "/api/auth/oauth/device/status?code=" + dev.UserCode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var status struct {
+		Valid     bool `json:"valid"`
+		ExpiresIn int  `json:"expiresIn"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if !status.Valid || status.ExpiresIn <= 0 {
+		t.Fatalf("unexpected status for fresh code: %+v", status)
+	}
+
+	// Unknown / used / expired codes must be reported as invalid, not leaky.
+	resp, err = http.Get(ts.URL + "/api/auth/oauth/device/status?code=ZZZZ99")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if status.Valid {
+		t.Fatalf("unknown code reported valid: %+v", status)
+	}
+
+	// Starting GitHub auth with a stale code must render a styled page, not
+	// raw JSON.
+	resp, err = http.Get(ts.URL + "/api/auth/github/login?device=ZZZZ99&lang=en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "Code expired") {
+		t.Fatalf("stale code page status %d: %s", resp.StatusCode, body)
+	}
+
+	// A callback with an unknown state must still render in the language
+	// embedded in the state parameter.
+	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=x&state=deadbeef.en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized || !strings.Contains(string(body), "Link expired") {
+		t.Fatalf("unknown state page status %d: %s", resp.StatusCode, body)
+	}
+
+	// A user declining GitHub authorization must see a styled cancellation
+	// page instead of a JSON error.
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"error":"access_denied","error_description":"user denied"}`)
+	}))
+	defer tokenSrv.Close()
+	h.githubTokenURL = tokenSrv.URL
+	h.mu.Lock()
+	h.oauthStates["denystate.en"] = oauthState{expires: time.Now().Add(time.Minute), lang: "en"}
+	h.mu.Unlock()
+	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=x&state=denystate.en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "Authorization canceled") {
+		t.Fatalf("access denied page missing: %s", body)
 	}
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "../lib/i18n";
 
 function GitHubIcon() {
@@ -13,6 +13,28 @@ export default function DeviceAuthView() {
   const { t, lang } = useI18n();
   const code = new URLSearchParams(window.location.search).get("code") || "";
   const [err, setErr] = useState("");
+  const [valid, setValid] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/oauth/device/status?code=" + encodeURIComponent(code));
+        const data = (await res.json()) as { valid?: boolean };
+        if (cancelled) return;
+        setValid(!!data.valid);
+        if (!data.valid) setErr(t("cli_auth_expired"));
+      } catch {
+        // Network hiccup: keep the button enabled; the server will render a
+        // styled error if the code turns out to be stale.
+        if (!cancelled) setValid(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, lang]);
 
   return (
     <div className="device-auth">
@@ -29,7 +51,7 @@ export default function DeviceAuthView() {
           id="device-github-login"
           className="auth-github github"
           style={{ width: "100%" }}
-          disabled={!code}
+          disabled={!code || valid === false}
           onClick={() => {
             if (!code) return;
             setErr("");
