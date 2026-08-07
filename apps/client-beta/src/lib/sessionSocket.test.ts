@@ -5,8 +5,10 @@ import {
   dedupeEvent,
   openSessionSocket,
   Outbox,
+  reconnectBackoff,
   WS_STALE_TIMEOUT_MS,
   WS_WATCHDOG_INTERVAL_MS,
+  type SocketHandlers,
 } from "./sessionSocket";
 import type { Device, RiffpadEvent } from "./types";
 
@@ -250,5 +252,155 @@ describe("outbox send status", () => {
 
     sock.close(); // user kills the tab while offline
     expect(events).toEqual([{ id: res.id, status: "dropped" }]);
+  });
+});
+
+// FailingWebSocket simulates a WS handshake that always fails: it never opens
+// and closes on a microtask, like a daemon that is down or a rejected upgrade.
+class FailingWebSocket {
+  static instances: FailingWebSocket[] = [];
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 3;
+
+  readyState = FailingWebSocket.CONNECTING;
+  onopen: (() => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onmessage: ((ev: { data: unknown }) => void) | null = null;
+
+  constructor(public url: string) {
+    FailingWebSocket.instances.push(this);
+    queueMicrotask(() => {
+      if (this.readyState !== FailingWebSocket.CONNECTING) return;
+      this.readyState = FailingWebSocket.CLOSED;
+      this.onclose?.();
+    });
+  }
+
+  send() {}
+  close() {
+    if (this.readyState === FailingWebSocket.CLOSED) return;
+    this.readyState = FailingWebSocket.CLOSED;
+    queueMicrotask(() => this.onclose?.());
+  }
+}
+
+describe("offline vs revoked", () => {
+  const dev: Device = { deviceId: "d1", serverPub: null, jwk: {} as JsonWebKey };
+
+  beforeEach(() => {
+    FailingWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", FailingWebSocket);
+    if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
+    // Shrink the reconnect backoff so the real-timer tests stay fast.
+    reconnectBackoff.baseMs = 2;
+    reconnectBackoff.maxMs = 50;
+  });
+
+  afterEach(() => {
+    reconnectBackoff.baseMs = 1000;
+    reconnectBackoff.maxMs = 30000;
+    vi.unstubAllGlobals();
+  });
+
+  function wait(ms: number) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function makeHandlers(extra: Partial<SocketHandlers> = {}) {
+    return {
+      onConn: () => {},
+      onEvent: () => {},
+      onError: () => {},
+      ...extra,
+    };
+  }
+
+  it("treats a 401 probe as revoked and stops reconnecting", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("unauthorized", { status: 401 })),
+    );
+    const onFatal = vi.fn();
+    const onOffline = vi.fn();
+    const sock = await openSessionSocket("s1", dev, makeHandlers({ onFatal, onOffline }));
+
+    await wait(300); // 4 failed attempts -> probe fires
+    expect(onFatal).toHaveBeenCalledTimes(1);
+    expect(onOffline).not.toHaveBeenCalled();
+
+    // No reconnect is scheduled after a confirmed revocation.
+    const n = FailingWebSocket.instances.length;
+    await wait(300);
+    expect(FailingWebSocket.instances.length).toBe(n);
+    sock.close();
+  });
+
+  it("treats a missing device in a 200 probe as revoked", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ devices: [{ id: "other" }] }), { status: 200 }),
+      ),
+    );
+    const onFatal = vi.fn();
+    const sock = await openSessionSocket("s1", dev, makeHandlers({ onFatal }));
+
+    await wait(300);
+    expect(onFatal).toHaveBeenCalledTimes(1);
+    sock.close();
+  });
+
+  it("keeps reconnecting with an offline notice when the device still exists", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ devices: [{ id: "d1" }] }), { status: 200 }),
+      ),
+    );
+    const onFatal = vi.fn();
+    const onOffline = vi.fn();
+    const sock = await openSessionSocket("s1", dev, makeHandlers({ onFatal, onOffline }));
+
+    await wait(300);
+    expect(onFatal).not.toHaveBeenCalled();
+    expect(onOffline).toHaveBeenCalled();
+    expect(typeof onOffline.mock.calls[0][0]).toBe("string");
+
+    // Reconnecting continues instead of declaring the device revoked.
+    const n = FailingWebSocket.instances.length;
+    await wait(300);
+    expect(FailingWebSocket.instances.length).toBeGreaterThan(n);
+    sock.close();
+  });
+
+  it("keeps reconnecting when the probe itself fails (daemon down)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new Error("network down"))));
+    const onFatal = vi.fn();
+    const onOffline = vi.fn();
+    const sock = await openSessionSocket("s1", dev, makeHandlers({ onFatal, onOffline }));
+
+    await wait(300);
+    expect(onFatal).not.toHaveBeenCalled();
+    expect(onOffline).toHaveBeenCalled();
+
+    const n = FailingWebSocket.instances.length;
+    await wait(300);
+    expect(FailingWebSocket.instances.length).toBeGreaterThan(n);
+    sock.close();
+  });
+
+  it("retry() reconnects immediately without waiting for the backoff", async () => {
+    reconnectBackoff.baseMs = 10_000; // make the scheduled backoff far away
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new Error("network down"))));
+    const sock = await openSessionSocket("s1", dev, makeHandlers({ onOffline: () => {} }));
+
+    await wait(300); // probe fired, reconnect scheduled far in the future
+    const n = FailingWebSocket.instances.length;
+    sock.retry();
+    await wait(100);
+    expect(FailingWebSocket.instances.length).toBeGreaterThan(n);
+    sock.close();
   });
 });

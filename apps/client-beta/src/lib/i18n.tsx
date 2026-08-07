@@ -85,6 +85,8 @@ const zh: Record<string, string> = {
   disconnected: "已断开",
   device_revoked: "连接失败：设备可能已被撤销，请刷新页面并重新配对",
   reconnect_in: "连接断开，{s}s 后自动重连…",
+  daemon_offline: "daemon 离线：请检查电脑上的 daemon 是否在运行，会自动重连",
+  retry_now: "立即重试",
 
   event_session_start: "会话开始",
   event_session_end: "会话结束",
@@ -224,6 +226,8 @@ const en: Record<string, string> = {
   disconnected: "Disconnected",
   device_revoked: "Connection failed: device may have been revoked. Refresh and re-pair.",
   reconnect_in: "Disconnected, reconnecting in {s}s…",
+  daemon_offline: "Daemon offline: check that the daemon is running on your computer. Reconnecting automatically.",
+  retry_now: "Retry now",
 
   event_session_start: "Session start",
   event_session_end: "Session end",
