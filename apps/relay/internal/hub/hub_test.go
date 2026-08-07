@@ -175,6 +175,38 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 	_ = h
 }
 
+func TestAPIClientHostDoesNotServeWebUI(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.apiHosts = []string{"api.riffpad.ai"}
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/", nil)
+	req.Host = "api.riffpad.ai"
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Error string `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	if resp.StatusCode != http.StatusNotFound || out.Error != "not found" {
+		t.Fatalf("api host status %d error %q, want JSON 404", resp.StatusCode, out.Error)
+	}
+
+	// The app host still gets the web UI.
+	req2, _ := http.NewRequest(http.MethodGet, ts.URL+"/", nil)
+	req2.Host = "app.riffpad.ai"
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK || !strings.Contains(resp2.Header.Get("Content-Type"), "text/html") {
+		t.Fatalf("app host status %d content-type %q", resp2.StatusCode, resp2.Header.Get("Content-Type"))
+	}
+}
+
 func TestPairingRequiresOnlineAndOwnedHost(t *testing.T) {
 	_, ts := newTestHub(t)
 	token := registerUser(t, ts, "bob")
