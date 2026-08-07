@@ -1,0 +1,62 @@
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/docs/fonts/GeistMonoVF.woff") format("woff");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --vp-font-family-base: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --vp-font-family-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Riffpad light palette (landing design system) */
+  --vp-c-bg: #fafaf7;
+  --vp-c-bg-soft: #f2f1ec;
+  --vp-c-bg-alt: #f2f1ec;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-text-1: #191917;
+  --vp-c-text-2: #46463f;
+  --vp-c-text-3: #73736a;
+  --vp-c-brand-1: #1a7f37;
+  --vp-c-brand-2: #146c2e;
+  --vp-c-brand-3: #1a7f37;
+  --vp-c-border: rgba(25, 25, 23, 0.12);
+  --vp-c-divider: rgba(25, 25, 23, 0.1);
+  --vp-c-gutter: rgba(25, 25, 23, 0.1);
+  --vp-c-mute: rgba(25, 25, 23, 0.6);
+  --vp-code-bg: #f2f1ec;
+  --vp-code-block-bg: #121214;
+  --vp-code-color: #191917;
+  --vp-button-brand-bg: #1a7f37;
+  --vp-button-brand-hover-bg: #146c2e;
+  --vp-button-brand-text: #ffffff;
+  --vp-custom-block-tip-border: #1a7f37;
+  --vp-custom-block-tip-text: #1a7f37;
+}
+
+.dark {
+  /* Riffpad dark palette (landing design system) */
+  --vp-c-bg: #0b0b0c;
+  --vp-c-bg-soft: #1a1a1d;
+  --vp-c-bg-alt: #121214;
+  --vp-c-bg-elv: #121214;
+  --vp-c-text-1: #e8e6e3;
+  --vp-c-text-2: #a8a8ad;
+  --vp-c-text-3: #7c7c82;
+  --vp-c-brand-1: #7ee787;
+  --vp-c-brand-2: #a4f0ba;
+  --vp-c-brand-3: #7ee787;
+  --vp-c-border: rgba(255, 255, 255, 0.1);
+  --vp-c-divider: rgba(255, 255, 255, 0.1);
+  --vp-c-gutter: rgba(255, 255, 255, 0.1);
+  --vp-c-mute: rgba(255, 255, 255, 0.6);
+  --vp-code-bg: #1a1a1d;
+  --vp-code-block-bg: #121214;
+  --vp-code-color: #e8e6e3;
+  --vp-button-brand-bg: #7ee787;
+  --vp-button-brand-hover-bg: #a4f0ba;
+  --vp-button-brand-text: #191917;
+  --vp-custom-block-tip-border: #7ee787;
+  --vp-custom-block-tip-text: #7ee787;
+}
