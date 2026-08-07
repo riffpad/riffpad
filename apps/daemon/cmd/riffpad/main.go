@@ -223,9 +223,7 @@ func daemonStart(base, dataDir string) error {
 	cmd := exec.Command(exe, "_daemon", "--data-dir", dataDir)
 	cmd.Stdout = out
 	cmd.Stderr = out
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	}
+	cmd.SysProcAttr = daemonProcAttr()
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
@@ -266,10 +264,10 @@ func ensureDaemon(base, dataDir string) error {
 		return fmt.Errorf("open daemon lock: %w", err)
 	}
 	defer lf.Close()
-	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+	if err := lockFile(lf); err != nil {
 		return fmt.Errorf("lock daemon start: %w", err)
 	}
-	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
+	defer func() { _ = unlockFile(lf) }()
 	// Another process may have started the daemon while we waited for the lock.
 	if reachable(base) {
 		return nil
@@ -284,10 +282,13 @@ func ensureDaemon(base, dataDir string) error {
 // starts at login and restarts after crashes.
 func setupCmd(args []string, dataDir string) error {
 	fs := flag.NewFlagSet("setup", flag.ExitOnError)
-	remove := fs.Bool("remove", false, "stop and remove the systemd user service")
+	remove := fs.Bool("remove", false, "stop and remove the autostart entry")
 	_ = fs.Parse(args)
+	if runtime.GOOS == "windows" {
+		return setupWindowsTask(*remove, dataDir)
+	}
 	if runtime.GOOS != "linux" {
-		return fmt.Errorf("setup currently supports Linux systemd only")
+		return fmt.Errorf("setup currently supports Linux systemd / Windows Task Scheduler only")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -336,6 +337,31 @@ WantedBy=default.target
 		return fmt.Errorf("systemctl enable riffpad: %v\n%s", err, out)
 	}
 	fmt.Println(t.T("setup_installed", unitPath))
+	fmt.Println(t.T("setup_done"))
+	return nil
+}
+
+// setupWindowsTask registers (or removes) a scheduled task that starts the
+// daemon at logon.
+func setupWindowsTask(remove bool, dataDir string) error {
+	if remove {
+		out, err := exec.Command("schtasks", "/Delete", "/TN", "RiffpadDaemon", "/F").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("schtasks delete: %v\n%s", err, out)
+		}
+		fmt.Println(t.T("setup_removed"))
+		return nil
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	tr := fmt.Sprintf(`"%s" _daemon --data-dir "%s"`, exe, dataDir)
+	out, err := exec.Command("schtasks", "/Create", "/TN", "RiffpadDaemon", "/TR", tr, "/SC", "ONLOGON", "/RL", "LIMITED", "/F").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("schtasks create: %v\n%s", err, out)
+	}
+	fmt.Println(t.T("setup_installed", "RiffpadDaemon"))
 	fmt.Println(t.T("setup_done"))
 	return nil
 }

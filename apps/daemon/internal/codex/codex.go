@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -249,7 +248,7 @@ func (c *Codex) Restore(threadID string) error {
 			go func() {
 				<-c.stopCh
 				if c.adoptedPID > 0 {
-					_ = syscall.Kill(c.adoptedPID, syscall.SIGTERM)
+					killProcess(c.adoptedPID)
 				}
 			}()
 			if err := c.connect(c.ctx, socketPath); err == nil {
@@ -304,7 +303,7 @@ func (c *Codex) Stop() error {
 		_ = c.cmd.Process.Kill()
 	}
 	if c.adoptedPID > 0 {
-		_ = syscall.Kill(c.adoptedPID, syscall.SIGTERM)
+		killProcess(c.adoptedPID)
 	}
 	c.mu.Lock()
 	if c.socketPath != "" {
@@ -314,6 +313,17 @@ func (c *Codex) Stop() error {
 	c.mu.Unlock()
 	<-c.doneCh
 	return nil
+}
+
+// killProcess terminates a process on any platform (SIGKILL on Unix,
+// TerminateProcess on Windows).
+func killProcess(pid int) {
+	if pid <= 0 {
+		return
+	}
+	if p, err := os.FindProcess(pid); err == nil {
+		_ = p.Kill()
+	}
 }
 
 // Alive reports whether the app-server process is running.

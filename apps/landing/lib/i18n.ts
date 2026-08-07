@@ -12,6 +12,7 @@ const en = {
   },
   install: {
     unix: "macOS / Linux",
+    windows: "Windows",
     copy: "copy",
     copied: "copied ✓",
   },
@@ -224,6 +225,7 @@ const zh: typeof en = {
   },
   install: {
     unix: "macOS / Linux",
+    windows: "Windows",
     copy: "复制",
     copied: "已复制 ✓",
   },
