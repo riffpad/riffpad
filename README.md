@@ -15,6 +15,8 @@ Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your
 
 [Website](https://riffpad.ai) · [Documentation](https://www.riffpad.ai/docs/guide/quickstart) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
+[English](README.md) · [中文](README.zh-CN.md)
+
 </div>
 
 ---
@@ -47,7 +49,8 @@ curl -fsSL https://riffpad.ai/install.sh | sh
 irm https://riffpad.ai/install.ps1 | iex
 ```
 
-Windows 安装脚本会下载最新二进制、加入用户 PATH，并注册登录自启任务（daemon）。
+The Windows script downloads the latest binary, adds it to your user PATH, and
+registers a logon autostart task for the daemon.
 
 ### 2. Sign in on the computer
 
