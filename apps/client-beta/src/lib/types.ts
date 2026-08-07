@@ -15,6 +15,7 @@ export interface SessionInfo {
   cli?: string;
   cwd?: string;
   status?: string;
+  lastSeenAt?: string;
 }
 
 export interface EventPayload {

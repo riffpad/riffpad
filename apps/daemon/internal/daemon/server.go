@@ -45,19 +45,20 @@ type pendingPair struct {
 }
 
 type session struct {
-	id      string
-	meta    protocol.SessionStartPayload
-	adapter adapter.Session
-	events  <-chan protocol.Event
-	status  string
-	ended   bool
-	lease   bool      // local TUI attached: session closes when heartbeat lapses
-	lastHB  time.Time // last lease heartbeat from the local CLI
-	created time.Time
-	connect map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
-	mu      sync.Mutex
-	history []protocol.Event
-	clients map[*client]struct{}
+	id       string
+	meta     protocol.SessionStartPayload
+	adapter  adapter.Session
+	events   <-chan protocol.Event
+	status   string
+	ended    bool
+	lease    bool      // local TUI attached: session closes when heartbeat lapses
+	lastHB   time.Time // last lease heartbeat from the local CLI
+	lastSeen time.Time // last event activity (for dashboard "recent" display)
+	created  time.Time
+	connect  map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
+	mu       sync.Mutex
+	history  []protocol.Event
+	clients  map[*client]struct{}
 }
 
 // Server is the local daemon HTTP/WS server.
@@ -569,11 +570,12 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			list = append(list, map[string]any{
-				"id":     sess.id,
-				"name":   sess.meta.Name,
-				"cli":    sess.meta.CLI,
-				"cwd":    sess.meta.Cwd,
-				"status": sess.status,
+				"id":       sess.id,
+				"name":     sess.meta.Name,
+				"cli":      sess.meta.CLI,
+				"cwd":      sess.meta.Cwd,
+				"status":   sess.status,
+				"lastSeen": sess.lastSeen,
 			})
 		}
 		s.mu.Unlock()
@@ -626,14 +628,15 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess := &session{
-		id:      id,
-		meta:    sessAdapter.Meta(),
-		adapter: sessAdapter,
-		events:  sessAdapter.Events(),
-		status:  protocol.StatusRunning,
-		ended:   false,
-		created: time.Now(),
-		clients: map[*client]struct{}{},
+		id:       id,
+		meta:     sessAdapter.Meta(),
+		adapter:  sessAdapter,
+		events:   sessAdapter.Events(),
+		status:   protocol.StatusRunning,
+		ended:    false,
+		created:  time.Now(),
+		lastSeen: time.Now(),
+		clients:  map[*client]struct{}{},
 	}
 	if req.Prompt == "" {
 		sess.status = protocol.StatusWaitingInput
@@ -782,6 +785,7 @@ func (s *Server) pump(sess *session) {
 }
 
 func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
+	sess.lastSeen = time.Now()
 	if ev.Type == protocol.EventSessionEnd || ev.Type == protocol.EventAgentStatus {
 		var p protocol.AgentStatusPayload
 		_ = ev.DecodePayload(&p)
