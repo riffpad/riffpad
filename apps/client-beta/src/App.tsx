@@ -286,6 +286,7 @@ export default function App() {
             onLeave={() => {
               setOpenSession(null);
             }}
+            onReauth={handleCurrentRevoked}
           />
         )}
       </main>

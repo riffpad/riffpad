@@ -106,7 +106,7 @@
 | M1.2 | Codex 适配器：`codex app-server`（thread/turn/steer + requestApproval） | `[x]` | 注入、流式事件、命令/文件/权限审批映射；真机实测 | #55 |
 | M1.3 | Kimi Code 适配器：ACP client（`kimi acp`） | `[x]` | session/prompt、session/update、request_permission 全协议内；真机实测 | #55 |
 | M1.4 | 会话管理：多会话 + daemon 重启恢复 | `[x]` | 多会话并行；状态/历史加密持久化（AES-GCM）；重启后 Codex 自动重连（TUI 无感），Kimi/Claude 只读恢复；`riffpad update` 自动重启并恢复 | #86 #87 #88 #89 |
-| M1.5 | 断线重连 + 本地回放 | `[~]` | daemon/relay 断线重连已做（重连后重播会话）；手机端缺口补齐未做 | — |
+| M1.5 | 断线重连 + 本地回放 | `[x]` | daemon/relay 重连 + 全量回放；客户端指数退避重连 + event.id 去重；断线期间指令/审批进入 Outbox，重连后按序补发（只补发从未写出的，避免重复执行）；列表页离线横幅；重连彻底失败引导重新配对 | #94 #95 |
 | M1.6 | 设备管理：多手机、撤销、一键熔断 | `[x]` | relay 设备列表/撤销（立即断开）、host 熔断（撤销全部+断全部 viewer）；daemon `POST /api/killswitch` + CLI `riffpad kill`；web 设备卡片（撤销/熔断，二次确认）；撤销后客户端启动校验并引导重新配对 | #96 #97 |
 
 ### 4.2 relay

@@ -12,6 +12,7 @@ interface Props {
   cli?: string;
   cwd?: string;
   onLeave(): void;
+  onReauth(): void;
 }
 
 type Row =
@@ -79,12 +80,13 @@ function mergeTool(ex: ToolLine, line: ToolLine): ToolLine {
   };
 }
 
-export default function SessionDetailView({ sid, name, cli, cwd, onLeave }: Props) {
+export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReauth }: Props) {
   const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [tools, setTools] = useState<Record<string, ToolLine>>({});
   const [prompt, setPrompt] = useState("");
   const [err, setErr] = useState("");
+  const [fatal, setFatal] = useState("");
   const [status, setStatus] = useState(t("connecting"));
   const [agentStatus, setAgentStatus] = useState("");
   const [meta, setMeta] = useState<{ cwd?: string; cli?: string }>({ cwd, cli });
@@ -110,6 +112,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave }: Prop
     setTools({});
     toolsRef.current = {};
     setStatus(t("connecting"));
+    setFatal("");
     setAgentStatus("");
     setMeta({ cwd, cli });
     ensureIdentity()
@@ -181,6 +184,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave }: Prop
             setRows([...rowsRef.current]);
           },
           onError: (message) => setStatus(t("handshake_failed") + message),
+          onFatal: (message) => setFatal(message),
         });
       })
       .then((sock) => {
@@ -260,7 +264,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave }: Prop
             {t("agent_running")}
           </div>
         )}
-        {rows.length === 0 && !running && (
+      {rows.length === 0 && !running && (
           <div className="chat-skeleton" aria-hidden="true">
             {[0, 1, 2, 3, 4].map((i) => (
               <div
@@ -272,6 +276,15 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave }: Prop
           </div>
         )}
       </div>
+      {fatal && (
+        <div id="fatal-banner" className="fatal-banner">
+          <span>{fatal}</span>
+          <div className="fatal-actions">
+            <button className="ghost" onClick={onReauth}>{t("device_revoked_action")}</button>
+            <button className="ghost" onClick={onLeave}>{t("back")}</button>
+          </div>
+        </div>
+      )}
       {scroll.can && !scroll.bottom && (
         <button id="jump-bottom" className="jump-bottom" onClick={scrollToBottom}>↓ {t("jump_bottom")}</button>
       )}
