@@ -53,6 +53,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 | `tool_call` | daemon → mobile | 工具名、参数、状态 |
 | `approval_request` | daemon → mobile | 审批请求（含操作摘要） |
 | `approval_response` | mobile → daemon | `approve` / `reject` / 修改后的条件 |
+| `notify` | daemon → mobile | 通知；审批过期回显带 `requestId`（level=error），供 client 纠正卡片状态 |
 | `prompt` | mobile → daemon | 文字新指令 |
 | `file_change` | daemon → mobile | 路径与变更摘要 |
 

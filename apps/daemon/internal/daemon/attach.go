@@ -27,7 +27,12 @@ func (a *attachAdapter) Events() <-chan protocol.Event { return nil }
 func (a *attachAdapter) Meta() protocol.SessionStartPayload {
 	return protocol.SessionStartPayload{}
 }
-func (a *attachAdapter) SendApproval(_, _ string) error { return nil }
+// SendApproval on an attachAdapter is only reached when the request is not in
+// the server's pendingHooks map (see Server.dispatch), i.e. the hook already
+// timed out or was resolved — so it always reports the approval as expired.
+func (a *attachAdapter) SendApproval(_, _ string) error {
+	return fmt.Errorf("approval expired or already handled")
+}
 func (a *attachAdapter) SendPrompt(text string) error {
 	return a.server.injectPrompt(a.cwd, text)
 }
@@ -375,6 +380,12 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 		}
 	case <-time.After(10 * time.Minute):
 	}
+	// Drop the pending entry (on the timeout path it would otherwise leak):
+	// a late approval_response then misses pendingHooks and the viewer gets
+	// an explicit "expired" notify instead of being silently swallowed.
+	s.mu.Lock()
+	delete(s.pendingHooks, reqID)
+	s.mu.Unlock()
 	s.log.Printf("permission hook resolved session=%s req=%s decision=%s", p.SessionID, reqID, decision)
 	// Claude Code 2.1.220 expects the decision inside hookSpecificOutput,
 	// not the legacy permissionDecision field.

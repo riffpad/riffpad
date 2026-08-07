@@ -245,7 +245,7 @@ func (c *client) readLoop(s *Server) {
 			continue
 		}
 		s.log.Printf("client event session=%s type=%s device=%s", c.session.id, ev.Type, c.deviceID)
-		s.dispatch(c.session, ev)
+		s.dispatch(c, ev)
 	}
 }
 
@@ -274,7 +274,8 @@ func (s *Server) handleHistoryQuery(c *client, before string, limit int) {
 	c.sendRaw(done)
 }
 
-func (s *Server) dispatch(sess *session, ev protocol.Event) {
+func (s *Server) dispatch(c *client, ev protocol.Event) {
+	sess := c.session
 	switch ev.Type {
 	case protocol.EventApprovalResp:
 		var p protocol.ApprovalResponsePayload
@@ -293,7 +294,20 @@ func (s *Server) dispatch(sess *session, ev protocol.Event) {
 			return
 		}
 		s.mu.Unlock()
-		_ = sess.adapter.SendApproval(p.RequestID, decision)
+		if err := sess.adapter.SendApproval(p.RequestID, decision); err != nil {
+			// The request is unknown to the daemon (hook timed out or already
+			// handled): ack the sending viewer so it can correct its UI instead
+			// of leaving a "已批准" card that never took effect.
+			s.log.Printf("approval expired session=%s req=%s: %v", sess.id, p.RequestID, err)
+			note, nerr := protocol.NewEvent(sess.id, protocol.EventNotify, protocol.NotifyPayload{
+				Level:     "error",
+				Message:   "审批已过期或已被处理，本次操作未生效",
+				RequestID: p.RequestID,
+			})
+			if nerr == nil {
+				c.sendEvent(note)
+			}
+		}
 	case protocol.EventPrompt:
 		var p protocol.PromptPayload
 		if err := ev.DecodePayload(&p); err != nil {

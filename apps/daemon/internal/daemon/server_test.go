@@ -87,7 +87,10 @@ func (f *fakeSession) Start(_ context.Context) error {
 	return nil
 }
 
-func (f *fakeSession) SendApproval(_ string, decision string) error {
+func (f *fakeSession) SendApproval(requestID string, decision string) error {
+	if requestID != "req-fake-1" {
+		return fmt.Errorf("unknown approval request %s", requestID)
+	}
 	f.lastDecision = decision
 	f.approvals <- decision
 	return nil
@@ -103,6 +106,124 @@ func (f *fakeSession) Alive() bool { return true }
 func (f *fakeSession) Stop() error {
 	f.stopCalled <- struct{}{}
 	return nil
+}
+
+// TestDispatchUnknownApprovalNotifiesViewer covers the late-approval case: a
+// viewer taps "approve" while offline, the request times out on the daemon,
+// and the flushed approval_response arrives with an unknown requestID. The
+// daemon must ack the sending viewer with an error notify carrying the
+// requestID so the client can mark the card as expired instead of "已批准".
+func TestDispatchUnknownApprovalNotifiesViewer(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	fake := &fakeSession{
+		id:         "s1",
+		events:     make(chan protocol.Event, 1),
+		approvals:  make(chan string, 1),
+		prompts:    make(chan string, 1),
+		stopCalled: make(chan struct{}, 1),
+	}
+	sess := &session{id: "s1", adapter: fake, clients: map[*client]struct{}{}}
+	key := &[32]byte{1, 2, 3}
+	c := &client{
+		deviceID: "d1",
+		session:  sess,
+		key:      key,
+		send:     make(chan []byte, 1),
+		done:     make(chan struct{}),
+		log:      logger,
+	}
+
+	payload, _ := json.Marshal(protocol.ApprovalResponsePayload{RequestID: "hook-gone", Decision: "approve"})
+	srv.dispatch(c, protocol.Event{ID: "e1", SessionID: "s1", Type: protocol.EventApprovalResp, Payload: payload})
+
+	select {
+	case data := <-c.send:
+		var env protocol.Envelope
+		if err := json.Unmarshal(data, &env); err != nil {
+			t.Fatal(err)
+		}
+		plain, err := env.Open(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ev protocol.Event
+		if err := json.Unmarshal(plain, &ev); err != nil {
+			t.Fatal(err)
+		}
+		if ev.Type != protocol.EventNotify {
+			t.Fatalf("expected notify, got %s", ev.Type)
+		}
+		var n protocol.NotifyPayload
+		if err := ev.DecodePayload(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n.Level != "error" || n.RequestID != "hook-gone" {
+			t.Fatalf("unexpected notify payload: %+v", n)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no expired notify sent to the viewer")
+	}
+}
+
+// TestDispatchPendingHookResolves ensures the pendingHooks path still wins
+// and does not emit an expired notify.
+func TestDispatchPendingHookResolves(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	fake := &fakeSession{
+		id:         "s1",
+		events:     make(chan protocol.Event, 1),
+		approvals:  make(chan string, 1),
+		prompts:    make(chan string, 1),
+		stopCalled: make(chan struct{}, 1),
+	}
+	sess := &session{id: "s1", adapter: fake, clients: map[*client]struct{}{}}
+	key := &[32]byte{1, 2, 3}
+	c := &client{
+		deviceID: "d1",
+		session:  sess,
+		key:      key,
+		send:     make(chan []byte, 1),
+		done:     make(chan struct{}),
+		log:      logger,
+	}
+
+	ch := make(chan string, 1)
+	srv.mu.Lock()
+	srv.pendingHooks["hook-live"] = ch
+	srv.mu.Unlock()
+
+	payload, _ := json.Marshal(protocol.ApprovalResponsePayload{RequestID: "hook-live", Decision: "approve"})
+	srv.dispatch(c, protocol.Event{ID: "e1", SessionID: "s1", Type: protocol.EventApprovalResp, Payload: payload})
+
+	select {
+	case d := <-ch:
+		if d != "approve" {
+			t.Fatalf("unexpected decision %q", d)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("pending hook not resolved")
+	}
+	select {
+	case data := <-c.send:
+		t.Fatalf("unexpected viewer notify: %s", data)
+	default:
+	}
 }
 
 func TestPairCreateSessionAndApprovalLoop(t *testing.T) {

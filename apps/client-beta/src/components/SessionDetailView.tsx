@@ -4,7 +4,7 @@ import { openSessionSocket, type SessionSocket } from "../lib/sessionSocket";
 import { useI18n } from "../lib/i18n";
 import type { RiffpadEvent } from "../lib/types";
 import DotMatrix from "./DotMatrix";
-import EventItem from "./EventItem";
+import EventItem, { type ApprovalOutcome } from "./EventItem";
 import ToolLog, { type ToolLine } from "./ToolLog";
 
 interface Props {
@@ -95,6 +95,11 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const [status, setStatus] = useState(t("connecting"));
   const [agentStatus, setAgentStatus] = useState("");
   const [meta, setMeta] = useState<{ cwd?: string; cli?: string }>({ cwd, cli });
+  // Fate of queued approval_responses, keyed by approval requestId; consumed
+  // by EventItem to move a card out of 待发送 (or mark it 已过期).
+  const [approvalOutcomes, setApprovalOutcomes] = useState<Record<string, ApprovalOutcome>>({});
+  // outbox event id -> approval requestId, recorded when send() queues.
+  const queuedApprovalsRef = useRef(new Map<string, string>());
   const [scroll, setScroll] = useState<{ can: boolean; top: boolean; bottom: boolean }>({ can: false, top: true, bottom: true });
   const sockRef = useRef<SessionSocket | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -123,6 +128,8 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     setFatal("");
     setAgentStatus("");
     setMeta({ cwd, cli });
+    setApprovalOutcomes({});
+    queuedApprovalsRef.current.clear();
     ensureIdentity()
       .then((dev) => {
         if (!dev.deviceId) {
@@ -141,6 +148,12 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             if (ev.type === "session_start") {
               const p = ev.payload || {};
               setMeta({ cwd: String(p.cwd || ""), cli: String(p.cli || "") });
+            }
+            if (ev.type === "notify") {
+              // Daemon ack for a late/unknown approval_response: mark the card
+              // 已过期. The notify itself still renders as a status line below.
+              const rid = String((ev.payload || {}).requestId || "");
+              if (rid) setApprovalOutcomes((m) => ({ ...m, [rid]: "expired" }));
             }
             const tool = toolLineFromEvent(ev, t);
             if (tool) {
@@ -194,6 +207,13 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
           onError: (message) => setStatus(t("handshake_failed") + message),
           onFatal: (message) => setFatal(message),
           onHistory: (events) => applyHistory(events),
+          onOutbox: (id, status) => {
+            if (cancelled) return;
+            const rid = queuedApprovalsRef.current.get(id);
+            if (!rid) return;
+            queuedApprovalsRef.current.delete(id);
+            setApprovalOutcomes((m) => ({ ...m, [rid]: status }));
+          },
         });
       })
       .then((sock) => {
@@ -287,14 +307,14 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     const text = prompt.trim();
     if (!text || !sockRef.current) return;
     setPrompt("");
-    const sent = await sockRef.current.send("prompt", { text });
-    setErr(sent ? "" : t("send_failed"));
+    const res = await sockRef.current.send("prompt", { text });
+    setErr(res.status === "failed" ? t("send_failed") : "");
   }
 
   async function interrupt() {
     if (!sockRef.current) return;
-    const sent = await sockRef.current.send("control", { action: "stop" });
-    setErr(sent ? "" : t("send_failed"));
+    const res = await sockRef.current.send("control", { action: "stop" });
+    setErr(res.status === "failed" ? t("send_failed") : "");
   }
 
   const running = agentStatus === "running";
@@ -326,7 +346,17 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             <EventItem
               key={row.id}
               ev={row.ev}
-              send={(type, payload) => sockRef.current ? sockRef.current.send(type, payload) : Promise.resolve(false)}
+              outcomes={approvalOutcomes}
+              send={async (type, payload) => {
+                if (!sockRef.current) return { status: "failed" as const, id: "" };
+                const res = await sockRef.current.send(type, payload);
+                // Remember which approval requestId a queued outbox event
+                // belongs to so onOutbox can resolve the card later.
+                if (res.status === "queued" && type === "approval_response") {
+                  queuedApprovalsRef.current.set(res.id, String(payload.requestId || ""));
+                }
+                return res;
+              }}
             />
           ),
         )}
