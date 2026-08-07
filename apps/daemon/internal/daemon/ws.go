@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/riffpad/riffpad/packages/protocol"
@@ -12,6 +15,27 @@ import (
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(*http.Request) bool { return true },
 }
+
+// WebSocket heartbeat parameters, shared by local viewer connections and the
+// relay uplink. Pings go out every wsPingPeriod; if no pong (or any other
+// frame) arrives within wsPongWait the connection is treated as half-open and
+// torn down so reconnect logic can take over. Atomics (not constants) so
+// tests can shrink them without data races.
+var (
+	wsWriteWait  atomic.Int64
+	wsPingPeriod atomic.Int64
+	wsPongWait   atomic.Int64
+)
+
+func init() {
+	wsWriteWait.Store(int64(10 * time.Second))
+	wsPingPeriod.Store(int64(30 * time.Second))
+	wsPongWait.Store(int64(75 * time.Second))
+}
+
+func wsWriteDeadline() time.Time    { return time.Now().Add(time.Duration(wsWriteWait.Load())) }
+func wsPingInterval() time.Duration { return time.Duration(wsPingPeriod.Load()) }
+func wsPongTimeout() time.Duration  { return time.Duration(wsPongWait.Load()) }
 
 const (
 	// historyReplayLimit is how many recent events a viewer gets on connect.
@@ -45,10 +69,13 @@ func historySlice(events []protocol.Event, before string, limit int) []protocol.
 }
 
 type wsTransport struct {
-	conn *websocket.Conn
+	conn      *websocket.Conn
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func (t *wsTransport) Send(data []byte) error {
+	_ = t.conn.SetWriteDeadline(wsWriteDeadline())
 	return t.conn.WriteMessage(websocket.TextMessage, data)
 }
 
@@ -58,7 +85,24 @@ func (t *wsTransport) Recv() ([]byte, error) {
 }
 
 func (t *wsTransport) Close() error {
+	t.closeOnce.Do(func() { close(t.done) })
 	return t.conn.Close()
+}
+
+// wsPingLoop sends protocol pings until done is closed or a write fails.
+func wsPingLoop(conn *websocket.Conn, done <-chan struct{}) {
+	ticker := time.NewTicker(wsPingInterval())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := conn.WriteControl(websocket.PingMessage, nil, wsWriteDeadline()); err != nil {
+				return
+			}
+		case <-done:
+			return
+		}
+	}
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -91,10 +135,17 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if err := s.attachViewer(&wsTransport{conn: conn}, deviceID, sid, ephPub, dev.Curve, devPub); err != nil {
-		_ = conn.Close()
+	conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	})
+	tr := &wsTransport{conn: conn, done: make(chan struct{})}
+	if err := s.attachViewer(tr, deviceID, sid, ephPub, dev.Curve, devPub); err != nil {
+		_ = tr.Close()
 		writeError(w, http.StatusNotFound, err.Error())
+		return
 	}
+	go wsPingLoop(conn, tr.done)
 }
 
 // attachViewer performs the E2EE handshake for a viewer (local or relay) and

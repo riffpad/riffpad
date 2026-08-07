@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/riffpad/riffpad/packages/protocol"
 )
@@ -34,12 +35,25 @@ func (c *client) closeDone() {
 	c.closeOnce.Do(func() { close(c.done) })
 }
 
+// appPing is an application-level keepalive. Browser clients cannot see
+// protocol-level ping/pong frames, so without this an idle-but-healthy
+// connection would look dead to their silence watchdog.
+var appPing = []byte(`{"kind":"ping"}`)
+
 func (c *client) writeLoop() {
+	ticker := time.NewTicker(wsPingInterval())
+	defer ticker.Stop()
 	for {
 		select {
 		case data := <-c.send:
 			if err := c.transport.Send(data); err != nil {
 				c.log.Printf("ws write error device=%s: %v", c.deviceID, err)
+				c.closeDone()
+				return
+			}
+		case <-ticker.C:
+			if err := c.transport.Send(appPing); err != nil {
+				c.log.Printf("ws ping error device=%s: %v", c.deviceID, err)
 				c.closeDone()
 				return
 			}

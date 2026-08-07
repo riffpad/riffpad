@@ -124,6 +124,15 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("dial relay: %w", err)
 	}
+	conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	})
+	// Ping actively: a half-open uplink (laptop lid closed, network switch)
+	// never sends a FIN, so only heartbeat + read deadline reveals it.
+	pingDone := make(chan struct{})
+	defer close(pingDone)
+	go wsPingLoop(conn, pingDone)
 	c.mu.Lock()
 	c.conn = conn
 	c.mu.Unlock()
@@ -325,5 +334,6 @@ func (c *relayClient) sendFrame(fr relayFrame) error {
 	if c.conn == nil {
 		return fmt.Errorf("relay not connected")
 	}
+	_ = c.conn.SetWriteDeadline(wsWriteDeadline())
 	return c.conn.WriteMessage(websocket.TextMessage, data)
 }
