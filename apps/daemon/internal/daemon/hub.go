@@ -108,3 +108,17 @@ func (s *session) snapshot() []protocol.Event {
 	copy(out, s.history)
 	return out
 }
+
+// snapshotLast returns at most n most recent events, oldest first.
+func (s *session) snapshotLast(n int) []protocol.Event {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if n <= 0 || len(s.history) <= n {
+		out := make([]protocol.Event, len(s.history))
+		copy(out, s.history)
+		return out
+	}
+	out := make([]protocol.Event, n)
+	copy(out, s.history[len(s.history)-n:])
+	return out
+}
