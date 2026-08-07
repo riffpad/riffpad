@@ -132,7 +132,7 @@
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
 | M1.15 | 单元测试 + Playwright e2e（审批闭环、断线重连、E2EE） | `[x]` | CI 三 job：Go 全量测试（daemon/relay/protocol）、client-beta typecheck/build、Playwright UI 冒烟；审批闭环/E2EE 由 Go 测试与 e2e-acceptance.mjs 覆盖 | #91 #92 |
-| M1.17 | MVP 体验打磨（app.riffpad.ai / 本地 8787）：onboarding、空状态、错误提示、移动端适配、配对/审批流程细节 | `[ ]` | 外部用户零指导完成全流程；无明显粗糙交互（先于 M1.16 执行） | — |
+| M1.17 | MVP 体验打磨（app.riffpad.ai / 本地 8787）：onboarding、空状态、错误提示、移动端适配、配对/审批流程细节 | `[x]` | 外部用户零指导完成全流程；无明显粗糙交互；2026-08-07 经多轮 UI 打磨上线（配对引导/登录页/Dashboard/会话详情/Devices/骨架屏/主题） | #101 #106 #116 #124 #127 #128 |
 | M1.18 | 账号与部署升级：GitHub OAuth 登录 + SQLite→Postgres + relay/postgres Docker Compose 容器化（app.riffpad.ai 前端继续内嵌 relay） | `[x]` | GitHub 登录可用（密码登录保留，OAuth 账号 passwordless）；relay 数据在 Postgres（`migrate-sqlite` 迁移完成）；compose 一键上线（nginx/certbot 留宿主，relay 仅监听 127.0.0.1:9090）；生产密钥在 /opt/riffpad/.env | #104 #105 |
 | M1.19 | client-beta UI v2：按 design-system 重做视觉（Console-Mobile：Geist Mono / GitHub green / hairline 卡片）+ 入场/状态动画 + Web 多语种（zh/en，自动检测 + 手动切换） | `[x]` | app.riffpad.ai 与本地 8787 同一产物；深/浅色跟随系统；动画尊重 reduced-motion；中英切换即时生效；2026-08-07 经 CD 自动部署上线 | #106 #107 |
 | M1.20 | 会话历史懒加载 + 分页：连接只推最近 N 条，上滑按页拉取更早历史，杜绝超长会话全量重放 | `[ ]` | 长会话秒开；上滑加载更早消息不跳位；断线重连去重；daemon 历史按偏移读取 | #125 |
