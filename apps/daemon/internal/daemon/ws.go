@@ -13,7 +13,13 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(*http.Request) bool { return true },
+	// The localAuth middleware has already validated the token and any Origin
+	// header; this is defense in depth for the WS handshake itself. Non-browser
+	// clients send no Origin and are allowed through.
+	CheckOrigin: func(r *http.Request) bool {
+		o := r.Header.Get("Origin")
+		return o == "" || loopbackOrigin(o)
+	},
 }
 
 // WebSocket heartbeat parameters, shared by local viewer connections and the

@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -40,6 +41,47 @@ const updateRepo = "riffpad/riffpad"
 
 // t is the active language bundle, initialized in main from --lang / env.
 var t = i18n.New(i18n.DefaultLang)
+
+// cliDataDir and cliToken feed localToken; cliDataDir is set in main before
+// dispatch, cliToken is loaded lazily on the first daemon API call.
+var (
+	cliDataDir string
+	cliToken   string
+	tokenOnce  sync.Once
+)
+
+// localToken returns the daemon's local API token. It lives in config.json
+// (created on demand by config.Load), so the CLI and the daemon always agree
+// on the same token without any user setup.
+func localToken() string {
+	tokenOnce.Do(func() {
+		if cliToken == "" && cliDataDir != "" {
+			if cfg, err := config.Load(cliDataDir); err == nil {
+				cliToken = cfg.LocalToken
+			}
+		}
+	})
+	return cliToken
+}
+
+// daemonDo performs an authenticated request against the local daemon API.
+// A nil client uses http.DefaultClient.
+func daemonDo(client *http.Client, method, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if tok := localToken(); tok != "" {
+		req.Header.Set(daemon.LocalTokenHeader, tok)
+	}
+	if client == nil {
+		client = http.DefaultClient
+	}
+	return client.Do(req)
+}
 
 func main() {
 	langFlag, args := extractLangFlag(os.Args[1:])
@@ -65,6 +107,7 @@ func main() {
 		}
 		dataDir = d
 	}
+	cliDataDir = dataDir
 
 	var err error
 	switch os.Args[1] {
@@ -370,7 +413,7 @@ func daemonStop(base string) error {
 	if !reachable(base) {
 		return fmt.Errorf("%s", t.T("daemon_not_running"))
 	}
-	resp, err := http.Post(base+"/api/shutdown", "application/json", nil)
+	resp, err := daemonDo(nil, http.MethodPost, base+"/api/shutdown", nil)
 	if err != nil {
 		return err
 	}
@@ -387,7 +430,7 @@ func daemonStop(base string) error {
 }
 
 func statusCmd(base string) error {
-	resp, err := http.Get(base + "/api/status")
+	resp, err := daemonDo(nil, http.MethodGet, base+"/api/status", nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
@@ -402,7 +445,7 @@ func statusCmd(base string) error {
 }
 
 func pairCmd(base string) error {
-	resp, err := http.Post(base+"/api/pairings", "application/json", nil)
+	resp, err := daemonDo(nil, http.MethodPost, base+"/api/pairings", nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
@@ -433,7 +476,7 @@ func pairCmd(base string) error {
 }
 
 func sessionsCmd(base string) error {
-	resp, err := http.Get(base + "/api/sessions")
+	resp, err := daemonDo(nil, http.MethodGet, base+"/api/sessions", nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
@@ -464,7 +507,7 @@ func runCmd(args []string, base string) error {
 	body, _ := json.Marshal(map[string]string{
 		"name": *name, "prompt": *prompt, "cwd": *cwd, "cli": *cli,
 	})
-	resp, err := http.Post(base+"/api/sessions", "application/json", bytes.NewReader(body))
+	resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}
@@ -491,7 +534,7 @@ func runCmd(args []string, base string) error {
 func attachCodexTUI(base, sessionID string) error {
 	fmt.Println("正在启动 Codex TUI（会话已托管到 daemon）…")
 	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Get(base + "/api/sessions/" + sessionID + "/connect")
+	resp, err := daemonDo(client, http.MethodGet, base+"/api/sessions/"+sessionID+"/connect", nil)
 	if err != nil {
 		return fmt.Errorf("等待 Codex 会话就绪失败: %w", err)
 	}
@@ -547,7 +590,7 @@ func attachCodexTUI(base, sessionID string) error {
 		for {
 			select {
 			case <-ticker.C:
-				if resp, err := http.Post(base+"/api/sessions/"+sessionID+"/heartbeat", "application/json", nil); err == nil {
+				if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/heartbeat", nil); err == nil {
 					_ = resp.Body.Close()
 				}
 			case <-hbStop:
@@ -564,7 +607,7 @@ func attachCodexTUI(base, sessionID string) error {
 	// means exiting. Close the daemon session so it disappears from the client
 	// and cannot be remote-controlled anymore. Users who want a persistent
 	// session should run riffpad inside tmux themselves.
-	if resp, err := http.Post(base+"/api/sessions/"+sessionID+"/stop", "application/json", nil); err == nil {
+	if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); err == nil {
 		_ = resp.Body.Close()
 	}
 	fmt.Printf("Codex TUI 已退出，会话 %s 已关闭。\n", sessionID)
@@ -611,10 +654,16 @@ func attachCmd(base string) error {
 	}
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 	httpHook := func(path string, timeout int) map[string]any {
+		hookURL := baseURL + path
+		if tok := localToken(); tok != "" {
+			// The hook process cannot set headers; the daemon also accepts the
+			// local API token as a query parameter.
+			hookURL += "?token=" + url.QueryEscape(tok)
+		}
 		return map[string]any{
 			"matcher": "",
 			"hooks": []any{
-				map[string]any{"type": "http", "url": baseURL + path, "timeout": timeout},
+				map[string]any{"type": "http", "url": hookURL, "timeout": timeout},
 			},
 		}
 	}
@@ -1052,7 +1101,7 @@ func restartDaemon(dataDir string) {
 
 func reachable(base string) bool {
 	client := &http.Client{Timeout: 500 * time.Millisecond}
-	resp, err := client.Get(base + "/api/status")
+	resp, err := daemonDo(client, http.MethodGet, base+"/api/status", nil)
 	if err != nil {
 		return false
 	}
@@ -1066,7 +1115,7 @@ func reachable(base string) bool {
 // killCmd triggers the daemon kill switch: stops all agent sessions and
 // revokes all paired devices (local + cloud).
 func killCmd(base string) error {
-	resp, err := http.Post(base+"/api/killswitch", "application/json", nil)
+	resp, err := daemonDo(nil, http.MethodPost, base+"/api/killswitch", nil)
 	if err != nil {
 		return fmt.Errorf("daemon not reachable at %s: %w", base, err)
 	}
@@ -1144,7 +1193,7 @@ func updateCmd(args []string, dataDir string) error {
 	fmt.Println(t.T("update_done", latest, backup))
 	if !*noRestart && reachable(defaultDaemonBase()) {
 		fmt.Println("daemon 正在运行，自动重启以应用新版本…")
-		if resp, err := http.Post(defaultDaemonBase()+"/api/shutdown", "application/json", nil); err == nil {
+		if resp, err := daemonDo(nil, http.MethodPost, defaultDaemonBase()+"/api/shutdown", nil); err == nil {
 			_ = resp.Body.Close()
 		}
 		// Wait for the old daemon to exit, then start the new binary via the

@@ -133,10 +133,21 @@ async function decryptEvent(key, sid, nonceB64, ctB64) {
 const started = Date.now();
 console.log(`Riffpad M1 acceptance — cli=${CLI} daemon=${DAEMON}`);
 
+// Local daemon config: relay credentials + the local API token (required by
+// the daemon's HTTP API since the local-auth fix).
+let cfg = {};
+try {
+  cfg = JSON.parse(readFileSync(join(DATA_DIR, "config.json"), "utf8"));
+} catch {
+  cfg = {};
+}
+const localToken = cfg.localToken || cfg.LocalToken || "";
+const daemonHeaders = localToken ? { "X-Riffpad-Token": localToken } : {};
+
 // 1. daemon reachable
 let daemonStatus = null;
 try {
-  const r = await fetch(`${DAEMON}/api/status`);
+  const r = await fetch(`${DAEMON}/api/status`, { headers: daemonHeaders });
   daemonStatus = await r.json();
 } catch {
   daemonStatus = null;
@@ -146,12 +157,6 @@ if (!check("1 daemon reachable", !!daemonStatus, daemonStatus ? `port=${daemonSt
 }
 
 // 2. relay config from daemon (same owner token)
-let cfg = {};
-try {
-  cfg = JSON.parse(readFileSync(join(DATA_DIR, "config.json"), "utf8"));
-} catch {
-  cfg = {};
-}
 const relayWS = cfg.relayUrl || cfg.RelayURL || "";
 const relayBase = relayWS.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
 const token = cfg.relayToken || cfg.RelayToken || "";
@@ -170,6 +175,7 @@ if (sid) {
 } else {
   const created = await jfetch(`${DAEMON}/api/sessions`, {
     method: "POST",
+    headers: daemonHeaders,
     body: JSON.stringify({ name: "acceptance", cli: CLI, prompt: PROMPT, cwd: CWD }),
   });
   sid = created.data.id;
@@ -179,7 +185,7 @@ if (sid) {
 }
 
 // 5. host pairing code (daemon forwards to relay)
-const pairRes = await jfetch(`${DAEMON}/api/pairings`, { method: "POST" });
+const pairRes = await jfetch(`${DAEMON}/api/pairings`, { method: "POST", headers: daemonHeaders });
 const code = pairRes.data.code;
 if (!check("5 host pairing code", pairRes.res.ok && !!code, `code=${code}`)) {
   process.exit(5);
@@ -333,7 +339,7 @@ check("10 agent replied to viewer prompt", gotPong, "reply contains PONG");
 
 ws.close();
 if (!EXISTING_SESSION) {
-  await jfetch(`${DAEMON}/api/sessions/${sid}/stop`, { method: "POST" });
+  await jfetch(`${DAEMON}/api/sessions/${sid}/stop`, { method: "POST", headers: daemonHeaders });
 }
 
 const passed = checks.filter((c) => c.ok).length;

@@ -20,14 +20,15 @@ type Session interface {
 
 // CreateRequest describes a session to start.
 type CreateRequest struct {
-	ID       string
-	Name     string
-	CLI      string
-	Binary   string
-	Cwd      string
-	Prompt   string
-	DataDir  string
-	HookBase string
+	ID        string
+	Name      string
+	CLI       string
+	Binary    string
+	Cwd       string
+	Prompt    string
+	DataDir   string
+	HookBase  string
+	HookToken string // local API token appended to hook URLs (see daemon.localAuth)
 }
 
 // Factory creates a session from a CreateRequest.

@@ -34,7 +34,7 @@ func shrinkWSHeartbeat(t *testing.T, pingPeriod, pongWait time.Duration) {
 }
 
 // setupWSTest starts a daemon server with a paired device and one session.
-func setupWSTest(t *testing.T) (ts *httptest.Server, deviceID, sessionID string) {
+func setupWSTest(t *testing.T) (ts *httptest.Server, deviceID, sessionID, token string) {
 	t.Helper()
 	dir := t.TempDir()
 	cfg := config.Default()
@@ -56,10 +56,7 @@ func setupWSTest(t *testing.T) (ts *httptest.Server, deviceID, sessionID string)
 	ts = httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 
-	resp, err := http.Post(ts.URL+"/api/pairings", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings", cfg.LocalToken, nil)
 	var pr struct {
 		Code string `json:"code"`
 	}
@@ -75,10 +72,7 @@ func setupWSTest(t *testing.T) (ts *httptest.Server, deviceID, sessionID string)
 	body, _ := json.Marshal(map[string]string{
 		"code": pr.Code, "name": "test", "curve": "p256", "publicKey": protocol.EncodeKey(clientID.PublicKey),
 	})
-	resp, err = http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = authRequest(t, http.MethodPost, ts.URL+"/api/pair", cfg.LocalToken, strings.NewReader(string(body)))
 	var pair struct {
 		DeviceID string `json:"deviceId"`
 	}
@@ -90,10 +84,7 @@ func setupWSTest(t *testing.T) (ts *httptest.Server, deviceID, sessionID string)
 		t.Fatal("pairing failed")
 	}
 
-	resp, err = http.Post(ts.URL+"/api/sessions", "application/json", strings.NewReader(`{"name":"demo","cli":"fake"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = authRequest(t, http.MethodPost, ts.URL+"/api/sessions", cfg.LocalToken, strings.NewReader(`{"name":"demo","cli":"fake"}`))
 	var sess struct {
 		ID string `json:"id"`
 	}
@@ -104,10 +95,10 @@ func setupWSTest(t *testing.T) (ts *httptest.Server, deviceID, sessionID string)
 	if sess.ID == "" {
 		t.Fatal("session create failed")
 	}
-	return ts, pair.DeviceID, sess.ID
+	return ts, pair.DeviceID, sess.ID, cfg.LocalToken
 }
 
-func dialViewerWS(t *testing.T, ts *httptest.Server, deviceID, sessionID string) *websocket.Conn {
+func dialViewerWS(t *testing.T, ts *httptest.Server, deviceID, sessionID, token string) *websocket.Conn {
 	t.Helper()
 	eph, err := protocol.GenerateKeyPair(protocol.CurveP256)
 	if err != nil {
@@ -115,7 +106,8 @@ func dialViewerWS(t *testing.T, ts *httptest.Server, deviceID, sessionID string)
 	}
 	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") +
 		"/ws?device=" + deviceID + "&session=" + sessionID +
-		"&eph=" + protocol.EncodeKey(eph.PublicKey)
+		"&eph=" + protocol.EncodeKey(eph.PublicKey) +
+		"&token=" + token
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -126,8 +118,8 @@ func dialViewerWS(t *testing.T, ts *httptest.Server, deviceID, sessionID string)
 
 func TestWSHeartbeatDropsSilentPeer(t *testing.T) {
 	shrinkWSHeartbeat(t, 50*time.Millisecond, 300*time.Millisecond)
-	ts, deviceID, sessionID := setupWSTest(t)
-	conn := dialViewerWS(t, ts, deviceID, sessionID)
+	ts, deviceID, sessionID, token := setupWSTest(t)
+	conn := dialViewerWS(t, ts, deviceID, sessionID, token)
 
 	// Half-open peer: protocol pings are swallowed, never answered. The
 	// daemon must notice via the read deadline and close the connection.
@@ -146,8 +138,8 @@ func TestWSHeartbeatDropsSilentPeer(t *testing.T) {
 
 func TestWSHeartbeatSendsAppPing(t *testing.T) {
 	shrinkWSHeartbeat(t, 50*time.Millisecond, 10*time.Second)
-	ts, deviceID, sessionID := setupWSTest(t)
-	conn := dialViewerWS(t, ts, deviceID, sessionID)
+	ts, deviceID, sessionID, token := setupWSTest(t)
+	conn := dialViewerWS(t, ts, deviceID, sessionID, token)
 
 	// Browser clients cannot see protocol-level ping/pong, so the daemon
 	// sends an application-level {"kind":"ping"} keepalive for their silence

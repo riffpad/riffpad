@@ -73,6 +73,7 @@ type Server struct {
 	sweepDone   chan struct{}
 	rc          *relayClient
 	relayCancel context.CancelFunc
+	token       string // local API auth token (see localAuth)
 
 	mu           sync.Mutex
 	devices      map[string]Device
@@ -84,6 +85,11 @@ type Server struct {
 
 // New creates a daemon server.
 func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logger, factory adapter.Factory) *Server {
+	if cfg.LocalToken == "" {
+		// config.Load normally guarantees a persisted token; generate an
+		// in-memory one for directly-constructed configs (e.g. tests).
+		cfg.LocalToken = config.NewLocalToken()
+	}
 	s := &Server{
 		cfg:          cfg,
 		keys:         keys,
@@ -92,6 +98,7 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		factory:      factory,
 		startedAt:    time.Now(),
 		sweepDone:    make(chan struct{}),
+		token:        cfg.LocalToken,
 		devices:      map[string]Device{},
 		pending:      map[string]pendingPair{},
 		sessions:     map[string]*session{},
@@ -250,7 +257,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/hooks/claude/post-tool-use", s.handleHookPostToolUse)
 	mux.HandleFunc("/hooks/claude/user-prompt-submit", s.handleHookUserPromptSubmit)
 	mux.HandleFunc("/hooks/claude/message-display", s.handleHookMessageDisplay)
-	return mux
+	return s.localAuth(mux)
 }
 
 // Start begins serving on cfg.Port.
@@ -368,7 +375,7 @@ func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.pending[code] = pendingPair{Code: code, Expires: time.Now().Add(10 * time.Minute)}
 	s.mu.Unlock()
-	url := fmt.Sprintf("http://127.0.0.1:%d/?pair=%s", s.cfg.Port, code)
+	url := fmt.Sprintf("http://127.0.0.1:%d/?pair=%s&token=%s", s.cfg.Port, code, s.token)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"code":      code,
 		"url":       url,
@@ -626,13 +633,14 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	}
 	id := protocol.NewID()
 	createReq := adapter.CreateRequest{
-		ID:       id,
-		Name:     req.Name,
-		CLI:      req.CLI,
-		Cwd:      req.Cwd,
-		Prompt:   req.Prompt,
-		DataDir:  s.dataDir,
-		HookBase: fmt.Sprintf("http://127.0.0.1:%d", s.cfg.Port),
+		ID:        id,
+		Name:      req.Name,
+		CLI:       req.CLI,
+		Cwd:       req.Cwd,
+		Prompt:    req.Prompt,
+		DataDir:   s.dataDir,
+		HookBase:  fmt.Sprintf("http://127.0.0.1:%d", s.cfg.Port),
+		HookToken: s.token,
 	}
 	factory := s.factory
 	if factory == nil {
@@ -675,7 +683,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		"cli":    req.CLI,
 		"cwd":    req.Cwd,
 		"status": sess.status,
-		"url":    fmt.Sprintf("http://127.0.0.1:%d/?session=%s", s.cfg.Port, id),
+		"url":    fmt.Sprintf("http://127.0.0.1:%d/?session=%s&token=%s", s.cfg.Port, id, s.token),
 	})
 	go func() {
 		if err := sessAdapter.Start(context.Background()); err != nil {

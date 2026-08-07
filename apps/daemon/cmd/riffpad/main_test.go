@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
+	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
 )
 
 func fakeDaemon(t *testing.T, ready *atomic.Bool) *httptest.Server {
@@ -164,5 +165,54 @@ func TestEnsureDaemonConcurrentSingleStart(t *testing.T) {
 	wg.Wait()
 	if calls != 1 {
 		t.Fatalf("expected exactly one daemon start under concurrency, got %d", calls)
+	}
+}
+
+// withCliToken stubs the CLI's local token for the duration of a test.
+func withCliToken(t *testing.T, token string) {
+	t.Helper()
+	oldToken, oldDir, oldOnce := cliToken, cliDataDir, tokenOnce
+	cliToken, cliDataDir, tokenOnce = token, "", sync.Once{}
+	t.Cleanup(func() { cliToken, cliDataDir, tokenOnce = oldToken, oldDir, oldOnce })
+}
+
+func TestDaemonDoAttachesLocalToken(t *testing.T) {
+	withCliToken(t, "test-token")
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get(daemon.LocalTokenHeader)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := daemonDo(nil, http.MethodGet, srv.URL+"/api/status", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got != "test-token" {
+		t.Fatalf("expected %s header %q, got %q", daemon.LocalTokenHeader, "test-token", got)
+	}
+}
+
+// The CLI health check must authenticate too: a daemon that requires the
+// local token is "reachable" only when the CLI presents it.
+func TestReachableWithTokenRequiringDaemon(t *testing.T) {
+	withCliToken(t, "test-token")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(daemon.LocalTokenHeader) != "test-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	if !reachable(srv.URL) {
+		t.Fatal("reachable should succeed with the local token")
+	}
+
+	withCliToken(t, "wrong-token")
+	if reachable(srv.URL) {
+		t.Fatal("reachable should fail with the wrong token")
 	}
 }

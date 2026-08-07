@@ -5,6 +5,26 @@ export const isRelay: boolean =
 
 const relayKey = "riffpad.relay";
 const deviceKey = "riffpad.device";
+const localTokenKey = "riffpad.localtoken";
+
+// localTokenStore holds the daemon's local API token (non-relay mode). The
+// pairing/session URLs printed by the CLI carry it as ?token=...; capture it
+// once and reuse it for every API call and WS handshake. The daemon rejects
+// calls without it.
+export const localTokenStore = {
+  get(): string {
+    try {
+      const q = new URLSearchParams(location.search).get("token");
+      if (q) {
+        localStorage.setItem(localTokenKey, q);
+        return q;
+      }
+      return localStorage.getItem(localTokenKey) || "";
+    } catch {
+      return "";
+    }
+  },
+};
 
 export const relayStore = {
   get(): RelaySession | null {
@@ -41,6 +61,10 @@ export async function api(path: string, opts: RequestInit = {}): Promise<Respons
   const headers: Record<string, string> = { ...(opts.headers as Record<string, string>) };
   const tok = relayStore.get()?.token;
   if (tok) headers["Authorization"] = "Bearer " + tok;
+  if (!isRelay) {
+    const ltok = localTokenStore.get();
+    if (ltok) headers["X-Riffpad-Token"] = ltok;
+  }
   if (opts.body) headers["Content-Type"] = "application/json";
   return fetch(path, { ...opts, headers });
 }

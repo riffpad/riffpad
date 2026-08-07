@@ -129,10 +129,7 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	defer ts.Close()
 
 	// 1. Create pairing code and pair a P-256 web client.
-	resp, err := http.Post(ts.URL+"/api/pairings", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings", cfg.LocalToken, nil)
 	var pr struct {
 		Code string `json:"code"`
 	}
@@ -148,10 +145,7 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{
 		"code": pr.Code, "name": "test", "curve": "p256", "publicKey": protocol.EncodeKey(clientID.PublicKey),
 	})
-	resp, err = http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = authRequest(t, http.MethodPost, ts.URL+"/api/pair", cfg.LocalToken, strings.NewReader(string(body)))
 	var pair struct {
 		DeviceID        string `json:"deviceId"`
 		ServerPublicKey string `json:"serverPublicKey"`
@@ -174,10 +168,7 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 
 	// 2. Create a session (fake adapter).
 	body, _ = json.Marshal(map[string]string{"name": "demo", "cli": "fake"})
-	resp, err = http.Post(ts.URL+"/api/sessions", "application/json", strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = authRequest(t, http.MethodPost, ts.URL+"/api/sessions", cfg.LocalToken, strings.NewReader(string(body)))
 	var sess struct {
 		ID     string `json:"id"`
 		Status string `json:"status"`
@@ -200,7 +191,8 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	}
 	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") +
 		"/ws?device=" + pair.DeviceID + "&session=" + sess.ID +
-		"&eph=" + protocol.EncodeKey(clientEph.PublicKey)
+		"&eph=" + protocol.EncodeKey(clientEph.PublicKey) +
+		"&token=" + cfg.LocalToken
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -392,10 +384,7 @@ func TestHeartbeatRenewsLease(t *testing.T) {
 
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
-	resp, err := http.Post(ts.URL+"/api/sessions/hb-1/heartbeat", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/sessions/hb-1/heartbeat", cfg.LocalToken, nil)
 	resp.Body.Close()
 
 	srv.mu.Lock()
@@ -407,6 +396,27 @@ func TestHeartbeatRenewsLease(t *testing.T) {
 	if time.Since(s.lastHB) > 2*time.Second {
 		t.Fatal("heartbeat should refresh lastHB")
 	}
+}
+
+// authRequest performs an HTTP request carrying the daemon's local API
+// token, the way the riffpad CLI does.
+func authRequest(t *testing.T, method, url, token string, body io.Reader) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set(LocalTokenHeader, token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
 }
 
 func sendEncrypted(t *testing.T, conn *websocket.Conn, sid string, key *[32]byte, ev protocol.Event) {
