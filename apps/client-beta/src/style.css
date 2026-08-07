@@ -379,7 +379,14 @@ button.github {
   margin: 0 auto;
 }
 .sync-dot { animation: dot-pulse 1.6s ease-out infinite; }
-.scan-btn { min-height: 52px; font-size: 15px; }
+.scan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  font-size: 15px;
+}
 
 .pin-input { display: flex; gap: 8px; justify-content: center; }
 .pin-box {
@@ -393,18 +400,46 @@ button.github {
   font-weight: 700;
   text-transform: uppercase;
 }
-.pair-actions { display: flex; justify-content: center; }
 .code-card {
+  overflow: hidden;
+  background: var(--console);
+  color: var(--on-console);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color 180ms ease-out;
+}
+.code-card:hover { border-color: var(--hairline-strong); }
+.code-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--hairline);
-  background: var(--surface-muted);
-  font-size: 13px;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--on-console) 12%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--on-console-mute);
 }
-.code-card code { background: transparent; border: none; padding: 0; }
+.code-card code {
+  display: block;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+}
+.code-card .cmd { color: var(--term-green); }
+.copy-btn {
+  min-width: 26px;
+  min-height: 26px;
+  border-color: transparent;
+  color: var(--on-console-mute);
+}
+.copy-btn:hover {
+  color: var(--on-console);
+  border-color: color-mix(in srgb, var(--on-console) 25%, transparent);
+  background: color-mix(in srgb, var(--on-console) 8%, transparent);
+}
 .pair-hint { text-align: center; margin: 0; }
 
 .scan-overlay {

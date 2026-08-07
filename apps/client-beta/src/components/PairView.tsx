@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { pairDevice } from "../lib/device";
 import { useI18n } from "../lib/i18n";
 import PinInput from "./PinInput";
@@ -43,6 +43,23 @@ function QrIcon() {
   );
 }
 
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
+      <rect x="9" y="9" width="12" height="12" />
+      <path d="M5 15H3V3h12v2" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
+      <path d="M4 12l5 5L20 6" />
+    </svg>
+  );
+}
+
 export default function PairView({ onPaired }: { onPaired: () => void }) {
   const { t } = useI18n();
   const [code, setCode] = useState("");
@@ -50,6 +67,13 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+    };
+  }, []);
 
   const submit = useCallback(async (value: string) => {
     const clean = (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
@@ -74,7 +98,8 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
     try {
       await navigator.clipboard.writeText("riffpad pair");
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1500);
     } catch {
       // clipboard unavailable (non-secure context); ignore
     }
@@ -88,6 +113,32 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
           <h2>{t("pair_hero_title")}</h2>
           <p className="muted">{t("pair_hero_subtitle")}</p>
         </div>
+
+        <div
+          id="code-card"
+          className="code-card"
+          role="button"
+          tabIndex={0}
+          aria-label={t("copy_command")}
+          onClick={() => void copy()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              void copy();
+            }
+          }}
+        >
+          <div className="code-card-head">
+            <span>{t("bash_label")}</span>
+            <button id="copy-btn" className="icon-btn copy-btn" onClick={() => void copy()} aria-label={t("copy_command")}>
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          </div>
+          <code>
+            <span className="cmd">riffpad</span> pair
+          </code>
+        </div>
+        <p className="muted pair-hint">{t("pair_hint", { cmd: "riffpad pair" })}</p>
 
         <button id="scan-btn" className="primary scan-btn" onClick={() => setScanning(true)}>
           <QrIcon />
@@ -103,19 +154,6 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
           disabled={busy}
           autoFocus
         />
-        <div className="pair-actions">
-          <button className="ghost" disabled={busy || code.length !== 6} onClick={() => void submit(code)}>
-            {busy ? t("pairing") : t("pair_btn")}
-          </button>
-        </div>
-
-        <div className="code-card">
-          <code>riffpad pair</code>
-          <button id="copy-btn" className="ghost" onClick={() => void copy()}>
-            {copied ? t("copied") : t("copy_command")}
-          </button>
-        </div>
-        <p className="muted pair-hint">{t("pair_hint")}</p>
         {err && <div id="pair-err" className="err">{err}</div>}
       </section>
       {scanning && (
