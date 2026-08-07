@@ -377,6 +377,10 @@ func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createRemotePairing(w http.ResponseWriter) {
+	if s.cfg.RelayToken == "" {
+		writeError(w, http.StatusUnauthorized, "未登录：请先运行 riffpad login")
+		return
+	}
 	httpURL := s.cfg.RelayURL
 	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
 	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
@@ -400,6 +404,18 @@ func (s *Server) createRemotePairing(w http.ResponseWriter) {
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		var relayErr struct {
+			Error string `json:"error"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&relayErr)
+		msg := relayErr.Error
+		if msg == "" {
+			msg = fmt.Sprintf("relay pairing failed (status %d)", resp.StatusCode)
+		}
+		writeError(w, http.StatusBadGateway, msg)
+		return
+	}
 	var out struct {
 		Code      string `json:"code"`
 		URL       string `json:"url"`

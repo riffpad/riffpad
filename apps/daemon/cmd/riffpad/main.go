@@ -408,11 +408,18 @@ func pairCmd(base string) error {
 	}
 	defer resp.Body.Close()
 	var data struct {
-		Code string `json:"code"`
-		URL  string `json:"url"`
+		Code  string `json:"code"`
+		URL   string `json:"url"`
+		Error string `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
+	}
+	if data.Code == "" {
+		if data.Error != "" {
+			return fmt.Errorf("%s", data.Error)
+		}
+		return fmt.Errorf("%s", t.T("pair_failed_status", resp.StatusCode))
 	}
 	fmt.Println(t.T("pair_code", data.Code))
 	qrterminal.GenerateWithConfig(data.URL, qrterminal.Config{
