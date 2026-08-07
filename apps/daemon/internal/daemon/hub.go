@@ -3,6 +3,7 @@ package daemon
 import (
 	"encoding/json"
 	"log"
+	"sync"
 
 	"github.com/riffpad/riffpad/packages/protocol"
 )
@@ -23,7 +24,14 @@ type client struct {
 	transport viewerTransport
 	send      chan []byte
 	done      chan struct{}
+	closeOnce sync.Once
 	log       *log.Logger
+}
+
+// closeDone closes c.done exactly once; both readLoop and writeLoop may
+// trigger shutdown concurrently.
+func (c *client) closeDone() {
+	c.closeOnce.Do(func() { close(c.done) })
 }
 
 func (c *client) writeLoop() {
@@ -32,7 +40,7 @@ func (c *client) writeLoop() {
 		case data := <-c.send:
 			if err := c.transport.Send(data); err != nil {
 				c.log.Printf("ws write error device=%s: %v", c.deviceID, err)
-				close(c.done)
+				c.closeDone()
 				return
 			}
 		case <-c.done:

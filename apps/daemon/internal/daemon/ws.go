@@ -157,7 +157,7 @@ func (s *Server) attachViewer(tr viewerTransport, deviceID, sid string, ephPub [
 
 func (c *client) readLoop(s *Server) {
 	defer func() {
-		close(c.done)
+		c.closeDone()
 		c.session.removeClient(c)
 		_ = c.transport.Close()
 	}()
