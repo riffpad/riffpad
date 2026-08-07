@@ -196,6 +196,7 @@
 | M3.15 | 容器化部署：relay + Postgres 容器化 | `[x]` | 已随 M1.18 完成：relay 仅监听 127.0.0.1:9090、Postgres 17、healthcheck/restart、nginx/certbot 留宿主；生产运行中 | — |
 | M3.16 | 元数据存储 SQLite → Postgres 迁移 | `[x]` | 已随 M1.18 完成：`apps/relay/cmd/migrate-sqlite` 逐表迁移 + 行数校验，生产已切换 Postgres | — |
 | M3.17 | CI/CD：main push → 自动部署 relay（GitHub Actions + SSH 受限部署密钥） | `[x]` | CI 三 job 通过后自动执行 `/usr/local/bin/riffpad-deploy.sh`（git pull --ff-only + compose up -d --build + 健康检查）；部署密钥仅能执行固定脚本；2026-08-07 已端到端验证 | #108 #112 #113 |
+| M3.18 | 会话按主机组织：relay 返回 hostName，client 会话列表按主机分组/标注 | `[ ]` | 多台电脑会话可区分；分组展示；同步确认设备访问主机策略 | #151 |
 
 ---
 
