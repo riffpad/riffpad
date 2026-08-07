@@ -63,7 +63,6 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [theme, setTheme] = useState<Theme>(initTheme);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [paired, setPaired] = useState<boolean | null>(null);
   const [openSession, setOpenSession] = useState<{ sid: string; name: string } | null>(null);
   const isDevicePage = window.location.pathname.startsWith("/device");
 
@@ -82,11 +81,9 @@ export default function App() {
     const dev = await ensureIdentity();
     if (dev.deviceId && !(await deviceStillValid(dev))) {
       deviceStore.set({ ...dev, deviceId: null, serverPub: null });
-      setPaired(false);
       setPhase("pair");
       return;
     }
-    setPaired(!!dev.deviceId);
     setPhase(dev.deviceId ? "sessions" : "pair");
   }, []);
 
@@ -102,18 +99,15 @@ export default function App() {
         }
         relayStore.clear();
       }
-      setPaired(false);
       setPhase("auth");
       return;
     }
     const dev = await ensureIdentity();
     if (dev.deviceId && !(await deviceStillValid(dev))) {
       deviceStore.set({ ...dev, deviceId: null, serverPub: null });
-      setPaired(false);
       setPhase("pair");
       return;
     }
-    setPaired(!!dev.deviceId);
     setPhase(dev.deviceId ? "sessions" : "pair");
   }, []);
 
@@ -125,7 +119,6 @@ export default function App() {
       // ignore
     }
     relayStore.clear();
-    setPaired(false);
     setSidebarOpen(false);
     setPhase("auth");
   }, []);
@@ -141,11 +134,6 @@ export default function App() {
         <span className="brand-name">riffpad</span>
       </div>
       <div className="topbar-actions">
-        {phase !== "loading" && (
-          <span id="conn" className={"conn " + (paired ? "good" : "bad")}>
-            {paired ? t("paired") : t("unpaired")}
-          </span>
-        )}
         <button
           id="theme-toggle"
           className="icon-btn"
@@ -207,9 +195,8 @@ export default function App() {
           />
         )}
         {phase === "pair" && (
-          <PairView
+            <PairView
             onPaired={() => {
-              setPaired(true);
               setPhase("sessions");
             }}
           />

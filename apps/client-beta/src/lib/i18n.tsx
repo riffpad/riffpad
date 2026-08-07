@@ -3,8 +3,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 export type Lang = "zh" | "en";
 
 const zh: Record<string, string> = {
-  paired: "已配对",
-  unpaired: "未配对",
   connecting: "连接中…",
   not_paired: "未配对：请刷新页面并重新输入配对码",
   handshake_failed: "握手失败：",
@@ -119,8 +117,6 @@ const zh: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
-  paired: "Connected",
-  unpaired: "Disconnected",
   connecting: "Connecting…",
   not_paired: "Not paired: refresh the page and enter a pairing code",
   handshake_failed: "Handshake failed: ",

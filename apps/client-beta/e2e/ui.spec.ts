@@ -9,11 +9,6 @@ test("app loads and shows pairing onboarding for an unpaired device", async ({ p
   await expect(page.locator("#copy-btn")).toBeVisible();
 });
 
-test("homepage shows disconnected status for an unpaired device", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.locator("#conn")).toContainText("未配对");
-});
-
 test("topbar has logo and theme toggle", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".brand .logo")).toBeVisible();

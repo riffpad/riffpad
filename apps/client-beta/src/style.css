@@ -22,6 +22,9 @@
   --danger: #dc2626;
   --info: #2563eb;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --code-bg: #f2f1ec;
+  --code-fg: #191917;
+  --code-mute: #73736a;
   /* Console stays dark in both themes, like a real terminal. */
   --console: #121214;
   --console-elevated: #1b1b19;
@@ -51,6 +54,9 @@
   --danger: #f85149;
   --info: #58a6fb;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --code-bg: #121214;
+  --code-fg: #e8e6e3;
+  --code-mute: #7c7c82;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -71,6 +77,9 @@
     --danger: #f85149;
     --info: #58a6fb;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --code-bg: #121214;
+    --code-fg: #e8e6e3;
+    --code-mute: #7c7c82;
   }
 }
 
@@ -402,8 +411,8 @@ button.github {
 }
 .code-card {
   overflow: hidden;
-  background: var(--console);
-  color: var(--on-console);
+  background: var(--code-bg);
+  color: var(--code-fg);
   border: 1px solid var(--hairline);
   cursor: pointer;
   transition: border-color 180ms ease-out;
@@ -414,12 +423,12 @@ button.github {
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--on-console) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--code-fg) 12%, transparent);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--on-console-mute);
+  color: var(--code-mute);
 }
 .code-card code {
   display: block;
@@ -428,17 +437,17 @@ button.github {
   border: none;
   font-size: 14px;
 }
-.code-card .cmd { color: var(--term-green); }
+.code-card .cmd { color: var(--accent); }
 .copy-btn {
   min-width: 26px;
   min-height: 26px;
   border-color: transparent;
-  color: var(--on-console-mute);
+  color: var(--code-mute);
 }
 .copy-btn:hover {
-  color: var(--on-console);
-  border-color: color-mix(in srgb, var(--on-console) 25%, transparent);
-  background: color-mix(in srgb, var(--on-console) 8%, transparent);
+  color: var(--code-fg);
+  border-color: color-mix(in srgb, var(--code-fg) 25%, transparent);
+  background: color-mix(in srgb, var(--code-fg) 8%, transparent);
 }
 .pair-above { text-align: center; margin: 0; font-size: 12px; }
 .pair-hint { text-align: center; margin: 0; }
