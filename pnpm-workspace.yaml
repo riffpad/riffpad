@@ -1,5 +1,6 @@
 packages:
   - "apps/client-beta"
+  - "apps/docs"
   - "apps/landing"
   - "apps/mobile"
   - "packages/*"
