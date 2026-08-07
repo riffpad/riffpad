@@ -19,9 +19,7 @@ export function DeviceMockup() {
   const [termLines, setTermLines] = useState<TermLine[]>(() =>
     t.mockup.mac.lines.map((l, i) => ({ id: i + 1, tone: l.tone, text: l.text })),
   );
-  const [chat, setChat] = useState<ChatMsg[]>(() => [
-    { id: 1, from: "agent", text: t.mockup.phone.hello },
-  ]);
+  const [chat, setChat] = useState<ChatMsg[]>([]);
   const [approval, setApproval] = useState<Approval>("pending");
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -40,7 +38,7 @@ export function DeviceMockup() {
     setTermLines(
       t.mockup.mac.lines.map((l, i) => ({ id: i + 1, tone: l.tone, text: l.text })),
     );
-    setChat([{ id: 1, from: "agent", text: t.mockup.phone.hello }]);
+    setChat([]);
     setApproval("pending");
     setBusy(false);
     setSyncing(false);
@@ -52,12 +50,13 @@ export function DeviceMockup() {
   useEffect(() => {
     const el = termScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [termLines, typing]);
+  }, [termLines, typing, approval]);
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = chatScrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    // don't scroll on mount — keep the full feed visible from the top
+    if (el && chat.length > 0) el.scrollTop = el.scrollHeight;
   }, [chat]);
 
   const sendPreset = (preset: Preset) => {
@@ -128,18 +127,16 @@ export function DeviceMockup() {
       <div className="flex w-full flex-col items-center justify-center gap-8 lg:flex-row lg:gap-6">
         <div className="w-full max-w-[480px]">
           <MacTerminal
-            title={t.mockup.mac.title}
-            prompt={t.mockup.mac.prompt}
+            t={t}
             lines={termLines}
             typing={typing}
+            approval={approval}
             scrollRef={termScrollRef}
           />
         </div>
         <SyncConnector
-          label={t.mockup.sync.label}
-          status={syncing ? t.mockup.sync.syncing : t.mockup.sync.status}
-          latency={t.mockup.sync.latency}
           syncing={syncing}
+          label={`${t.mockup.sync.label} · ${t.mockup.sync.latency}`}
         />
         <div className="w-full max-w-[300px]">
           <PhoneApp
@@ -159,9 +156,43 @@ export function DeviceMockup() {
   );
 }
 
-// The terminal keeps its own neutral dark palette in both page themes,
-// like a real terminal window on a light desktop.
+// The terminal palette follows the page theme (light terminal on the
+// light page, dark on dark), like a real terminal matching the OS theme.
 function TermLineView({ line }: { line: TermLine }) {
+  if (line.tone === "user") {
+    // full-width highlighted bar, like the real TUI renders a sent prompt
+    return (
+      <div className="-mx-4 my-1.5 bg-term-elevate-strong px-4 py-1.5 sm:-mx-5 sm:px-5">
+        <span className="mr-2 text-term-mute" aria-hidden="true">
+          ❯
+        </span>
+        {line.text}
+      </div>
+    );
+  }
+  if (line.tone === "think") {
+    return <div className="my-1 text-term-mute">{line.text}</div>;
+  }
+  if (line.tone === "tool") {
+    return (
+      <div className="mt-2">
+        <span className="mr-2 text-term-green" aria-hidden="true">
+          ●
+        </span>
+        <span className="font-bold">{line.text}</span>
+      </div>
+    );
+  }
+  if (line.tone === "sub") {
+    return (
+      <div className="ml-6 text-term-mute">
+        <span className="mr-2" aria-hidden="true">
+          └
+        </span>
+        {line.text}
+      </div>
+    );
+  }
   if (line.tone === "warn") {
     return (
       <div className="text-term-yellow">
@@ -172,8 +203,11 @@ function TermLineView({ line }: { line: TermLine }) {
       </div>
     );
   }
+  if (line.tone === "agent") {
+    return <div className="mt-1 text-term-fg/80">{line.text}</div>;
+  }
   return (
-    <div className={line.tone === "cmd" ? "text-term-orange" : undefined}>
+    <div className={line.tone === "cmd" ? "mt-1 text-term-orange" : undefined}>
       {line.tone === "ok" && (
         <span className="mr-2 text-term-green" aria-hidden="true">
           ✓
@@ -204,48 +238,34 @@ function TypingDots() {
 }
 
 function MacTerminal({
-  title,
-  prompt,
+  t,
   lines,
   typing,
+  approval,
   scrollRef,
 }: {
-  title: string;
-  prompt: string;
+  t: Messages;
   lines: TermLine[];
   typing: boolean;
+  approval: Approval;
   scrollRef: RefObject<HTMLDivElement>;
 }) {
-  const [promptDir, promptCmd] = prompt.split(" % ");
+  const m = t.mockup.mac;
   return (
     <div className="w-full overflow-hidden rounded-[10px] border border-term-border bg-term-bg text-term-fg shadow-terminal">
-      {/* macOS title bar */}
-      <div className="relative flex items-center border-b border-black/25 bg-term-bar px-4 py-2.5">
+      {/* macOS traffic lights, no title */}
+      <div className="flex items-center border-b border-term-border bg-term-bar px-4 py-2.5">
         <div className="flex items-center gap-2" aria-hidden="true">
           <span className="h-3 w-3 rounded-full bg-mac-red ring-1 ring-inset ring-black/15" />
           <span className="h-3 w-3 rounded-full bg-mac-yellow ring-1 ring-inset ring-black/15" />
           <span className="h-3 w-3 rounded-full bg-mac-green ring-1 ring-inset ring-black/15" />
         </div>
-        <span className="absolute left-1/2 max-w-[55%] -translate-x-1/2 truncate text-xs text-term-mute">
-          {title}
-        </span>
       </div>
 
       <div
         ref={scrollRef}
-        className="no-scrollbar h-[240px] overflow-y-auto px-4 py-4 text-[13px] leading-[1.8] sm:px-5"
+        className="no-scrollbar h-[300px] overflow-y-auto px-4 py-4 text-[13px] leading-[1.8] sm:px-5"
       >
-        <div>
-          {promptCmd ? (
-            <>
-              <span className="text-term-cyan">{promptDir}</span>{" "}
-              <span className="text-term-mute">%</span>{" "}
-              <span>{promptCmd}</span>
-            </>
-          ) : (
-            <span className="text-term-mute">{prompt}</span>
-          )}
-        </div>
         {lines.map((line) => (
           <TermLineView key={line.id} line={line} />
         ))}
@@ -254,38 +274,154 @@ function MacTerminal({
             <TypingDots />
           </div>
         )}
+        {approval === "pending" && (
+          <div className="-mx-4 mt-2 border-t-2 border-term-blue bg-term-elevate px-4 py-3 sm:-mx-5 sm:px-5">
+            <div className="font-bold text-term-blue">{m.approvalTitle}</div>
+            <div className="mt-2 font-bold">{m.approvalCmd}</div>
+            <div className="text-term-mute">{m.approvalDesc}</div>
+            <div className="mt-3">{m.approvalQuestion}</div>
+            <div className="-mx-4 mt-1 bg-term-elevate-strong px-4 sm:-mx-5 sm:px-5">
+              <span className="inline-block w-[2ch] text-term-blue" aria-hidden="true">
+                ❯
+              </span>
+              {m.approvalOpt1}
+            </div>
+            <div className="text-term-fg/80">
+              <span className="inline-block w-[2ch]" aria-hidden="true" />
+              {m.approvalOpt2}
+            </div>
+            <div className="text-term-fg/80">
+              <span className="inline-block w-[2ch]" aria-hidden="true" />
+              {m.approvalOpt3}
+            </div>
+            <div className="mt-3 text-[11px] text-term-mute">
+              {m.approvalFooter}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* TUI-style input — same bg as the terminal, no placeholder/hints */}
+      <div className="px-4 pb-4 pt-1 sm:px-5">
+        <div className="flex items-center gap-2 border border-term-border px-3 py-2 text-[13px]">
+          <span className="text-term-green" aria-hidden="true">
+            ❯
+          </span>
+          <span
+            className="h-3.5 w-[7px] animate-pulse bg-term-green"
+            aria-hidden="true"
+          />
+        </div>
       </div>
     </div>
   );
 }
 
 function SyncConnector({
-  label,
-  status,
-  latency,
   syncing,
+  label,
 }: {
-  label: string;
-  status: string;
-  latency: string;
   syncing: boolean;
+  label: string;
+}) {
+  const dash = syncing ? "flow-dash-line flow-fast" : "flow-dash-line";
+  return (
+    <div className="flex flex-col items-center gap-1.5" aria-hidden="true">
+      <svg
+        className="h-12 w-6 rotate-90 lg:h-6 lg:w-16 lg:rotate-0"
+        viewBox="0 0 64 24"
+      >
+        <path
+          id="sync-ev"
+          d="M64 7 L0 7"
+          fill="none"
+          stroke="var(--accent)"
+          strokeOpacity={0.6}
+          strokeWidth={2}
+          strokeDasharray="6 6"
+          className={dash}
+        />
+        <path
+          id="sync-cmd"
+          d="M0 17 L64 17"
+          fill="none"
+          stroke="rgb(var(--info))"
+          strokeOpacity={0.6}
+          strokeWidth={2}
+          strokeDasharray="6 6"
+          className={dash}
+        />
+        <rect
+          width={8}
+          height={5}
+          x={-4}
+          y={-2.5}
+          fill="var(--accent)"
+          className="arch-packet"
+        >
+          <animateMotion dur="1.6s" repeatCount="indefinite">
+            <mpath href="#sync-ev" />
+          </animateMotion>
+          <animate
+            attributeName="opacity"
+            values="0;1;1;0"
+            keyTimes="0;0.2;0.8;1"
+            dur="1.6s"
+            repeatCount="indefinite"
+          />
+        </rect>
+        <rect
+          width={8}
+          height={5}
+          x={-4}
+          y={-2.5}
+          fill="rgb(var(--info))"
+          className="arch-packet"
+        >
+          <animateMotion dur="1.6s" begin="-0.8s" repeatCount="indefinite">
+            <mpath href="#sync-cmd" />
+          </animateMotion>
+          <animate
+            attributeName="opacity"
+            values="0;1;1;0"
+            keyTimes="0;0.2;0.8;1"
+            dur="1.6s"
+            begin="-0.8s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </svg>
+      <span className="hidden text-[10px] text-mute lg:block">{label}</span>
+    </div>
+  );
+}
+
+function ToolRow({
+  text,
+  state,
+}: {
+  text: string;
+  state: "done" | "running";
 }) {
   return (
-    <div
-      className="flex flex-col items-center gap-3 lg:flex-row lg:gap-4"
-      aria-hidden="true"
-    >
-      <div className="relative h-16 w-px bg-hairline lg:h-px lg:w-20">
-        <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-accent" />
-        {syncing && (
-          <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-accent" />
-        )}
-      </div>
-      <div className="text-center text-[11px] leading-5 text-mute">
-        <div>{label}</div>
-        <div className={syncing ? "text-accent" : "text-success"}>{status}</div>
-        <div>{latency}</div>
-      </div>
+    <div className="flex items-center gap-2 border border-hairline px-2.5 py-1.5 text-[11px] text-body">
+      {state === "done" ? (
+        <span className="h-1.5 w-1.5 flex-none bg-success" aria-hidden="true" />
+      ) : (
+        <span className="flex flex-none items-center gap-[3px]" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="h-1 w-1 animate-bounce bg-warning"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </span>
+      )}
+      <span className="flex-1 truncate">{text}</span>
+      <span className="text-mute" aria-hidden="true">
+        ▸
+      </span>
     </div>
   );
 }
@@ -349,73 +485,111 @@ function PhoneApp({
           </span>
         </div>
 
-        {/* app header */}
-        <div className="mt-2 flex items-center justify-between border-b border-hairline px-4 pb-2.5">
-          <span className="text-sm font-bold">{t.mockup.phone.title}</span>
+        {/* session detail header — mirrors client-beta SessionDetailView */}
+        <div className="mt-2 flex items-center justify-between gap-2 border-b border-hairline px-4 pb-2.5">
+          <span className="text-mute" aria-hidden="true">
+            ←
+          </span>
+          <span className="truncate text-xs font-bold">
+            {t.mockup.phone.session}
+          </span>
           <span
-            className={`flex items-center gap-1.5 text-[11px] ${
+            className={`flex flex-none items-center gap-1.5 text-[10px] ${
               syncing ? "text-accent" : "text-success"
             }`}
           >
-            <span aria-hidden="true">●</span>
+            <span className="h-1.5 w-1.5 animate-pulse bg-current" aria-hidden="true" />
             {syncing ? t.mockup.sync.syncing : t.mockup.phone.synced}
           </span>
         </div>
 
-        {/* scrollable body */}
-        <div ref={scrollRef} className="no-scrollbar flex-1 overflow-y-auto px-3 py-3">
-          <div className="border border-hairline p-3">
-            <div className="flex items-center justify-between text-[11px] text-mute">
-              <span>{t.mockup.phone.session}</span>
-              <span className="text-success">{t.mockup.phone.running}</span>
-            </div>
-            <div className="mt-1 text-sm font-bold">
-              {t.mockup.phone.cli} · {t.mockup.phone.tools}
-            </div>
+        {/* scrollable event feed */}
+        <div ref={scrollRef} className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
+          {/* session_start badges */}
+          <div className="flex flex-wrap gap-1.5">
+            {t.mockup.phone.badges.map((badge) => (
+              <span
+                key={badge}
+                className="border border-hairline px-1.5 py-0.5 text-[10px] text-mute"
+              >
+                {badge}
+              </span>
+            ))}
           </div>
 
-          {/* approval card */}
-          {approval === "pending" ? (
-            <div className="mt-3 border border-warning/20 bg-warning/10 p-3">
-              <div className="text-[11px] text-warning">
-                {t.mockup.phone.approval}
-              </div>
-              <div className="mt-1 text-sm font-bold">
-                {t.mockup.phone.summary}
-              </div>
-              <div className="mt-3 flex gap-2">
+          {/* agent message */}
+          <p className="mt-2 text-xs leading-[1.6] text-body">
+            {t.mockup.phone.agentMsg1}
+          </p>
+
+          {/* finished tool calls */}
+          <div className="mt-1.5 flex flex-col gap-1">
+            {t.mockup.phone.tools.map((tool) => (
+              <ToolRow key={tool} text={tool} state="done" />
+            ))}
+          </div>
+
+          {/* agent message */}
+          <p className="mt-2 text-xs leading-[1.6] text-body">
+            {t.mockup.phone.agentMsg2}
+          </p>
+
+          {/* the tool call that is stuck on approval */}
+          <div className="mt-1.5">
+            <ToolRow
+              text={t.mockup.phone.pendingTool}
+              state={approval === "pending" ? "running" : "done"}
+            />
+          </div>
+
+          {/* approval card — 2px left border like client-beta EventItem */}
+          <div
+            className={`mt-1.5 border-l-2 py-0.5 pl-3 ${
+              approval === "pending"
+                ? "border-warning"
+                : approval === "approved"
+                  ? "border-success"
+                  : "border-danger"
+            }`}
+          >
+            <div className="text-[13px] font-bold">{t.mockup.phone.summary}</div>
+            <div className="mt-2.5 flex gap-2">
+              {approval === "pending" ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onResolve("approved")}
+                    className="inline-flex h-8 flex-1 items-center justify-center border border-success/50 text-xs font-bold text-success transition-colors hover:bg-success/10 disabled:opacity-40"
+                  >
+                    {t.mockup.phone.approve}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onResolve("rejected")}
+                    className="inline-flex h-8 flex-1 items-center justify-center border border-danger/50 text-xs font-bold text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+                  >
+                    {t.mockup.phone.reject}
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
-                  disabled={busy}
-                  onClick={() => onResolve("approved")}
-                  className="inline-flex h-9 flex-1 items-center justify-center border border-success/50 text-xs font-bold text-success transition-colors hover:bg-success/10 disabled:opacity-40"
+                  disabled
+                  className={`inline-flex h-8 flex-1 items-center justify-center border text-xs font-bold opacity-60 ${
+                    approval === "approved"
+                      ? "border-success/50 text-success"
+                      : "border-danger/50 text-danger"
+                  }`}
                 >
-                  {t.mockup.phone.approve}
+                  {approval === "approved"
+                    ? t.mockup.phone.approved
+                    : t.mockup.phone.rejected}
                 </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onResolve("rejected")}
-                  className="inline-flex h-9 flex-1 items-center justify-center border border-danger/50 text-xs font-bold text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-                >
-                  {t.mockup.phone.reject}
-                </button>
-              </div>
+              )}
             </div>
-          ) : (
-            <div
-              className={`mt-3 border p-3 text-xs font-bold ${
-                approval === "approved"
-                  ? "border-success/40 bg-success/10 text-success"
-                  : "border-danger/40 bg-danger/10 text-danger"
-              }`}
-            >
-              {approval === "approved" ? "✓ " : "✕ "}
-              {approval === "approved"
-                ? t.mockup.phone.approved
-                : t.mockup.phone.rejected}
-            </div>
-          )}
+          </div>
 
           {/* chat */}
           <div className="mt-3 flex flex-col gap-2">
@@ -424,8 +598,8 @@ function PhoneApp({
                 key={msg.id}
                 className={
                   msg.from === "me"
-                    ? "ml-8 self-end rounded-[10px] rounded-br-[2px] bg-accent px-3 py-2 text-xs leading-[1.6] text-accent-ink"
-                    : "mr-8 self-start rounded-[10px] rounded-bl-[2px] bg-surface-muted px-3 py-2 text-xs leading-[1.6] text-body"
+                    ? "ml-8 self-end bg-surface-muted px-3 py-2 text-xs leading-[1.6] text-body"
+                    : "mr-8 self-start px-3 py-2 text-xs leading-[1.6] text-body"
                 }
               >
                 {msg.text}
@@ -449,26 +623,18 @@ function PhoneApp({
               </button>
             ))}
           </div>
-          <div className="mt-2 border border-hairline px-3 py-2 text-xs text-mute">
-            {t.mockup.phone.input}
+          <div className="relative mt-2 border border-hairline bg-surface-muted">
+            <div className="px-3 py-2 pr-9 text-xs text-mute">{t.mockup.phone.input}</div>
+            <span
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-accent"
+              aria-hidden="true"
+            >
+              →
+            </span>
           </div>
         </div>
 
-        {/* tab bar + home indicator */}
-        <div className="flex border-t border-hairline px-2 pt-1.5 text-[11px] text-mute">
-          {t.mockup.phone.tabs.map((tab, index) => (
-            <span
-              key={index}
-              className={
-                index === 1
-                  ? "flex-1 text-center font-bold text-ink"
-                  : "flex-1 text-center"
-              }
-            >
-              {tab}
-            </span>
-          ))}
-        </div>
+        {/* home indicator */}
         <div className="flex justify-center pb-1.5 pt-1" aria-hidden="true">
           <span className="h-1 w-24 rounded-full bg-ink/25" />
         </div>

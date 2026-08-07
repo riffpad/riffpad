@@ -27,18 +27,19 @@
   --on-console: #2b2b26;
   --on-console-mute: #8a887f;
 
-  /* Terminal mockup — neutral dark (same family as the page dark theme),
-     kept dark in both page themes like a real terminal window. */
-  --term-bg: #121214;
-  --term-bar: #0b0b0c;
-  --term-border: #2a2a2e;
-  --term-fg: #e8e6e3;
-  --term-mute: #7c7c82;
-  --term-green: #7ee787;
-  --term-blue: #58a6fb;
-  --term-yellow: #d29922;
-  --term-orange: #f0883e;
-  --term-cyan: #76e3ea;
+  /* Terminal mockup — light terminal on the light page theme. */
+  --term-bg: #ffffff;
+  --term-bar: #f2f1ec;
+  --term-border: rgba(25, 25, 23, 0.14);
+  --term-fg: #2b2b26;
+  --term-mute: #73736a;
+  --term-green: #1a7f37;
+  --term-blue: #0969da;
+  --term-yellow: #9a6700;
+  --term-orange: #bc4c00;
+  --term-cyan: #0a7ea4;
+  --term-elevate: rgba(25, 25, 23, 0.04);
+  --term-elevate-strong: rgba(25, 25, 23, 0.08);
 
   /* Device frame + macOS traffic lights — same in both themes. */
   --device-frame: #1b1b19;
@@ -73,6 +74,20 @@
   --console-elevated: #0b0b0c;
   --on-console: #e8e6e3;
   --on-console-mute: #7c7c82;
+
+  /* Terminal mockup — dark terminal on the dark page theme. */
+  --term-bg: #121214;
+  --term-bar: #0b0b0c;
+  --term-border: #2a2a2e;
+  --term-fg: #e8e6e3;
+  --term-mute: #7c7c82;
+  --term-green: #7ee787;
+  --term-blue: #58a6fb;
+  --term-yellow: #d29922;
+  --term-orange: #f0883e;
+  --term-cyan: #76e3ea;
+  --term-elevate: rgba(255, 255, 255, 0.05);
+  --term-elevate-strong: rgba(255, 255, 255, 0.09);
 }
 
 @layer base {
@@ -146,4 +161,52 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Dashed flow lines: loops seamlessly only when the dash pattern period
+   (dash + gap) equals the 12px dashoffset shift — keep dasharray at 6 6. */
+.flow-dash-line {
+  animation: dash-flow 1s linear infinite;
+}
+.flow-dash-line.flow-fast {
+  animation-duration: 0.45s;
+}
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+/* SMIL-animated packets can't be paused by the global reduced-motion rule,
+   so hide them outright when the user prefers reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .arch-packet {
+    display: none;
+  }
+}
+
+/* Ciphertext marquee in the security diagram: duplicated content sliding
+   -50% loops seamlessly; the global reduced-motion rule stops it. */
+.cipher-stream {
+  animation-name: cipher-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes cipher-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Blueprint grid behind the architecture diagram, fading out at the edges. */
+.arch-grid {
+  background-image:
+    linear-gradient(var(--hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(
+    ellipse 75% 85% at 50% 45%,
+    black 40%,
+    transparent 100%
+  );
 }
