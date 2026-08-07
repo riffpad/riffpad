@@ -294,43 +294,6 @@ button.github {
   margin: 0;
   padding: 24px;
 }
-.auth-terminal {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
-  letter-spacing: 0.02em;
-}
-.auth-terminal::after {
-  content: "▍";
-  margin-left: 4px;
-  color: var(--accent);
-  animation: blink 1.1s steps(2) infinite;
-}
-.auth-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 6px 0 18px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--mute);
-}
-.auth-status .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--mute);
-}
-.auth-status.online { color: var(--success); }
-.auth-status.online .dot { background: var(--success); animation: dot-pulse 2s ease-out infinite; }
-.auth-status.offline { color: var(--danger); }
-.auth-status.offline .dot { background: var(--danger); }
-.auth-status.checking { color: var(--warning); }
-.auth-status.checking .dot { background: var(--warning); animation: dot-pulse 1.2s ease-out infinite; }
-.auth-card h2 { margin: 0 0 6px; font-size: 15px; }
-.auth-desc { margin: 0 0 18px; }
 .auth-github {
   min-height: 48px;
   background: var(--console);
@@ -344,40 +307,13 @@ button.github {
   border-color: var(--accent);
   box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
 }
-.install-label {
-  margin: 18px 0 6px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.install-command {
+.auth-toggles {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
-  padding: 8px 10px;
-  background: var(--surface-muted);
-  border: 1px solid var(--hairline);
-  font-size: 12px;
+  margin-top: 16px;
 }
-.install-command code {
-  background: transparent;
-  border: none;
-  padding: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.install-command .prompt { color: var(--accent); margin-right: 6px; }
-.install-command .icon-btn { flex: none; }
-.back-home {
-  display: block;
-  font-size: 12px;
-  color: var(--mute);
-  text-decoration: none;
-  transition: color 180ms ease-out;
-}
-.back-home:hover { color: var(--ink); }
 
 .lang-toggle {
   min-height: 32px;
