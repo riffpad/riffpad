@@ -504,6 +504,23 @@ func TestDeviceLoginFlow(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("unknown device code status %d, want 400", resp.StatusCode)
 	}
+
+	// Authorizing a code whose CLI has stopped polling (no recent poll) must
+	// warn that no terminal is waiting instead of claiming success.
+	code2 := "STALE12"
+	h.mu.Lock()
+	h.deviceLogins[code2] = &deviceLogin{UserCode: code2, ExpiresAt: time.Now().Add(10 * time.Minute)}
+	h.oauthStates["stalestate"] = oauthState{expires: time.Now().Add(time.Minute), device: code2, lang: "en"}
+	h.mu.Unlock()
+	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=testcode&state=stalestate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "no waiting terminal") {
+		t.Fatalf("stale receipt missing: %s", body)
+	}
 }
 
 func TestDevicesListAndRevoke(t *testing.T) {
