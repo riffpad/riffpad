@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:relay": "RIFFPAD_DEV_TARGET=https://api.riffpad.ai vite",
+    "dev:relay": "vite",
+    "dev:local": "RIFFPAD_DEV_TARGET=http://127.0.0.1:8787 vite",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

@@ -10,12 +10,25 @@ function GitHubIcon() {
   );
 }
 
+// isAllowedOrigin mirrors the relay's opener allowlist: production app/api
+// origins plus loopback (local dev servers).
+export function isAllowedOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    if (u.protocol === "https:" && (u.host === "app.riffpad.ai" || u.host === "api.riffpad.ai")) return true;
+    if (u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1")) return true;
+  } catch {
+    // ignore malformed origins
+  }
+  return false;
+}
+
 export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
   const { t } = useI18n();
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      if (e.origin !== "https://api.riffpad.ai") return;
+      if (!isAllowedOrigin(e.origin)) return;
       const d = e.data;
       if (d?.type === "riffpad-oauth" && d.token) {
         relayStore.set({ token: d.token, username: d.user || "" });
@@ -33,7 +46,7 @@ export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
         id="github-login"
         className="primary github"
         style={{ width: "100%" }}
-        onClick={() => window.open("/api/auth/github/login", "_blank", "width=560,height=680")}
+        onClick={() => window.open("/api/auth/github/login?opener=" + encodeURIComponent(location.origin), "_blank", "width=560,height=680")}
       >
         <GitHubIcon />
         {t("github_login")}

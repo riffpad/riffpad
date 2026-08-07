@@ -321,6 +321,51 @@ func TestGitHubOAuthCallback(t *testing.T) {
 	}
 }
 
+func TestGitHubOAuthLoopbackOpener(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.githubID = "test-client-id"
+	h.githubSecret = "test-client-secret"
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"access_token":"gh_token_123","token_type":"bearer"}`)
+	}))
+	defer tokenSrv.Close()
+	userSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":424244,"login":"dev-user","email":""}`)
+	}))
+	defer userSrv.Close()
+	h.githubTokenURL = tokenSrv.URL
+	h.githubUserURL = userSrv.URL
+
+	// A loopback opener is accepted; the callback posts the token back to it.
+	h.mu.Lock()
+	h.oauthStates["devstate"] = oauthState{
+		expires: time.Now().Add(time.Minute),
+		opener:  "http://localhost:5174",
+	}
+	h.mu.Unlock()
+	resp, err := http.Get(ts.URL + "/api/auth/github/callback?code=testcode&state=devstate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `postMessage(data, "http://localhost:5174")`) {
+		t.Fatalf("loopback opener not honored: %d %s", resp.StatusCode, body)
+	}
+
+	// Non-allowlisted openers are rejected at login time.
+	resp, err = http.Get(ts.URL + "/api/auth/github/login?opener=https%3A%2F%2Fevil.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("evil opener status %d, want 400", resp.StatusCode)
+	}
+}
+
 func TestDeviceLoginFlow(t *testing.T) {
 	h, ts := newTestHub(t)
 	h.githubID = "test-client-id"

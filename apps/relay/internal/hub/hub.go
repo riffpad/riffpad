@@ -42,6 +42,7 @@ type Pairing struct {
 type oauthState struct {
 	expires time.Time
 	device  string
+	opener  string
 }
 
 // deviceLogin is a pending CLI login. The user opens verificationURL, signs
@@ -374,6 +375,11 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	device := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("device")))
+	opener := r.URL.Query().Get("opener")
+	if opener != "" && !allowedOpener(opener) {
+		writeError(w, http.StatusBadRequest, "invalid opener")
+		return
+	}
 	state := protocol.NewID()
 	h.mu.Lock()
 	if device != "" {
@@ -384,7 +390,7 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device}
+	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device, opener: opener}
 	h.mu.Unlock()
 	redirect, _ := url.Parse("https://github.com/login/oauth/authorize")
 	q := redirect.Query()
@@ -497,11 +503,16 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:0 1rem"><h2>CLI 登录授权成功</h2><p>可以回到终端了，登录会自动完成。</p></body></html>`)
 		return
 	}
-	// Hand the token back to the opener window (the web app on app.riffpad.ai).
+	// Hand the token back to the opener window. The default is the production
+	// app; a loopback opener (validated at login time) supports local dev.
+	target := st.opener
+	if target == "" {
+		target = "https://app.riffpad.ai"
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = io.WriteString(w, `<script>
 const data = {type: "riffpad-oauth", token: `+jsonQuote(token)+`, user: `+jsonQuote(u.Username)+`};
-if (window.opener) { window.opener.postMessage(data, "https://app.riffpad.ai"); window.close(); }
+if (window.opener) { window.opener.postMessage(data, `+jsonQuote(target)+`); window.close(); }
 document.write("登录成功，请回到 Riffpad 页面。");
 </script>`)
 }
@@ -509,6 +520,22 @@ document.write("登录成功，请回到 Riffpad 页面。");
 func jsonQuote(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
+}
+
+// allowedOpener restricts postMessage targets to the production app and
+// loopback origins used by local development servers.
+func allowedOpener(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+	if u.Scheme == "https" && (u.Host == "app.riffpad.ai" || u.Host == "api.riffpad.ai") {
+		return true
+	}
+	if u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1") {
+		return true
+	}
+	return false
 }
 
 // ---------- hosts / pairing / sessions ----------
