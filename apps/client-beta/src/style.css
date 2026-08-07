@@ -152,13 +152,14 @@ body {
   min-width: 32px;
   min-height: 32px;
   padding: 0;
-  border-color: var(--hairline-strong);
+  border-color: transparent;
   color: var(--mute);
   background: transparent;
 }
 .icon-btn:hover {
   color: var(--ink);
-  border-color: var(--hairline-strong);
+  border-color: transparent;
+  background: transparent;
 }
 
 .menu-toggle,
@@ -319,10 +320,11 @@ button.github {
   min-height: 32px;
   padding: 0 10px;
   font-size: 12px;
-  border-color: var(--hairline-strong);
+  border-color: transparent;
+  background: transparent;
   color: var(--mute);
 }
-.lang-toggle:hover { color: var(--ink); border-color: var(--hairline-strong); }
+.lang-toggle:hover { color: var(--ink); border-color: transparent; background: transparent; }
 
 .conn {
   display: inline-flex;
