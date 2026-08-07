@@ -7,6 +7,7 @@ import SessionDetailView from "./components/SessionDetailView";
 import SessionListView from "./components/SessionListView";
 import { api, deviceStore, isRelay, relayStore } from "./lib/store";
 import { ensureIdentity } from "./lib/device";
+import { useI18n } from "./lib/i18n";
 import type { Device } from "./lib/types";
 
 type Phase = "loading" | "auth" | "pair" | "sessions";
@@ -24,9 +25,16 @@ async function deviceStillValid(dev: Device): Promise<boolean> {
   }
 }
 
+function connClass(conn: string): string {
+  if (/离线|未连接|未配对|握手失败|连接失败|失败/.test(conn)) return "bad";
+  if (/连接中|等待/.test(conn)) return "pending";
+  return "good";
+}
+
 export default function App() {
+  const { t, lang, setLang } = useI18n();
   const [phase, setPhase] = useState<Phase>("loading");
-  const [conn, setConn] = useState("离线");
+  const [conn, setConn] = useState(t("offline"));
   const [openSession, setOpenSession] = useState<{ sid: string; name: string } | null>(null);
   const isDevicePage = window.location.pathname.startsWith("/device");
 
@@ -75,9 +83,9 @@ export default function App() {
       try {
         const res = await fetch("/api/status");
         if (!alive) return;
-        setConn(res.ok ? "服务在线" : "离线");
+        setConn(res.ok ? t("online") : t("offline"));
       } catch {
-        if (alive) setConn("离线");
+        if (alive) setConn(t("offline"));
       }
     };
     void tick();
@@ -86,14 +94,14 @@ export default function App() {
       alive = false;
       clearInterval(timer);
     };
-  }, [openSession, phase]);
+  }, [openSession, phase, t]);
 
   if (isDevicePage) {
     return (
       <>
         <header>
-          <h1>Riffpad</h1>
-          <span className="muted">CLI 授权</span>
+          <h1>riffpad</h1>
+          <span className="muted">{t("cli_auth")}</span>
         </header>
         <main>
           <DeviceAuthView />
@@ -105,8 +113,16 @@ export default function App() {
   return (
     <>
       <header>
-        <h1>Riffpad</h1>
-        <span id="conn" className="muted">{conn}</span>
+        <h1>riffpad</h1>
+        <span id="conn" className={"conn " + connClass(conn)}>{conn}</span>
+        <button
+          id="lang-toggle"
+          className="lang-toggle"
+          onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+          title={lang === "zh" ? "English" : "中文"}
+        >
+          {t("lang_toggle")}
+        </button>
       </header>
       <main>
         {phase === "loading" && null}
@@ -126,7 +142,7 @@ export default function App() {
           <>
             <SessionListView
               onOpen={(sid, name) => {
-                setConn("离线");
+                setConn(t("offline"));
                 setOpenSession({ sid, name });
               }}
               onLogout={
@@ -152,7 +168,7 @@ export default function App() {
             name={openSession.name}
             onConn={setConn}
             onLeave={() => {
-              setConn("离线");
+              setConn(t("offline"));
               setOpenSession(null);
             }}
           />

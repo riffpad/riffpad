@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, isRelay } from "../lib/store";
+import { useI18n } from "../lib/i18n";
 import type { SessionInfo } from "../lib/types";
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function SessionListView({ onOpen, onLogout }: Props) {
+  const { t } = useI18n();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -39,7 +41,7 @@ export default function SessionListView({ onOpen, onLogout }: Props) {
       body: JSON.stringify({ name, prompt, cli, cwd }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "启动失败");
+    if (!res.ok) throw new Error(data.error || t("start_failed"));
     setName("");
     setPrompt("");
     setCwd("");
@@ -50,10 +52,11 @@ export default function SessionListView({ onOpen, onLogout }: Props) {
 
   return (
     <>
-      <section className="card">
+      <section className="card create-card">
+        <h2><span className="glyph">//</span>{t("start_session")}</h2>
         <div className="row">
-          <input placeholder="名称（可选）" value={name} onChange={(e) => setName(e.target.value)} />
-          <input placeholder="初始指令（可选）" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <input placeholder={t("session_name_ph")} value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder={t("session_prompt_ph")} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
         </div>
         <div className="row">
           <select value={cli} onChange={(e) => setCli(e.target.value)}>
@@ -61,48 +64,49 @@ export default function SessionListView({ onOpen, onLogout }: Props) {
             <option value="kimi">Kimi Code</option>
             <option value="codex">Codex</option>
           </select>
-          <input placeholder="工作目录（默认 daemon 当前目录）" value={cwd} onChange={(e) => setCwd(e.target.value)} />
+          <input placeholder={t("session_cwd_ph")} value={cwd} onChange={(e) => setCwd(e.target.value)} />
         </div>
         <div className="row">
           <button className="primary" onClick={() => void create().catch((e) => alert(e instanceof Error ? e.message : String(e)))}>
-            启动会话
+            {t("start_session")}
           </button>
-          <button className="ghost" onClick={() => void refresh()}>刷新</button>
-          {onLogout && <button className="ghost" onClick={onLogout}>退出登录</button>}
+          <button className="ghost" onClick={() => void refresh()}>{t("refresh")}</button>
+          {onLogout && <button className="ghost" onClick={onLogout}>{t("logout")}</button>}
         </div>
       </section>
+      <p className="section-label"><span className="glyph">//</span>{t("sessions_label")}</p>
       <ul id="session-list">
         {sessions.map((s) => (
-          <li key={s.id} onClick={() => onOpen(s.id, s.name || s.id)}>
-            <span
-              className="truncate"
-              title={`${s.cli || ""} ${s.cwd || ""} ${s.id}`}
-            >
-              {s.name ||
-                [s.cli, s.cwd?.split("/").filter(Boolean).pop(), s.id.slice(0, 8)]
-                  .filter(Boolean)
-                  .join(" · ")}
-            </span>
-            <span className={"status " + (s.status || "")}>{s.status || ""}</span>
+          <li key={s.id} className="session" onClick={() => onOpen(s.id, s.name || s.id)}>
+            <div className="session-main">
+              <span className="session-name truncate">
+                {s.name ||
+                  [s.cli, s.cwd?.split("/").filter(Boolean).pop(), s.id.slice(0, 8)]
+                    .filter(Boolean)
+                    .join(" · ")}
+              </span>
+              <span className="session-meta truncate" title={`${s.cli || ""} ${s.cwd || ""} ${s.id}`}>
+                {[s.cli, s.cwd].filter(Boolean).join(" · ") || s.id.slice(0, 8)}
+              </span>
+            </div>
+            <span className={"status " + (s.status || "")}>{s.status || "—"}</span>
           </li>
         ))}
-        {sessions.length === 0 && <li className="muted">暂无会话</li>}
+        {sessions.length === 0 && <li className="empty muted">{t("no_sessions")}</li>}
       </ul>
       {sessions.length === 0 && (
-        <section className="card">
-          <h3>还没有会话？三步开始</h3>
+        <section className="card empty-card">
+          <h3><span className="glyph">//</span>{t("empty_title")}</h3>
           <ol className="steps">
             <li>
               {isRelay ? (
-                <>在电脑上安装并启动 daemon：<code>curl -fsSL https://riffpad.ai/install.sh | sh</code></>
+                <>{t("empty_step1_relay", { cmd: "curl -fsSL https://riffpad.ai/install.sh | sh" })}</>
               ) : (
-                <>daemon 已就绪（服务在线）</>
+                t("empty_step1_local")
               )}
             </li>
-            <li>
-              在电脑上创建会话，例如：<code>riffpad run --cli claude --prompt "你的任务"</code>
-            </li>
-            <li>会话会出现在上方列表，点开即可在手机上查看、审批、下达新指令。</li>
+            <li>{t("empty_step2")}</li>
+            <li>{t("empty_step3")}</li>
           </ol>
         </section>
       )}

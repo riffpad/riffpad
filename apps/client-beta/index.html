@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Riffpad</title>
+    <script>
+      // Dev convenience: ?relay=1 makes the embedded client behave like the
+      // cloud web app (must be set before the app module loads).
+      if (new URLSearchParams(location.search).has("relay")) {
+        window.RIFFPAD_RELAY = 1;
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
