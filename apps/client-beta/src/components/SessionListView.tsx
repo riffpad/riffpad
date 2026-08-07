@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, isRelay } from "../lib/store";
+import { api } from "../lib/store";
 import { useI18n } from "../lib/i18n";
 import type { SessionInfo } from "../lib/types";
 
 interface Props {
-  onOpen(sid: string, name: string): void;
+  onOpen(sid: string, name: string, cli?: string, cwd?: string): void;
 }
 
 const CWD_HISTORY_KEY = "riffpad.cwdHistory";
@@ -60,14 +60,6 @@ function statusLabel(status?: string): string {
     case "restored": return "RESTORED";
     default: return (status || "—").toUpperCase();
   }
-}
-
-function StopIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <rect x="5" y="5" width="14" height="14" />
-    </svg>
-  );
 }
 
 function PlusIcon() {
@@ -141,16 +133,6 @@ export default function SessionListView({ onOpen }: Props) {
     }
   }
 
-  async function stopSession(id: string) {
-    if (!window.confirm(t("confirm_stop"))) return;
-    try {
-      await fetch("/api/sessions/" + id + "/stop", { method: "POST" });
-    } catch {
-      // ignore
-    }
-    await refresh();
-  }
-
   return (
     <>
       <p className="section-label"><span className="glyph">//</span>{t("sessions_label")}</p>
@@ -163,7 +145,6 @@ export default function SessionListView({ onOpen }: Props) {
                 <div className="skeleton-line w35" />
               </div>
               <span className="skeleton-dot" />
-              <span className="skeleton-stop" />
             </div>
           ))}
         </div>
@@ -175,7 +156,7 @@ export default function SessionListView({ onOpen }: Props) {
             const meta = [s.cli, s.id.slice(0, 8), timeAgo(s.lastSeenAt, t)].filter(Boolean).join(" · ");
             const tone = statusTone(s.status);
             return (
-              <li key={s.id} className="session" onClick={() => onOpen(s.id, s.name || s.id)}>
+              <li key={s.id} className="session" onClick={() => onOpen(s.id, s.name || "", s.cli, s.cwd)}>
                 <div className="session-main">
                   <span className="session-name truncate">
                     {title}
@@ -183,16 +164,6 @@ export default function SessionListView({ onOpen }: Props) {
                   <span className="session-meta truncate" title={`${s.cwd || ""} ${s.id}`}>{meta}</span>
                 </div>
                 <span className={"session-light " + tone}><span className="dot" />{statusLabel(s.status)}</span>
-                <button
-                  className="icon-btn session-stop"
-                  aria-label={t("stop")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void stopSession(s.id);
-                  }}
-                >
-                  <StopIcon />
-                </button>
               </li>
             );
           })}
@@ -200,28 +171,19 @@ export default function SessionListView({ onOpen }: Props) {
         </ul>
       )}
 
-      {!loading && (
-          <button id="new-session" className="ghost new-session" onClick={() => setSheetOpen(true)}>
-            <PlusIcon />
-            {t("new_session")}
-          </button>
-      )}
-
       {!loading && sessions.length === 0 && (
         <section className="card empty-card">
           <h3><span className="glyph">//</span>{t("empty_title")}</h3>
-          <ol className="steps">
-            <li>
-              {isRelay ? (
-                <>{t("empty_step1_relay", { cmd: "curl -fsSL https://riffpad.ai/install.sh | sh" })}</>
-              ) : (
-                t("empty_step1_local")
-              )}
-            </li>
-            <li>{t("empty_step2")}</li>
-            <li>{t("empty_step3")}</li>
-          </ol>
+          <p className="muted">{t("empty_run_hint")}</p>
+          <code className="empty-cmd">riffpad run --cli codex</code>
         </section>
+      )}
+
+      {!loading && (
+        <button id="new-session" className="ghost new-session" onClick={() => setSheetOpen(true)}>
+          <PlusIcon />
+          {t("new_session")}
+        </button>
       )}
 
       {sheetOpen && (
@@ -250,12 +212,9 @@ export default function SessionListView({ onOpen }: Props) {
                 {cwdHistory.map((d) => <option key={d} value={d} />)}
               </datalist>
             </div>
-            <div className="row">
-              <button className="primary" disabled={busy} onClick={() => void create()}>
-                {busy ? t("starting_session") : t("start_session")}
-              </button>
-              <button className="ghost" onClick={() => setSheetOpen(false)}>{t("cancel")}</button>
-            </div>
+            <button className="primary sheet-start" disabled={busy} onClick={() => void create()}>
+              {busy ? t("starting_session") : t("start_session")}
+            </button>
           </div>
         </>
       )}

@@ -64,7 +64,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(initTheme);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [page, setPage] = useState<"sessions" | "devices">("sessions");
-  const [openSession, setOpenSession] = useState<{ sid: string; name: string } | null>(null);
+  const [openSession, setOpenSession] = useState<{ sid: string; name: string; cli?: string; cwd?: string } | null>(null);
   const isDevicePage = window.location.pathname.startsWith("/device");
 
   useEffect(() => {
@@ -218,7 +218,7 @@ export default function App() {
 
   if (isDevicePage) {
     return (
-      <>
+      <div className="app-shell">
         <header className="topbar topbar-static">
           <div className="brand">
             <Logo />
@@ -226,33 +226,37 @@ export default function App() {
           </div>
           <span className="muted">{t("cli_auth")}</span>
         </header>
-        <main>
+        <main className="app-main">
           <DeviceAuthView />
         </main>
-      </>
+      </div>
     );
   }
 
   if (phase === "auth") {
     return (
-      <main className="auth-stage">
-        <AuthView
-          onAuthed={() => void afterAuth()}
-          theme={theme}
-          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
-        />
-      </main>
+      <div className="app-shell">
+        <main className="auth-stage">
+          <AuthView
+            onAuthed={() => void afterAuth()}
+            theme={theme}
+            onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          />
+        </main>
+      </div>
     );
   }
 
   return (
-    <>
-      <button id="menu-toggle" className="icon-btn menu-toggle" onClick={() => setSidebarOpen(true)} aria-label={t("sidebar_open")}>
-        <MenuIcon />
-      </button>
+    <div className="app-shell">
+      {!openSession && (
+        <button id="menu-toggle" className="icon-btn menu-toggle" onClick={() => setSidebarOpen(true)} aria-label={t("sidebar_open")}>
+          <MenuIcon />
+        </button>
+      )}
       {topbar}
       {sidebarOpen && <div id="sidebar-backdrop" className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
-      <main>
+      <main className={"app-main" + (openSession ? " main-detail" : "")}>
         {phase === "loading" && null}
         {phase === "pair" && (
             <PairView
@@ -264,9 +268,9 @@ export default function App() {
         {phase === "sessions" && !openSession && (
           page === "sessions" ? (
             <SessionListView
-              onOpen={(sid, name) => {
+              onOpen={(sid, name, cli, cwd) => {
                 setSidebarOpen(false);
-                setOpenSession({ sid, name });
+                setOpenSession({ sid, name, cli, cwd });
               }}
             />
           ) : (
@@ -277,12 +281,14 @@ export default function App() {
           <SessionDetailView
             sid={openSession.sid}
             name={openSession.name}
+            cli={openSession.cli}
+            cwd={openSession.cwd}
             onLeave={() => {
               setOpenSession(null);
             }}
           />
         )}
       </main>
-    </>
+    </div>
   );
 }

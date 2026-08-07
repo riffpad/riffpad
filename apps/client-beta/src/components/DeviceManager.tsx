@@ -3,10 +3,6 @@ import { api, deviceStore, isRelay } from "../lib/store";
 import { deviceDisplayName } from "../lib/device";
 import { useI18n } from "../lib/i18n";
 
-interface Props {
-  onCurrentRevoked?: () => void;
-}
-
 interface Device {
   id: string;
   name?: string;
@@ -17,6 +13,32 @@ type ConfirmTarget =
   | { kind: "device"; id: string; name: string }
   | { kind: "all" }
   | null;
+
+type TFunc = ReturnType<typeof useI18n>["t"];
+
+function timeAgo(iso: string | undefined, t: TFunc): string {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!(ms >= 0)) return "";
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return t("time_just_now");
+  if (m < 60) return t("time_min_ago", { n: m });
+  const h = Math.floor(m / 60);
+  if (h < 24) return t("time_hour_ago", { n: h });
+  return t("time_day_ago", { n: Math.floor(h / 24) });
+}
+
+function RefreshIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+    </svg>
+  );
+}
+
+interface Props {
+  onCurrentRevoked?: () => void;
+}
 
 export default function DeviceManager({ onCurrentRevoked }: Props) {
   const { t } = useI18n();
@@ -115,15 +137,16 @@ export default function DeviceManager({ onCurrentRevoked }: Props) {
                 <div className="skeleton-line w35" />
               </div>
               <span className="skeleton-dot" />
-              <span className="skeleton-stop" />
             </div>
           ))}
         </div>
       ) : (
         <section className="card device-card">
           <div className="device-head">
-            <span className="device-status">{t("devices_status", { n: devices.length })}</span>
-            <button className="ghost" onClick={() => void refresh()}>{t("refresh")}</button>
+            <span className="device-status">■ {t("devices_status", { n: devices.length })}</span>
+            <button id="devices-refresh" className="icon-btn" onClick={() => void refresh()} aria-label={t("refresh")} title={t("refresh")}>
+              <RefreshIcon />
+            </button>
           </div>
           {devices.length === 0 ? (
             <p className="muted empty">{t("no_devices")}</p>
@@ -133,13 +156,18 @@ export default function DeviceManager({ onCurrentRevoked }: Props) {
                 const isCurrent = d.id === currentId;
                 const deleting = revoking === d.id;
                 return (
-                  <li key={d.id} className={isCurrent ? "current" : undefined}>
-                    <span className="truncate">
-                      {displayName(d)} · {d.id.slice(0, 8)}
-                      {isCurrent && <span className="badge this-device">{t("this_device")}</span>}
-                    </span>
+                  <li key={d.id} className="device-item">
+                    <div className="device-main">
+                      <div className="device-row1">
+                        <span className="device-name truncate">{displayName(d)}</span>
+                        {isCurrent && <span className="device-current">■ {t("this_device")}</span>}
+                      </div>
+                      <div className="device-row2 truncate">
+                        {d.id.slice(0, 8)} · {t("device_active", { time: timeAgo(d.createdAt, t) })}
+                      </div>
+                    </div>
                     <button
-                      className="ghost-danger"
+                      className="ghost-danger device-revoke"
                       disabled={deleting || busy}
                       onClick={() => setConfirm({ kind: "device", id: d.id, name: displayName(d) })}
                     >
@@ -152,7 +180,7 @@ export default function DeviceManager({ onCurrentRevoked }: Props) {
           )}
           <div className="device-danger">
             <button className="ghost-text-danger" disabled={busy || revoking !== null} onClick={() => setConfirm({ kind: "all" })}>
-              {busy ? <><span className="spinner" />{t("revoking")}</> : (isRelay ? t("revoke_all") : t("kill_switch"))}
+              {busy ? <><span className="spinner" />{t("revoking")}</> : `⚠ ${isRelay ? t("revoke_all") : t("kill_switch")}`}
             </button>
           </div>
           {err && <div className="err">{err}</div>}

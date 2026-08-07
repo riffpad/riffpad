@@ -70,7 +70,7 @@ export default function EventItem({
 
     case "notify": {
       const level = String(p.level || "info");
-      return <div className={"status-line tone-" + level}>● {String(p.message || "")}</div>;
+      return <div className={"status-line tone-" + level}>■ {String(p.message || "")}</div>;
     }
 
     case "approval_request": {

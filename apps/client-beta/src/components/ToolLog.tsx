@@ -7,6 +7,16 @@ export interface ToolLine {
   detail: string;
 }
 
+function DotMatrix() {
+  return (
+    <span className="dot-matrix" aria-hidden="true">
+      {Array.from({ length: 9 }).map((_, i) => (
+        <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />
+      ))}
+    </span>
+  );
+}
+
 export default function ToolLog({ line }: { line: ToolLine }) {
   const [open, setOpen] = useState(false);
   const expandable = line.detail.length > 0;
@@ -25,7 +35,13 @@ export default function ToolLog({ line }: { line: ToolLine }) {
         }}
       >
         <span className="tool-glyph">
-          {line.status === "run" ? <span className="spinner" /> : line.status === "done" ? "✓" : "✗"}
+          {line.status === "run" ? (
+            <DotMatrix />
+          ) : line.status === "done" ? (
+            <span className="tool-check" />
+          ) : (
+            "✗"
+          )}
         </span>
         <span className="tool-text truncate">{line.glyph}</span>
         {expandable && <span className="tool-chevron">{open ? "▾" : "▸"}</span>}
