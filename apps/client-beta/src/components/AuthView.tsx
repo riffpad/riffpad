@@ -63,6 +63,7 @@ export default function AuthView({ onAuthed, theme, onToggleTheme }: Props) {
   }, [onAuthed]);
 
   return (
+    <>
     <section id="auth-view" className="card auth-card">
       <button
         id="github-login"
@@ -93,5 +94,7 @@ export default function AuthView({ onAuthed, theme, onToggleTheme }: Props) {
         </button>
       </div>
     </section>
+    <a className="back-home" href="https://riffpad.ai">{t("back_home")}</a>
+    </>
   );
 }

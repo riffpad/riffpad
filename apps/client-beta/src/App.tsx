@@ -188,7 +188,7 @@ export default function App() {
         </button>
       </nav>
       <div className="topbar-actions">
-        {isRelay && phase === "sessions" && (
+        {isRelay && phase !== "loading" && phase !== "auth" && (
           <button id="logout-btn" className="lang-toggle" onClick={() => void logout()}>
             {t("logout")}
           </button>

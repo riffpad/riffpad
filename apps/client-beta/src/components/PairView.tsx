@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pairDevice } from "../lib/device";
 import { useI18n } from "../lib/i18n";
+import DotMatrix from "./DotMatrix";
 import PinInput from "./PinInput";
 import ScanQR from "./ScanQR";
 
@@ -168,6 +169,12 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
           disabled={busy}
           autoFocus
         />
+        {busy && (
+          <div className="pair-loading">
+            <DotMatrix />
+            {t("pairing")}
+          </div>
+        )}
         <button id="install-cli-link" className="install-cli-link" onClick={() => setInstallOpen(true)}>
           {t("install_cli_link")} <span className="chevron">▾</span>
         </button>
