@@ -15,7 +15,7 @@ Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your
 
 [Website](https://riffpad.ai) · [Documentation](https://www.riffpad.ai/docs/guide/quickstart) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
-[English](README.md) · [中文](README.zh-CN.md)
+[EN](README.md) · [ZH](README.zh-CN.md)
 
 </div>
 
