@@ -144,6 +144,11 @@ body {
   gap: 8px;
   margin-left: auto;
 }
+.sidebar-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .icon-btn {
   display: inline-flex;
@@ -832,8 +837,14 @@ pre.ev-body {
     margin-top: auto;
   }
   .topbar-actions .conn { justify-content: center; }
-  .topbar-actions .icon-btn,
-  .topbar-actions .lang-toggle { width: 100%; }
+  #logout-btn { width: 100%; }
+  .sidebar-toggles {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+  }
+  .sidebar-toggles .icon-btn,
+  .sidebar-toggles .lang-toggle { flex: 1; width: auto; }
 
   .menu-toggle {
     display: inline-flex;
