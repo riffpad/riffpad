@@ -39,6 +39,14 @@ export function Footer() {
               {t.footer.docs}
             </a>
             <a
+              href="https://discord.gg/CDNFTg2QyM"
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-ink"
+            >
+              {t.footer.discord}
+            </a>
+            <a
               href="mailto:hi@riffpad.ai"
               className="transition-colors hover:text-ink"
             >
