@@ -3,15 +3,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 export type Lang = "zh" | "en";
 
 const zh: Record<string, string> = {
-  online: "服务在线",
-  offline: "离线",
+  paired: "已配对",
+  unpaired: "未配对",
   connecting: "连接中…",
   not_paired: "未配对：请刷新页面并重新输入配对码",
   handshake_failed: "握手失败：",
   connect_failed: "连接失败：",
   cli_auth: "CLI 授权",
+  theme_light: "切换到浅色模式",
+  theme_dark: "切换到深色模式",
+  sidebar_open: "打开菜单",
+  sidebar_close: "关闭菜单",
 
-  login_title: "登录 / 注册",
+  login_title: "登录",
   github_login: "使用 GitHub 登录",
   or: "或",
   username_ph: "用户名",
@@ -100,15 +104,19 @@ const zh: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
-  online: "Online",
-  offline: "Offline",
+  paired: "Connected",
+  unpaired: "Disconnected",
   connecting: "Connecting…",
   not_paired: "Not paired: refresh the page and enter a pairing code",
   handshake_failed: "Handshake failed: ",
   connect_failed: "Connection failed: ",
   cli_auth: "CLI auth",
+  theme_light: "Switch to light mode",
+  theme_dark: "Switch to dark mode",
+  sidebar_open: "Open menu",
+  sidebar_close: "Close menu",
 
-  login_title: "Sign in / Register",
+  login_title: "Sign in",
   github_login: "Continue with GitHub",
   or: "or",
   username_ph: "Username",

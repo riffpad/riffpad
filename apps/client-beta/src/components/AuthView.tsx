@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
-import { api, isRelay, relayStore } from "../lib/store";
+import { useEffect } from "react";
+import { relayStore } from "../lib/store";
 import { useI18n } from "../lib/i18n";
+
+function GitHubIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
 
 export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
   const { t } = useI18n();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
@@ -21,58 +26,18 @@ export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
     return () => window.removeEventListener("message", onMessage);
   }, [onAuthed]);
 
-  async function submit(path: string) {
-    setErr("");
-    try {
-      const res = await api(path, {
-        method: "POST",
-        body: JSON.stringify({ username: username.trim(), password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("request_failed"));
-      localStorage.setItem("riffpad.relay", JSON.stringify({ token: data.token, username: data.user.username }));
-      setPassword("");
-      onAuthed();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    }
-  }
-
   return (
-    <section id="auth-view" className="card">
+    <section id="auth-view" className="card auth-card">
       <h2><span className="glyph">//</span>{t("login_title")}</h2>
-      {isRelay && (
-        <>
-          <button
-            className="primary github"
-            style={{ width: "100%" }}
-            onClick={() => window.open("/api/auth/github/login", "_blank", "width=560,height=680")}
-          >
-            {t("github_login")}
-          </button>
-          <p className="muted divider">{t("or")}</p>
-        </>
-      )}
-      <div className="row">
-        <input
-          placeholder={t("username_ph")}
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder={t("password_ph")}
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-      <div className="row">
-        <button className="primary" onClick={() => void submit("/api/auth/login")}>{t("login_btn")}</button>
-        <button className="ghost" onClick={() => void submit("/api/auth/register")}>{t("register_btn")}</button>
-      </div>
-      {err && <div id="auth-err" className="err">{err}</div>}
+      <button
+        id="github-login"
+        className="primary github"
+        style={{ width: "100%" }}
+        onClick={() => window.open("/api/auth/github/login", "_blank", "width=560,height=680")}
+      >
+        <GitHubIcon />
+        {t("github_login")}
+      </button>
     </section>
   );
 }

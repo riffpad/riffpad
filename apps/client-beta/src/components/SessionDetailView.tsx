@@ -8,35 +8,41 @@ import EventItem from "./EventItem";
 interface Props {
   sid: string;
   name: string;
-  onConn(label: string): void;
   onLeave(): void;
 }
 
-export default function SessionDetailView({ sid, name, onConn, onLeave }: Props) {
+function statusClass(status: string): string {
+  if (/未连接|未配对|握手失败|连接失败|失败|断开/.test(status)) return "bad";
+  if (/连接中|重连|等待/.test(status)) return "pending";
+  return "good";
+}
+
+export default function SessionDetailView({ sid, name, onLeave }: Props) {
   const { t } = useI18n();
   const [events, setEvents] = useState<RiffpadEvent[]>([]);
   const [prompt, setPrompt] = useState("");
   const [stopping, setStopping] = useState(false);
   const [err, setErr] = useState("");
+  const [status, setStatus] = useState(t("connecting"));
   const sockRef = useRef<SessionSocket | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setEvents([]);
-    onConn(t("connecting"));
+    setStatus(t("connecting"));
     ensureIdentity()
       .then((dev) => {
         if (!dev.deviceId) {
-          onConn(t("not_paired"));
+          setStatus(t("not_paired"));
           return null;
         }
         return openSessionSocket(sid, dev, {
-          onConn,
+          onConn: setStatus,
           onEvent: (ev) => {
             if (!cancelled) setEvents((prev) => [...prev, ev]);
           },
-          onError: (message) => onConn(t("handshake_failed") + message),
+          onError: (message) => setStatus(t("handshake_failed") + message),
         });
       })
       .then((sock) => {
@@ -46,13 +52,13 @@ export default function SessionDetailView({ sid, name, onConn, onLeave }: Props)
         }
         sockRef.current = sock;
       })
-      .catch((e) => onConn(t("connect_failed") + (e instanceof Error ? e.message : String(e))));
+      .catch((e) => setStatus(t("connect_failed") + (e instanceof Error ? e.message : String(e))));
     return () => {
       cancelled = true;
       sockRef.current?.close();
       sockRef.current = null;
     };
-  }, [sid, onConn, t]);
+  }, [sid, t]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -89,6 +95,7 @@ export default function SessionDetailView({ sid, name, onConn, onLeave }: Props)
           <span className="detail-name truncate">{name || t("session_default")}</span>
           <span className="detail-id">{sid.slice(0, 8)}</span>
         </div>
+        <span id="session-conn" className={"conn " + statusClass(status)}>{status}</span>
         <button className="danger" onClick={() => void stop()} disabled={stopping}>
           {stopping ? t("stopping") : t("stop")}
         </button>
