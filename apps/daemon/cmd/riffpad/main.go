@@ -676,6 +676,13 @@ func loginCmd(args []string, dataDir string) error {
 	return doLogin(args, dataDir)
 }
 
+// Injectable indirections so tests can stub browser opening and daemon
+// restarts without touching a real daemon.
+var (
+	openBrowserFn   = openBrowser
+	restartDaemonFn = restartDaemon
+)
+
 // authCmd prints which relay account the daemon is logged in as, verifying
 // the saved token against the relay when possible.
 func authCmd(dataDir string) error {
@@ -837,7 +844,7 @@ func doLogin(args []string, dataDir string) error {
 		return err
 	}
 	fmt.Println(t.T("login_success", *username))
-	restartDaemon(dataDir)
+	restartDaemonFn(dataDir)
 	return nil
 }
 
@@ -867,7 +874,7 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 		dev.VerificationURL = strings.TrimSuffix(httpURL, "/") + "/device?code=" + url.QueryEscape(dev.UserCode)
 	}
 	fmt.Println(t.T("login_oauth_open", dev.VerificationURL, dev.UserCode))
-	openBrowser(dev.VerificationURL)
+	openBrowserFn(dev.VerificationURL)
 	if dev.Interval <= 0 {
 		dev.Interval = 3
 	}
@@ -875,12 +882,31 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 		dev.ExpiresIn = 600
 	}
 	deadline := time.Now().Add(time.Duration(dev.ExpiresIn) * time.Second)
+	var lastErr error
 	for time.Now().Before(deadline) {
 		time.Sleep(time.Duration(dev.Interval) * time.Second)
 		payload, _ := json.Marshal(map[string]string{"code": dev.UserCode})
 		presp, err := http.Post(httpURL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
 		if err != nil {
-			return fmt.Errorf("%s: %w", t.T("login_oauth_poll_failed"), err)
+			// Transient network failure: keep polling until the deadline.
+			lastErr = err
+			continue
+		}
+		if presp.StatusCode == http.StatusUnauthorized {
+			var relayErr struct {
+				Error string `json:"error"`
+			}
+			_ = json.NewDecoder(presp.Body).Decode(&relayErr)
+			presp.Body.Close()
+			if relayErr.Error != "" {
+				return fmt.Errorf("%s", relayErr.Error)
+			}
+			return fmt.Errorf("%s", t.T("login_oauth_failed_status", presp.StatusCode))
+		}
+		if presp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("status %d", presp.StatusCode)
+			presp.Body.Close()
+			continue
 		}
 		var out struct {
 			Pending  bool   `json:"pending"`
@@ -890,7 +916,8 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 		decodeErr := json.NewDecoder(presp.Body).Decode(&out)
 		presp.Body.Close()
 		if decodeErr != nil {
-			return fmt.Errorf("%s: %w", t.T("login_oauth_poll_failed"), decodeErr)
+			lastErr = decodeErr
+			continue
 		}
 		if out.Pending {
 			continue
@@ -912,8 +939,11 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 			return err
 		}
 		fmt.Println(t.T("login_success", out.Username))
-		restartDaemon(dataDir)
+		restartDaemonFn(dataDir)
 		return nil
+	}
+	if lastErr != nil {
+		return fmt.Errorf("%s（最后错误：%v）", t.T("login_oauth_timeout"), lastErr)
 	}
 	return fmt.Errorf("%s", t.T("login_oauth_timeout"))
 }

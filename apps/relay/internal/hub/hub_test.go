@@ -398,6 +398,38 @@ func TestGitHubOAuthLoopbackOpener(t *testing.T) {
 	}
 }
 
+func TestOAuthCallbackErrorPagesAreStyled(t *testing.T) {
+	h, ts := newTestHub(t)
+	h.githubID = "test-client-id"
+	h.githubSecret = "test-client-secret"
+
+	// Missing code/state renders a styled HTML error, not raw JSON.
+	resp, err := http.Get(ts.URL + "/api/auth/github/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest ||
+		!strings.Contains(resp.Header.Get("Content-Type"), "text/html") ||
+		!strings.Contains(string(body), "链接不完整") {
+		t.Fatalf("missing-params status %d type %q body %s", resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	}
+
+	// Unknown state renders a styled expiry error.
+	resp, err = http.Get(ts.URL + "/api/auth/github/callback?code=x&state=unknown&lang=en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized ||
+		!strings.Contains(string(body), "Link expired") ||
+		!strings.Contains(string(body), "again") {
+		t.Fatalf("invalid-state status %d body %s", resp.StatusCode, body)
+	}
+}
+
 func TestDeviceLoginFlow(t *testing.T) {
 	h, ts := newTestHub(t)
 	h.githubID = "test-client-id"

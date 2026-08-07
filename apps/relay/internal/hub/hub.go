@@ -449,7 +449,12 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	if code == "" || state == "" {
-		writeError(w, http.StatusBadRequest, "missing code or state")
+		lang := oauthLang(r)
+		if lang == "en" {
+			writeHTML(w, http.StatusBadRequest, errorHTML(lang, "Sign-in failed", "The link is incomplete — please start again."))
+		} else {
+			writeHTML(w, http.StatusBadRequest, errorHTML(lang, "登录失败", "链接不完整，请重新发起登录。"))
+		}
 		return
 	}
 	h.mu.Lock()
@@ -459,7 +464,12 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.Unlock()
 	if !ok || time.Now().After(st.expires) {
-		writeError(w, http.StatusUnauthorized, "invalid state")
+		lang := oauthLang(r)
+		if lang == "en" {
+			writeHTML(w, http.StatusUnauthorized, errorHTML(lang, "Link expired", "The authorization flow expired. Run riffpad login again for a fresh link."))
+		} else {
+			writeHTML(w, http.StatusUnauthorized, errorHTML(lang, "链接已失效", "授权流程已过期，请重新运行 riffpad login 获取新链接。"))
+		}
 		return
 	}
 	// Exchange code for an access token.
@@ -534,7 +544,11 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		h.mu.Unlock()
 		if !ok {
-			writeError(w, http.StatusBadRequest, "device login expired")
+			if st.lang == "en" {
+				writeHTML(w, http.StatusBadRequest, errorHTML(st.lang, "Authorization link expired", "Run riffpad login again for a fresh link."))
+			} else {
+				writeHTML(w, http.StatusBadRequest, errorHTML(st.lang, "授权链接已过期", "请重新运行 riffpad login 获取新链接。"))
+			}
 			return
 		}
 		h.log.Printf("device login authorized user=%s", u.Username)
@@ -576,10 +590,25 @@ func allowedOpener(raw string) bool {
 	return false
 }
 
+const oauthPageCSS = `<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b0c;color:#e8e6e3;font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,"PingFang SC","Microsoft YaHei",sans-serif}
+.card{background:#121214;border:1px solid rgba(255,255,255,.12);padding:28px 32px;max-width:380px;width:100%;box-sizing:border-box}
+.row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.check{width:12px;height:12px;background:#7ee787;flex:none}
+.warn .check{background:#d29922}
+.bad .check{background:#f85149}
+h1{font-size:16px;margin:0}
+p{margin:0;color:#a8a8ad}
+</style>`
+
+func oauthPage(lang, extraClass, title, desc string) string {
+	return `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title>` + oauthPageCSS + `</head><body><div class="card"><div class="row ` + extraClass + `"><span class="check"></span><h1>` + title + `</h1></div><p>` + desc + `</p></div></body></html>`
+}
+
 // receiptHTML renders the styled post-login receipt page for GitHub OAuth
 // (app popup or CLI device flow).
 func receiptHTML(lang, mode string, stale bool) string {
-	title, desc := "登录成功", "请回到 Riffpad 页面。"
+	extra, title, desc := "", "登录成功", "请回到 Riffpad 页面。"
 	if lang == "en" {
 		title, desc = "Signed in", "You can go back to the Riffpad page."
 	}
@@ -590,6 +619,7 @@ func receiptHTML(lang, mode string, stale bool) string {
 			title, desc = "CLI 登录授权成功", "可以回到终端了，登录会自动完成。"
 		}
 		if stale {
+			extra = "warn"
 			if lang == "en" {
 				title, desc = "Authorized, but no waiting terminal", "The terminal may have exited. If sign-in did not complete, run riffpad login again."
 			} else {
@@ -597,23 +627,19 @@ func receiptHTML(lang, mode string, stale bool) string {
 			}
 		}
 	}
-	return `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title>
-<style>
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b0c;color:#e8e6e3;font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,"PingFang SC","Microsoft YaHei",sans-serif}
-.card{background:#121214;border:1px solid rgba(255,255,255,.12);padding:28px 32px;max-width:380px;width:100%;box-sizing:border-box}
-.row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.check{width:12px;height:12px;background:#7ee787;flex:none}
-.warn .check{background:#d29922}
-h1{font-size:16px;margin:0}
-p{margin:0;color:#a8a8ad}
-</style></head><body><div class="card"><div class="row` + boolStr(stale, " warn", "") + `"><span class="check"></span><h1>` + title + `</h1></div><p>` + desc + `</p></div></body></html>`
+	return oauthPage(lang, extra, title, desc)
 }
 
-func boolStr(b bool, yes, no string) string {
-	if b {
-		return yes
+func errorHTML(lang, title, desc string) string {
+	return oauthPage(lang, "bad", title, desc)
+}
+
+func oauthLang(r *http.Request) string {
+	lang := r.URL.Query().Get("lang")
+	if lang != "zh" && lang != "en" {
+		lang = "zh"
 	}
-	return no
+	return lang
 }
 
 // ---------- hosts / pairing / sessions ----------
@@ -1185,6 +1211,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func writeHTML(w http.ResponseWriter, status int, html string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = io.WriteString(w, html)
 }
 
 func methodNotAllowed(w http.ResponseWriter) {
