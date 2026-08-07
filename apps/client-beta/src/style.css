@@ -22,6 +22,9 @@
   --danger: #dc2626;
   --info: #2563eb;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --code-bg: #f2f1ec;
+  --code-fg: #191917;
+  --code-mute: #73736a;
   /* Console stays dark in both themes, like a real terminal. */
   --console: #121214;
   --console-elevated: #1b1b19;
@@ -34,8 +37,30 @@
   --term-cyan: #76e3ea;
 }
 
+[data-theme="dark"] {
+  --canvas: #0b0b0c;
+  --surface: #121214;
+  --surface-muted: #1a1a1d;
+  --ink: #e8e6e3;
+  --body: #a8a8ad;
+  --mute: #7c7c82;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --hairline-strong: rgba(255, 255, 255, 0.22);
+  --accent: #7ee787;
+  --accent-hover: #a4f0ba;
+  --accent-ink: #191917;
+  --success: #7ee787;
+  --warning: #d29922;
+  --danger: #f85149;
+  --info: #58a6fb;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --code-bg: #121214;
+  --code-fg: #e8e6e3;
+  --code-mute: #7c7c82;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --canvas: #0b0b0c;
     --surface: #121214;
     --surface-muted: #1a1a1d;
@@ -52,10 +77,13 @@
     --danger: #f85149;
     --info: #58a6fb;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --code-bg: #121214;
+    --code-fg: #e8e6e3;
+    --code-mute: #7c7c82;
   }
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; border-radius: 0 !important; }
 
 html, body { margin: 0; padding: 0; }
 
@@ -78,7 +106,7 @@ body {
   outline-offset: 2px;
 }
 
-header {
+.topbar {
   position: sticky;
   top: 0;
   z-index: 20;
@@ -91,22 +119,52 @@ header {
   border-bottom: 1px solid var(--hairline);
 }
 
-header h1 {
-  margin: 0;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-right: auto;
+  color: var(--ink);
+}
+
+.brand .logo {
+  display: block;
+  flex: none;
+}
+
+.brand-name {
   font-size: 17px;
   font-weight: 700;
-  color: var(--ink);
   letter-spacing: -0.01em;
 }
 
-header h1::before {
-  content: "●";
-  color: var(--accent);
-  margin-right: 8px;
-  font-size: 11px;
-  vertical-align: 2px;
-  animation: dot-pulse 2.4s ease-out infinite;
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: var(--hairline);
+  color: var(--mute);
+  background: transparent;
+}
+.icon-btn:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+
+.menu-toggle,
+.sidebar-close,
+.sidebar-backdrop {
+  display: none;
 }
 
 main {
@@ -202,6 +260,10 @@ button.ghost { background: transparent; }
 button.ghost:hover { background: var(--surface-muted); }
 
 button.github {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 46px;
   font-size: 14px;
 }
@@ -301,6 +363,128 @@ button.github {
   color: var(--ink);
 }
 .pair-code b { color: var(--accent); }
+
+/* ---- pairing onboarding ---- */
+.pair-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: calc(100vh - 140px);
+  justify-content: center;
+  animation: rise 0.35s ease-out both;
+}
+.pair-hero { text-align: center; }
+.pair-hero h2 {
+  margin: 10px 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pair-hero .muted { margin: 0; }
+.pair-illustration {
+  display: block;
+  width: min(280px, 82%);
+  height: auto;
+  margin: 0 auto;
+}
+.sync-dot { animation: dot-pulse 1.6s ease-out infinite; }
+.scan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  font-size: 15px;
+}
+
+.pin-input { display: flex; gap: 8px; justify-content: center; }
+.pin-box {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 56px;
+  min-width: 0;
+  padding: 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.code-card {
+  overflow: hidden;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color 180ms ease-out;
+}
+.code-card:hover { border-color: var(--hairline-strong); }
+.code-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--code-fg) 12%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--code-mute);
+}
+.code-card code {
+  display: block;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+}
+.code-card .cmd { color: var(--accent); }
+.copy-btn {
+  min-width: 26px;
+  min-height: 26px;
+  border-color: transparent;
+  color: var(--code-mute);
+}
+.copy-btn:hover {
+  color: var(--code-fg);
+  border-color: color-mix(in srgb, var(--code-fg) 25%, transparent);
+  background: color-mix(in srgb, var(--code-fg) 8%, transparent);
+}
+.pair-above { text-align: center; margin: 0; font-size: 12px; }
+.pair-hint { text-align: center; margin: 0; }
+
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.82);
+}
+.scan-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  padding: 16px;
+  animation: rise 0.25s ease-out both;
+}
+.scan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.scan-head h3 { margin: 0; font-size: 15px; color: var(--ink); }
+.scan-note { text-align: center; padding: 24px 0; }
+.scan-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: var(--console);
+}
 
 /* ---- status pills ---- */
 .status {
@@ -485,6 +669,12 @@ pre.ev-body {
   border-bottom: 1px solid var(--hairline);
 }
 .detail-head .back { border: none; background: transparent; padding: 0 6px; }
+.detail-head .conn {
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .detail-title {
   flex: 1;
   min-width: 0;
@@ -554,9 +744,81 @@ pre.ev-body {
   }
 }
 
-@media (max-width: 480px) {
-  main { padding: 12px 12px 96px; }
+@media (max-width: 768px) {
+  main { padding: 68px 12px 96px; }
   .card { padding: 14px; }
-  header { padding: 0 12px; }
-  .conn { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; }
+
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 264px;
+    height: 100vh;
+    z-index: 40;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 18px 16px;
+    border-right: 1px solid var(--hairline);
+    border-bottom: none;
+    box-shadow: var(--shadow);
+    transform: translateX(-105%);
+    transition: transform 240ms ease-out;
+  }
+  .topbar.open { transform: translateX(0); }
+
+  .topbar .brand { margin-right: 0; }
+  .topbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 0;
+    margin-top: auto;
+  }
+  .topbar-actions .conn { justify-content: center; }
+  .topbar-actions .icon-btn,
+  .topbar-actions .lang-toggle { width: 100%; }
+
+  .menu-toggle {
+    display: inline-flex;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 30;
+  }
+  .sidebar-close {
+    display: inline-flex;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 18px;
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  /* Device-auth page keeps a normal static top bar on mobile. */
+  .topbar-static {
+    position: static;
+    width: auto;
+    height: 56px;
+    flex-direction: row;
+    align-items: center;
+    transform: none;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+    box-shadow: none;
+  }
+  .topbar-static .brand { margin-right: auto; }
+
+  .conn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .pin-box {
+    flex-basis: 40px;
+    width: 40px;
+    height: 52px;
+  }
 }
