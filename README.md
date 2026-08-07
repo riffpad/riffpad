@@ -10,10 +10,10 @@ Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your
 
 [![CI](https://github.com/riffpad/riffpad/actions/workflows/ci.yml/badge.svg)](https://github.com/riffpad/riffpad/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
-[![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://riffpad.ai/docs)
+[![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/guide/quickstart)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
 
-[Website](https://riffpad.ai) · [Documentation](https://riffpad.ai/docs) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
+[Website](https://riffpad.ai) · [Documentation](https://www.riffpad.ai/docs/guide/quickstart) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
 </div>
 
@@ -88,4 +88,4 @@ Questions, ideas, or show-and-tell? Join us:
 
 - [Discord](https://discord.gg/CDNFTg2QyM) — the community hangout
 - [GitHub Issues](https://github.com/riffpad/riffpad/issues) — bugs and feature requests
-- [Documentation](https://riffpad.ai/docs) — install, pairing, security model
+- [Documentation](https://www.riffpad.ai/docs/guide/quickstart) — install, pairing, security model
