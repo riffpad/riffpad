@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src=".github/assets/banner.png?v=2" alt="Riffpad banner" width="100%" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner.png?v=3" />
+  <img src=".github/assets/banner-light.png?v=3" alt="Riffpad banner" width="100%" />
+</picture>
 
 # Riffpad
 
