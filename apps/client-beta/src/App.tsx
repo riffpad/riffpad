@@ -219,14 +219,7 @@ export default function App() {
   if (isDevicePage) {
     return (
       <div className="app-shell">
-        <header className="topbar topbar-static">
-          <div className="brand">
-            <Logo />
-            <span className="brand-name">riffpad</span>
-          </div>
-          <span className="muted">{t("cli_auth")}</span>
-        </header>
-        <main className="app-main">
+        <main className="auth-stage">
           <DeviceAuthView />
         </main>
       </div>

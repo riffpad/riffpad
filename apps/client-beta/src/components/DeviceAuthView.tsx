@@ -1,30 +1,49 @@
 import { useState } from "react";
 import { useI18n } from "../lib/i18n";
 
+function GitHubIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
+
 export default function DeviceAuthView() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const code = new URLSearchParams(window.location.search).get("code") || "";
   const [err, setErr] = useState("");
 
   return (
-    <section id="device-auth-view" className="card">
-      <h2><span className="glyph">//</span>{t("cli_auth_title")}</h2>
-      <p className="muted">{t("cli_auth_desc", { cmd: "riffpad relay login --github" })}</p>
-      <p className="pair-code">{t("auth_code")}<b>{code || "—"}</b></p>
-      <button
-        className="primary github"
-        style={{ width: "100%" }}
-        disabled={!code}
-        onClick={() => {
-          if (!code) return;
-          setErr("");
-          window.location.href = "/api/auth/github/login?device=" + encodeURIComponent(code);
-        }}
-      >
-        {t("github_login")}
-      </button>
-      {!code && <div className="err">{t("cli_auth_missing")}</div>}
-      {err && <div className="err">{err}</div>}
-    </section>
+    <div className="device-auth">
+      <div className="auth-terminal">{t("cli_auth_terminal")}</div>
+      <div className="auth-status online">
+        <span className="dot" />
+        {t("cli_auth_status")}
+      </div>
+      <section id="device-auth-view" className="card auth-card">
+        <h2><span className="glyph">//</span>{t("cli_auth_title")}</h2>
+        <p className="muted auth-desc">{t("cli_auth_desc", { cmd: "riffpad relay login --github" })}</p>
+        <p className="pair-code">{t("auth_code")}<b>{code || "—"}</b></p>
+        <button
+          id="device-github-login"
+          className="auth-github github"
+          style={{ width: "100%" }}
+          disabled={!code}
+          onClick={() => {
+            if (!code) return;
+            setErr("");
+            window.location.href =
+              "/api/auth/github/login?device=" + encodeURIComponent(code) + "&lang=" + lang;
+          }}
+        >
+          <GitHubIcon />
+          {t("github_login")}
+        </button>
+        <p className="muted pair-hint">{t("cli_auth_hint")}</p>
+        {!code && <div className="err">{t("cli_auth_missing")}</div>}
+        {err && <div className="err">{err}</div>}
+      </section>
+    </div>
   );
 }

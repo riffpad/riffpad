@@ -197,6 +197,7 @@
 | M3.16 | 元数据存储 SQLite → Postgres 迁移 | `[x]` | 已随 M1.18 完成：`apps/relay/cmd/migrate-sqlite` 逐表迁移 + 行数校验，生产已切换 Postgres | — |
 | M3.17 | CI/CD：main push → 自动部署 relay（GitHub Actions + SSH 受限部署密钥） | `[x]` | CI 三 job 通过后自动执行 `/usr/local/bin/riffpad-deploy.sh`（git pull --ff-only + compose up -d --build + 健康检查）；部署密钥仅能执行固定脚本；2026-08-07 已端到端验证 | #108 #112 #113 |
 | M3.18 | 会话按主机组织：relay 返回 hostName，client 会话列表按主机分组/标注 | `[ ]` | 多台电脑会话可区分；分组展示；同步确认设备访问主机策略 | #151 |
+| M3.19 | CLI 登录页（/device）与授权回执页 UI 优化：对齐登录页质感、深色主题卡片、中英文随 lang 渲染 | `[x]` | device 页终端头部 + 授权码 + GitHub 按钮；回执页深色卡片 + 绿色状态；单测覆盖 en 回执 | #160 |
 
 ---
 

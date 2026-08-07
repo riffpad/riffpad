@@ -43,6 +43,7 @@ type oauthState struct {
 	expires time.Time
 	device  string
 	opener  string
+	lang    string
 }
 
 // deviceLogin is a pending CLI login. The user opens verificationURL, signs
@@ -408,6 +409,10 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid opener")
 		return
 	}
+	lang := r.URL.Query().Get("lang")
+	if lang != "zh" && lang != "en" {
+		lang = "zh"
+	}
 	state := protocol.NewID()
 	h.mu.Lock()
 	if device != "" {
@@ -418,7 +423,7 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device, opener: opener}
+	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device, opener: opener, lang: lang}
 	h.mu.Unlock()
 	redirect, _ := url.Parse("https://github.com/login/oauth/authorize")
 	q := redirect.Query()
@@ -528,7 +533,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		h.log.Printf("device login authorized user=%s", u.Username)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = io.WriteString(w, `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:0 1rem"><h2>CLI 登录授权成功</h2><p>可以回到终端了，登录会自动完成。</p></body></html>`)
+		_, _ = io.WriteString(w, receiptHTML(st.lang, "device"))
 		return
 	}
 	// Hand the token back to the opener window. The default is the production
@@ -538,10 +543,9 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		target = "https://app.riffpad.ai"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = io.WriteString(w, `<script>
+	_, _ = io.WriteString(w, receiptHTML(st.lang, "app")+`<script>
 const data = {type: "riffpad-oauth", token: `+jsonQuote(token)+`, user: `+jsonQuote(u.Username)+`};
 if (window.opener) { window.opener.postMessage(data, `+jsonQuote(target)+`); window.close(); }
-document.write("登录成功，请回到 Riffpad 页面。");
 </script>`)
 }
 
@@ -564,6 +568,31 @@ func allowedOpener(raw string) bool {
 		return true
 	}
 	return false
+}
+
+// receiptHTML renders the styled post-login receipt page for GitHub OAuth
+// (app popup or CLI device flow).
+func receiptHTML(lang, mode string) string {
+	title, desc := "登录成功", "请回到 Riffpad 页面。"
+	if lang == "en" {
+		title, desc = "Signed in", "You can go back to the Riffpad page."
+	}
+	if mode == "device" {
+		if lang == "en" {
+			title, desc = "CLI login authorized", "Return to your terminal — sign-in completes automatically."
+		} else {
+			title, desc = "CLI 登录授权成功", "可以回到终端了，登录会自动完成。"
+		}
+	}
+	return `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Riffpad</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b0c;color:#e8e6e3;font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,"PingFang SC","Microsoft YaHei",sans-serif}
+.card{background:#121214;border:1px solid rgba(255,255,255,.12);padding:28px 32px;max-width:380px;width:100%;box-sizing:border-box}
+.row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.check{width:12px;height:12px;background:#7ee787;flex:none}
+h1{font-size:16px;margin:0}
+p{margin:0;color:#a8a8ad}
+</style></head><body><div class="card"><div class="row"><span class="check"></span><h1>` + title + `</h1></div><p>` + desc + `</p></div></body></html>`
 }
 
 // ---------- hosts / pairing / sessions ----------

@@ -391,6 +391,13 @@ button.github {
   margin: 0;
   padding: 24px;
 }
+.device-auth {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .auth-github {
   min-height: 48px;
   background: var(--surface-muted);
