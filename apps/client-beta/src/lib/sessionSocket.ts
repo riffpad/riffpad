@@ -7,7 +7,7 @@ import {
 } from "./crypto";
 import { getDeviceSecret } from "./device";
 import { getT } from "./i18n";
-import { isRelay, relayStore } from "./store";
+import { isRelay, localTokenStore, relayStore } from "./store";
 import type { Device, RiffpadEvent } from "./types";
 
 export interface SessionSocket {
@@ -190,7 +190,7 @@ export async function openSessionSocket(
     eph = await genPair();
     const ephPub = b64u(await crypto.subtle.exportKey("raw", eph.publicKey));
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    const tok = isRelay ? relayStore.get()?.token || "" : "";
+    const tok = isRelay ? relayStore.get()?.token || "" : localTokenStore.get();
     const url =
       `${proto}://${location.host}/ws?device=${dev.deviceId}&session=${sid}&eph=${ephPub}` +
       (tok ? "&token=" + encodeURIComponent(tok) : "");

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,7 @@ type Claude struct {
 	binary       string
 	dataDir      string
 	hookBase     string
+	hookToken    string
 	settingsPath string
 
 	cmd    *exec.Cmd
@@ -64,6 +66,7 @@ func New(req adapter.CreateRequest) *Claude {
 		binary:           binary,
 		dataDir:          req.DataDir,
 		hookBase:         req.HookBase,
+		hookToken:        req.HookToken,
 		events:           make(chan protocol.Event, 256),
 		stopCh:           make(chan struct{}),
 		doneCh:           make(chan struct{}),
@@ -282,13 +285,17 @@ func (c *Claude) writeSettings() error {
 	settings := map[string]any{"hooks": map[string]any{}}
 	hooks := map[string]any{}
 	if c.hookBase != "" {
+		hookURL := c.hookBase + "/hooks/claude/notification?session=" + c.id
+		if c.hookToken != "" {
+			hookURL += "&token=" + url.QueryEscape(c.hookToken)
+		}
 		hooks["Notification"] = []any{
 			map[string]any{
 				"matcher": "",
 				"hooks": []any{
 					map[string]any{
 						"type":    "http",
-						"url":     c.hookBase + "/hooks/claude/notification?session=" + c.id,
+						"url":     hookURL,
 						"timeout": 10,
 					},
 				},

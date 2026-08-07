@@ -16,6 +16,7 @@ const defaultPort = 8787
 // Config is the daemon configuration persisted to config.json.
 type Config struct {
 	Port          int    `json:"port"`
+	LocalToken    string `json:"localToken,omitempty"` // auth token for the local HTTP/WS API
 	RelayURL      string `json:"relayUrl,omitempty"`
 	HostID        string `json:"hostId,omitempty"`
 	HostToken     string `json:"hostToken,omitempty"`
@@ -55,12 +56,19 @@ func Load(dir string) (*Config, error) {
 			cfg.Port = defaultPort
 		}
 		applyEnvOverrides(cfg)
+		if cfg.LocalToken == "" {
+			cfg.LocalToken = NewLocalToken()
+			if err := Save(dir, cfg); err != nil {
+				return nil, err
+			}
+		}
 		return cfg, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	cfg := Default()
+	cfg.LocalToken = NewLocalToken()
 	applyEnvOverrides(cfg)
 	raw, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -73,6 +81,9 @@ func Load(dir string) (*Config, error) {
 }
 
 func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("RIFFPAD_LOCAL_TOKEN"); v != "" {
+		cfg.LocalToken = v
+	}
 	if v := os.Getenv("RIFFPAD_RELAY_URL"); v != "" {
 		cfg.RelayURL = v
 	}
@@ -151,6 +162,15 @@ func LoadOrCreateKeys(dir string) (*Keys, error) {
 		return nil, err
 	}
 	return k, nil
+}
+
+// NewLocalToken returns a fresh random local API token (hex, 256-bit).
+func NewLocalToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
 }
 
 func newSessionEncKey() string {

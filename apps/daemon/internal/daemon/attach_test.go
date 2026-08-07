@@ -36,19 +36,12 @@ func TestAttachHookFlow(t *testing.T) {
 	// 1. Claude session starts -> hook creates an attached session.
 	post := func(path, body string) *http.Response {
 		t.Helper()
-		resp, err := http.Post(ts.URL+path, "application/json", strings.NewReader(body))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return resp
+		return authRequest(t, http.MethodPost, ts.URL+path, cfg.LocalToken, strings.NewReader(body))
 	}
 	resp := post("/hooks/claude/session-start", `{"hook_event_name":"SessionStart","session_id":"claude-sess-1","cwd":"/tmp/proj"}`)
 	resp.Body.Close()
 
-	sessResp, err := http.Get(ts.URL + "/api/sessions")
-	if err != nil {
-		t.Fatal(err)
-	}
+	sessResp := authRequest(t, http.MethodGet, ts.URL+"/api/sessions", cfg.LocalToken, nil)
 	var list struct {
 		Sessions []struct {
 			ID   string `json:"id"`
@@ -65,10 +58,7 @@ func TestAttachHookFlow(t *testing.T) {
 	}
 
 	// 2. Pair a web client and connect to the attached session.
-	pairResp, err := http.Post(ts.URL+"/api/pairings", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	pairResp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings", cfg.LocalToken, nil)
 	var pr struct {
 		Code string `json:"code"`
 	}
@@ -78,10 +68,7 @@ func TestAttachHookFlow(t *testing.T) {
 	pairResp.Body.Close()
 	clientID, _ := protocol.GenerateKeyPair(protocol.CurveP256)
 	body, _ := json.Marshal(map[string]string{"code": pr.Code, "name": "t", "curve": "p256", "publicKey": protocol.EncodeKey(clientID.PublicKey)})
-	pairResp, err = http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	pairResp = authRequest(t, http.MethodPost, ts.URL+"/api/pair", cfg.LocalToken, strings.NewReader(string(body)))
 	var pair struct {
 		DeviceID        string `json:"deviceId"`
 		ServerPublicKey string `json:"serverPublicKey"`
@@ -94,7 +81,7 @@ func TestAttachHookFlow(t *testing.T) {
 	deviceSecret, _ := protocol.NewDeviceSecret(clientID, serverPub)
 
 	eph, _ := protocol.GenerateKeyPair(protocol.CurveP256)
-	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?device=" + pair.DeviceID + "&session=claude-sess-1&eph=" + protocol.EncodeKey(eph.PublicKey)
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?device=" + pair.DeviceID + "&session=claude-sess-1&eph=" + protocol.EncodeKey(eph.PublicKey) + "&token=" + cfg.LocalToken
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatal(err)
