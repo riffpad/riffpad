@@ -355,6 +355,92 @@ button.github {
 }
 .pair-code b { color: var(--accent); }
 
+/* ---- pairing onboarding ---- */
+.pair-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: calc(100vh - 140px);
+  justify-content: center;
+  animation: rise 0.35s ease-out both;
+}
+.pair-hero { text-align: center; }
+.pair-hero h2 {
+  margin: 10px 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pair-hero .muted { margin: 0; }
+.pair-illustration {
+  display: block;
+  width: min(280px, 82%);
+  height: auto;
+  margin: 0 auto;
+}
+.sync-dot { animation: dot-pulse 1.6s ease-out infinite; }
+.scan-btn { min-height: 52px; font-size: 15px; }
+
+.pin-input { display: flex; gap: 8px; justify-content: center; }
+.pin-box {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 56px;
+  min-width: 0;
+  padding: 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.pair-actions { display: flex; justify-content: center; }
+.code-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-muted);
+  font-size: 13px;
+}
+.code-card code { background: transparent; border: none; padding: 0; }
+.pair-hint { text-align: center; margin: 0; }
+
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.82);
+}
+.scan-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  padding: 16px;
+  animation: rise 0.25s ease-out both;
+}
+.scan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.scan-head h3 { margin: 0; font-size: 15px; color: var(--ink); }
+.scan-note { text-align: center; padding: 24px 0; }
+.scan-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: var(--console);
+}
+
 /* ---- status pills ---- */
 .status {
   display: inline-block;
@@ -685,4 +771,9 @@ pre.ev-body {
   .topbar-static .brand { margin-right: auto; }
 
   .conn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .pin-box {
+    flex-basis: 40px;
+    width: 40px;
+    height: 52px;
+  }
 }
