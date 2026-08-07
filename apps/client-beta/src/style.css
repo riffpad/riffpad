@@ -297,16 +297,33 @@ button.github {
 }
 .auth-github {
   min-height: 48px;
-  background: var(--console);
-  color: var(--accent);
+  background: var(--surface-muted);
+  color: var(--ink);
   border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
   box-shadow: none;
   transition: border-color 180ms ease-out, box-shadow 180ms ease-out, background 180ms ease-out;
 }
 .auth-github:hover {
-  background: var(--console-elevated);
+  background: var(--surface);
   border-color: var(--accent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+[data-theme="dark"] .auth-github {
+  background: var(--console);
+  color: var(--accent);
+}
+[data-theme="dark"] .auth-github:hover {
+  background: var(--console-elevated);
   box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .auth-github {
+    background: var(--console);
+    color: var(--accent);
+  }
+  :root:not([data-theme]) .auth-github:hover {
+    background: var(--console-elevated);
+  }
 }
 .auth-toggles {
   display: flex;
