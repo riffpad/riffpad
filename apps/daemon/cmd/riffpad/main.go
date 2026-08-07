@@ -34,7 +34,7 @@ import (
 	"github.com/riffpad/riffpad/apps/daemon/internal/logging"
 )
 
-const version = "0.1.0-m0"
+const version = "0.2.0"
 
 const updateRepo = "riffpad/riffpad"
 
