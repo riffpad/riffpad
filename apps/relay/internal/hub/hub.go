@@ -101,6 +101,7 @@ type Hub struct {
 	githubTokenURL string
 	githubUserURL  string
 	appURL         string
+	apiHosts       []string
 }
 
 type ipCounter struct {
@@ -130,7 +131,30 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		githubTokenURL: "https://github.com/login/oauth/access_token",
 		githubUserURL:  "https://api.github.com/user",
 		appURL:         envOr("RIFFPAD_APP_URL", "https://app.riffpad.ai"),
+		apiHosts:       splitCSV(os.Getenv("RIFFPAD_API_HOSTS")),
 	}, nil
+}
+
+func splitCSV(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// apiOnly reports whether this vhost is an API-only host (e.g. api.riffpad.ai):
+// API and WebSocket routes keep working, but the web UI is not served here.
+func (h *Hub) apiOnly(r *http.Request) bool {
+	host := strings.ToLower(strings.Split(r.Host, ":")[0])
+	for _, hh := range h.apiHosts {
+		if strings.ToLower(hh) == host {
+			return true
+		}
+	}
+	return false
 }
 
 var upgrader = websocket.Upgrader{
@@ -166,6 +190,10 @@ func (h *Hub) Handler() http.Handler {
 func (h *Hub) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" && r.URL.Path != "/device" {
 		http.NotFound(w, r)
+		return
+	}
+	if h.apiOnly(r) {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
 		return
 	}
 	raw, err := webui.IndexHTML()
