@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/banner.png" alt="Riffpad banner" width="100%" />
+<img src=".github/assets/banner.png?v=2" alt="Riffpad banner" width="100%" />
 
 # Riffpad
 
