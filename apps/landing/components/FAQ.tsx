@@ -10,7 +10,7 @@ export function FAQ() {
   return (
     <section
       id="faq"
-      className="mx-auto max-w-frame scroll-mt-20 px-4 py-24 sm:px-6 sm:py-32"
+      className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
       <div className="mx-auto max-w-content">
         <span className="label">{`// ${t.faq.label}`}</span>

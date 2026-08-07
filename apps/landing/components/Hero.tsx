@@ -10,7 +10,7 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="mx-auto max-w-frame scroll-mt-20 px-4 pb-20 pt-14 sm:px-6 sm:pb-28 sm:pt-20"
+      className="mx-auto max-w-frame scroll-mt-20 px-4 pb-12 pt-10 sm:px-6 sm:pb-28 sm:pt-20"
     >
       <div className="mx-auto max-w-content text-center">
         <h1 className="text-balance text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">

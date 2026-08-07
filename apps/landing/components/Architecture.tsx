@@ -128,7 +128,7 @@ export function Architecture() {
   return (
     <section
       id="architecture"
-      className="mx-auto max-w-frame scroll-mt-20 px-4 py-24 sm:px-6 sm:py-32"
+      className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
       <div className="mx-auto max-w-content">
         <span className="label">{`// ${a.label}`}</span>
@@ -137,123 +137,125 @@ export function Architecture() {
         </h2>
         <p className="mt-3 text-base text-body">{a.description}</p>
 
-        <div className="relative mt-12 overflow-hidden border border-hairline">
-          <div className="arch-grid absolute inset-0" aria-hidden="true" />
-          <svg
-            viewBox="0 80 960 220"
-            className="relative h-auto w-full min-w-[680px]"
-            role="img"
-            aria-label={a.title}
-          >
-            <title>{a.title}</title>
+        <div className="mt-12 overflow-x-auto border border-hairline">
+          <div className="relative min-w-[680px]">
+            <div className="arch-grid absolute inset-0" aria-hidden="true" />
+            <svg
+              viewBox="0 80 960 220"
+              className="relative h-auto w-full"
+              role="img"
+              aria-label={a.title}
+            >
+              <title>{a.title}</title>
 
-            {/* flow lanes */}
-            {EVENT_PATHS.map((p) => (
-              <path
-                key={p.id}
-                id={p.id}
-                d={p.d}
-                fill="none"
-                stroke="var(--accent)"
-                strokeOpacity={0.5}
-                strokeWidth={1.5}
-                strokeDasharray="6 6"
-                className="flow-dash-line"
-              />
-            ))}
-            {COMMAND_PATHS.map((p) => (
-              <path
-                key={p.id}
-                id={p.id}
-                d={p.d}
-                fill="none"
-                stroke="rgb(var(--info))"
-                strokeOpacity={0.5}
-                strokeWidth={1.5}
-                strokeDasharray="6 6"
-                className="flow-dash-line"
-              />
-            ))}
-
-            {/* daemon ↔ CLI links */}
-            {CLI_CHIPS.map((c) => (
-              <path
-                key={c.link}
-                d={c.link}
-                fill="none"
-                stroke="var(--hairline-strong)"
-                strokeWidth={1}
-                strokeDasharray="6 6"
-                className="flow-dash-line"
-              />
-            ))}
-
-            {/* nodes */}
-            <Node x={80} title={a.clientTitle} caption={a.clientCaption} />
-            <Node x={400} title={a.relayTitle} caption={a.relayCaption} />
-            <Node x={720} title={a.hostTitle} caption={a.hostCaption} />
-
-            {/* CLI chips with brand icons */}
-            {CLI_CHIPS.map((c, i) => (
-              <g key={c.x}>
-                <title>{BRAND_ICONS[i].title}</title>
-                <rect
-                  x={c.x}
-                  y={236}
-                  width={44}
-                  height={44}
-                  fill="var(--surface)"
-                  stroke="var(--hairline)"
-                />
+              {/* flow lanes */}
+              {EVENT_PATHS.map((p) => (
                 <path
-                  d={BRAND_ICONS[i].path}
-                  transform={`translate(${c.x + 12} 248) scale(0.8333)`}
-                  fill="var(--ink)"
+                  key={p.id}
+                  id={p.id}
+                  d={p.d}
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeOpacity={0.5}
+                  strokeWidth={1.5}
+                  strokeDasharray="6 6"
+                  className="flow-dash-line"
                 />
-              </g>
-            ))}
-
-            {/* more CLIs */}
-            <text x={896} y={263} fontSize={10} fill="var(--mute)">
-              {a.moreClis}
-            </text>
-
-            {/* flow labels */}
-            <FlowLabel x={320} y={114}>
-              {a.flowEvents}
-            </FlowLabel>
-            <FlowLabel x={320} y={188}>
-              {a.flowCommands}
-            </FlowLabel>
-            <FlowLabel x={640} y={114}>
-              {a.flowEvents}
-            </FlowLabel>
-            <FlowLabel x={640} y={188}>
-              {a.flowCommands}
-            </FlowLabel>
-
-            {/* travelling packets */}
-            {EVENT_PATHS.map((p) =>
-              ["0s", "-2s"].map((begin) => (
-                <Packet
-                  key={`${p.id}-${begin}`}
-                  pathId={p.id}
-                  color="var(--accent)"
-                  begin={begin}
+              ))}
+              {COMMAND_PATHS.map((p) => (
+                <path
+                  key={p.id}
+                  id={p.id}
+                  d={p.d}
+                  fill="none"
+                  stroke="rgb(var(--info))"
+                  strokeOpacity={0.5}
+                  strokeWidth={1.5}
+                  strokeDasharray="6 6"
+                  className="flow-dash-line"
                 />
-              )),
-            )}
-            {COMMAND_PATHS.map((p) =>
-              ["-1s", "-3s"].map((begin) => (
-                <Packet
-                  key={`${p.id}-${begin}`}
-                  pathId={p.id}
-                  color="rgb(var(--info))"
-                  begin={begin}
+              ))}
+
+              {/* daemon ↔ CLI links */}
+              {CLI_CHIPS.map((c) => (
+                <path
+                  key={c.link}
+                  d={c.link}
+                  fill="none"
+                  stroke="var(--hairline-strong)"
+                  strokeWidth={1}
+                  strokeDasharray="6 6"
+                  className="flow-dash-line"
                 />
-              )),
-            )}
-          </svg>
+              ))}
+
+              {/* nodes */}
+              <Node x={80} title={a.clientTitle} caption={a.clientCaption} />
+              <Node x={400} title={a.relayTitle} caption={a.relayCaption} />
+              <Node x={720} title={a.hostTitle} caption={a.hostCaption} />
+
+              {/* CLI chips with brand icons */}
+              {CLI_CHIPS.map((c, i) => (
+                <g key={c.x}>
+                  <title>{BRAND_ICONS[i].title}</title>
+                  <rect
+                    x={c.x}
+                    y={236}
+                    width={44}
+                    height={44}
+                    fill="var(--surface)"
+                    stroke="var(--hairline)"
+                  />
+                  <path
+                    d={BRAND_ICONS[i].path}
+                    transform={`translate(${c.x + 12} 248) scale(0.8333)`}
+                    fill="var(--ink)"
+                  />
+                </g>
+              ))}
+
+              {/* more CLIs */}
+              <text x={896} y={263} fontSize={10} fill="var(--mute)">
+                {a.moreClis}
+              </text>
+
+              {/* flow labels */}
+              <FlowLabel x={320} y={114}>
+                {a.flowEvents}
+              </FlowLabel>
+              <FlowLabel x={320} y={188}>
+                {a.flowCommands}
+              </FlowLabel>
+              <FlowLabel x={640} y={114}>
+                {a.flowEvents}
+              </FlowLabel>
+              <FlowLabel x={640} y={188}>
+                {a.flowCommands}
+              </FlowLabel>
+
+              {/* travelling packets */}
+              {EVENT_PATHS.map((p) =>
+                ["0s", "-2s"].map((begin) => (
+                  <Packet
+                    key={`${p.id}-${begin}`}
+                    pathId={p.id}
+                    color="var(--accent)"
+                    begin={begin}
+                  />
+                )),
+              )}
+              {COMMAND_PATHS.map((p) =>
+                ["-1s", "-3s"].map((begin) => (
+                  <Packet
+                    key={`${p.id}-${begin}`}
+                    pathId={p.id}
+                    color="rgb(var(--info))"
+                    begin={begin}
+                  />
+                )),
+              )}
+            </svg>
+          </div>
         </div>
       </div>
     </section>

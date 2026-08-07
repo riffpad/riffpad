@@ -316,4 +316,6 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 | <768px | Single column; hero display 28px; bento stacks 1×1; nav collapses |
 
 Touch targets ≥ 44px; focus rings visible in accent color; no horizontal
-scroll.
+scroll. (The architecture diagram is the one exception: it keeps its 960px
+canvas and scrolls horizontally *inside its own frame* below 768px — the page
+itself never scrolls sideways.)
