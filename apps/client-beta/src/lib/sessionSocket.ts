@@ -19,6 +19,33 @@ export interface SocketHandlers {
   onConn(label: string): void;
   onEvent(ev: RiffpadEvent): void;
   onError(message: string): void;
+  onFatal?(message: string): void;
+}
+
+// Outbox keeps outgoing events that could not be written while the socket was
+// down. Items are flushed in order after the next successful hello, so nothing
+// the user typed is silently lost. Events that were already written to the
+// socket are never queued, which avoids duplicate execution on replay.
+export class Outbox<T> {
+  private items: T[] = [];
+
+  push(item: T) {
+    this.items.push(item);
+  }
+
+  drain(): T[] {
+    const out = this.items;
+    this.items = [];
+    return out;
+  }
+
+  clear() {
+    this.items = [];
+  }
+
+  get size() {
+    return this.items.length;
+  }
 }
 
 // dedupeEvent returns true when ev has already been seen (replay after a
@@ -40,6 +67,13 @@ export async function openSessionSocket(
   let reconnectAttempt = 0;
   let everConnected = false;
   const seenIds = new Set<string>();
+  const outbox = new Outbox<{
+    id: string;
+    sessionId: string;
+    timestamp: number;
+    type: string;
+    payload: Record<string, unknown>;
+  }>();
 
   // Messages must be handled in order: the hello handshake derives the
   // session key asynchronously, and replayed events arriving before the key is
@@ -61,6 +95,7 @@ export async function openSessionSocket(
             dsec,
             sid,
           );
+          await flushOutbox();
           reconnectAttempt = 0;
           everConnected = true;
           handlers.onConn(t("connected_encrypted"));
@@ -79,9 +114,39 @@ export async function openSessionSocket(
     draining = false;
   }
 
+  async function flushOutbox() {
+    const pending = outbox.drain();
+    for (const ev of pending) {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) {
+        outbox.push(ev);
+        break;
+      }
+      try {
+        await writeEvent(ev);
+      } catch {
+        outbox.push(ev);
+        break;
+      }
+    }
+  }
+
   // The ephemeral key is captured per connection attempt; TS needs a stable
   // binding for the async drain above, so keep it at module-of-function scope.
   let eph: CryptoKeyPair;
+
+  async function writeEvent(ev: {
+    id: string;
+    sessionId: string;
+    timestamp: number;
+    type: string;
+    payload: Record<string, unknown>;
+  }) {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) {
+      throw new Error("socket not open");
+    }
+    const boxed = await encryptEvent(sessionKey, sid, ev);
+    ws.send(JSON.stringify({ v: 1, kind: "event", sessionId: sid, ...boxed }));
+  }
 
   async function connect() {
     eph = await genPair();
@@ -104,6 +169,7 @@ export async function openSessionSocket(
         return;
       }
       if (!everConnected && reconnectAttempt >= 3) {
+        handlers.onFatal?.(t("device_revoked"));
         handlers.onConn(t("device_revoked"));
         return;
       }
@@ -129,10 +195,10 @@ export async function openSessionSocket(
   return {
     close() {
       closed = true;
+      outbox.clear();
       ws?.close();
     },
     async send(type: string, payload: Record<string, unknown>): Promise<boolean> {
-      if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) return false;
       const ev = {
         id: String(Date.now()) + Math.random().toString(16).slice(2),
         sessionId: sid,
@@ -140,8 +206,15 @@ export async function openSessionSocket(
         type,
         payload,
       };
-      const boxed = await encryptEvent(sessionKey, sid, ev);
-      ws.send(JSON.stringify({ v: 1, kind: "event", sessionId: sid, ...boxed }));
+      if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) {
+        outbox.push(ev);
+        return true;
+      }
+      try {
+        await writeEvent(ev);
+      } catch {
+        outbox.push(ev);
+      }
       return true;
     },
   };

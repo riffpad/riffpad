@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeEvent } from "./sessionSocket";
+import { dedupeEvent, Outbox } from "./sessionSocket";
 import type { RiffpadEvent } from "./types";
 
 function ev(id: string): RiffpadEvent {
@@ -23,5 +23,24 @@ describe("dedupeEvent", () => {
     const burst = [ev("a"), ev("b"), ev("c"), ev("a")];
     const skipped = burst.filter((e) => dedupeEvent(seen, e));
     expect(skipped).toHaveLength(1);
+  });
+});
+
+describe("Outbox", () => {
+  it("keeps items until drained, preserving order", () => {
+    const box = new Outbox<string>();
+    box.push("a");
+    box.push("b");
+    expect(box.size).toBe(2);
+    expect(box.drain()).toEqual(["a", "b"]);
+    expect(box.size).toBe(0);
+    expect(box.drain()).toEqual([]);
+  });
+
+  it("clear drops pending items", () => {
+    const box = new Outbox<number>();
+    box.push(1);
+    box.clear();
+    expect(box.size).toBe(0);
   });
 });

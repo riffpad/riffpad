@@ -81,6 +81,7 @@ export default function SessionListView({ onOpen }: Props) {
   const [cwdHistory, setCwdHistory] = useState<string[]>(loadCwdHistory);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const timer = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
@@ -88,8 +89,10 @@ export default function SessionListView({ onOpen }: Props) {
       const res = await api("/api/sessions");
       const data = await res.json();
       setSessions(data.sessions || []);
+      setOffline(!res.ok);
     } catch {
       // transient network glitch; poll again later
+      setOffline(true);
     } finally {
       setLoading(false);
     }
@@ -136,6 +139,7 @@ export default function SessionListView({ onOpen }: Props) {
   return (
     <>
       <p className="section-label"><span className="glyph">//</span>{t("sessions_label")}</p>
+      {offline && <div id="offline-banner" className="offline-banner">■ {t("list_offline")}</div>}
       {loading && sessions.length === 0 ? (
         <div id="session-skeleton" className="session-skeleton" aria-hidden="true">
           {[0, 1, 2].map((i) => (

@@ -822,6 +822,17 @@ button.github {
   flex-direction: column;
   gap: 8px;
 }
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  font-size: 12px;
+  color: var(--warning);
+}
 .skeleton-card {
   display: flex;
   align-items: center;
@@ -1228,6 +1239,27 @@ button.github {
   box-shadow: var(--shadow);
 }
 .jump-bottom:hover { color: var(--ink); }
+.fatal-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  font-size: 12px;
+  color: var(--danger);
+}
+.fatal-actions {
+  display: flex;
+  gap: 8px;
+}
+.fatal-actions button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
 
 /* ---- devices ---- */
 .device-head {
