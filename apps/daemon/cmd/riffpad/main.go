@@ -625,7 +625,8 @@ func logsCmd(dataDir string) error {
 
 // attachCmd injects Claude Code hooks pointing at the local daemon, so a
 // normal interactive `claude` session is captured and approvals can be made
-// from the web UI / mobile.
+// from the web UI / mobile. Existing user hooks are preserved: only riffpad's
+// own entries are replaced, making repeated attaches idempotent.
 func attachCmd(base string) error {
 	if !reachable(base) {
 		return fmt.Errorf("%s", t.T("daemon_start_hint", base))
@@ -667,16 +668,28 @@ func attachCmd(base string) error {
 			},
 		}
 	}
-	settings["hooks"] = map[string]any{
-		"SessionStart":      []any{httpHook("/hooks/claude/session-start", 10)},
-		"SessionEnd":        []any{httpHook("/hooks/claude/session-end", 10)},
-		"UserPromptSubmit":  []any{httpHook("/hooks/claude/user-prompt-submit", 30)},
-		"MessageDisplay":    []any{httpHook("/hooks/claude/message-display", 10)},
-		"PreToolUse":        []any{httpHook("/hooks/claude/pre-tool-use", 10)},
-		"PostToolUse":       []any{httpHook("/hooks/claude/post-tool-use", 10)},
-		"PermissionRequest": []any{httpHook("/hooks/claude/permission", 600)},
-		"Notification":      []any{httpHook("/hooks/claude/notification", 10)},
+	// Merge, don't overwrite: drop any previously injected riffpad entries
+	// (idempotent re-attach) while keeping the user's own hooks intact.
+	if stripRiffpadHooks(settings) {
+		fmt.Println(t.T("attach_keep_existing"))
 	}
+	hooks, ok := settings["hooks"].(map[string]any)
+	if !ok {
+		hooks = map[string]any{}
+		settings["hooks"] = hooks
+	}
+	add := func(event string, entry map[string]any) {
+		list, _ := hooks[event].([]any)
+		hooks[event] = append(list, entry)
+	}
+	add("SessionStart", httpHook("/hooks/claude/session-start", 10))
+	add("SessionEnd", httpHook("/hooks/claude/session-end", 10))
+	add("UserPromptSubmit", httpHook("/hooks/claude/user-prompt-submit", 30))
+	add("MessageDisplay", httpHook("/hooks/claude/message-display", 10))
+	add("PreToolUse", httpHook("/hooks/claude/pre-tool-use", 10))
+	add("PostToolUse", httpHook("/hooks/claude/post-tool-use", 10))
+	add("PermissionRequest", httpHook("/hooks/claude/permission", 600))
+	add("Notification", httpHook("/hooks/claude/notification", 10))
 	raw, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return err
@@ -690,22 +703,98 @@ func attachCmd(base string) error {
 	return nil
 }
 
-// detachCmd restores the pre-attach settings file.
+// riffpadHookPathPrefix namespaces every hook URL the daemon injects, so
+// attach/detach can tell riffpad's own entries apart from the user's — query
+// parameters (e.g. the ?token= added for local auth) are ignored by matching
+// on the parsed URL path only.
+const riffpadHookPathPrefix = "/hooks/claude/"
+
+func isRiffpadHook(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	return err == nil && strings.HasPrefix(u.Path, riffpadHookPathPrefix)
+}
+
+// stripRiffpadHooks removes riffpad-injected hook entries from
+// settings["hooks"] in place, keeping everything the user added. It reports
+// whether any user-defined (non-riffpad) hooks remain.
+func stripRiffpadHooks(settings map[string]any) bool {
+	hooks, ok := settings["hooks"].(map[string]any)
+	if !ok {
+		return false
+	}
+	userHooks := false
+	for event, list := range hooks {
+		entries, ok := list.([]any)
+		if !ok {
+			userHooks = true
+			continue
+		}
+		kept := make([]any, 0, len(entries))
+		for _, e := range entries {
+			entry, ok := e.(map[string]any)
+			if !ok {
+				kept = append(kept, e)
+				continue
+			}
+			nested, ok := entry["hooks"].([]any)
+			if !ok {
+				kept = append(kept, e)
+				continue
+			}
+			keptNested := make([]any, 0, len(nested))
+			for _, h := range nested {
+				if hm, ok := h.(map[string]any); ok {
+					if raw, _ := hm["url"].(string); raw != "" && isRiffpadHook(raw) {
+						continue
+					}
+				}
+				keptNested = append(keptNested, h)
+			}
+			if len(keptNested) == 0 {
+				continue
+			}
+			entry["hooks"] = keptNested
+			kept = append(kept, entry)
+		}
+		if len(kept) == 0 {
+			delete(hooks, event)
+			continue
+		}
+		hooks[event] = kept
+		userHooks = true
+	}
+	if len(hooks) == 0 {
+		delete(settings, "hooks")
+	}
+	return userHooks
+}
+
+// detachCmd removes only the riffpad-injected hook entries, leaving any user
+// configuration (including hooks added after attach) untouched. The
+// settings.json.riffpad.bak snapshot from the first attach is no longer used
+// for restoration; it is kept on disk for manual reference.
 func detachCmd() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
 	settingsPath := filepath.Join(home, ".claude", "settings.json")
-	backup := settingsPath + ".riffpad.bak"
-	data, err := os.ReadFile(backup)
+	data, err := os.ReadFile(settingsPath)
 	if err != nil {
-		return fmt.Errorf("no backup found (nothing to detach)")
+		return fmt.Errorf("no settings found (nothing to detach)")
 	}
-	if err := os.WriteFile(settingsPath, data, 0o600); err != nil {
+	settings := map[string]any{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return fmt.Errorf("parse %s: %w", settingsPath, err)
+	}
+	stripRiffpadHooks(settings)
+	raw, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
 		return err
 	}
-	// Keep the backup file; user can remove it manually.
+	if err := os.WriteFile(settingsPath, raw, 0o600); err != nil {
+		return err
+	}
 	fmt.Println(t.T("detach_restored"))
 	return nil
 }

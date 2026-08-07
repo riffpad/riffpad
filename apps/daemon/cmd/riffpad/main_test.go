@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -214,5 +218,153 @@ func TestReachableWithTokenRequiringDaemon(t *testing.T) {
 	withCliToken(t, "wrong-token")
 	if reachable(srv.URL) {
 		t.Fatal("reachable should fail with the wrong token")
+	}
+}
+
+// --- attach/detach hook merging (issue #168) ---
+
+// setupAttachEnv points HOME at a temp dir and stubs the local token so
+// attachCmd writes to a throwaway ~/.claude/settings.json.
+func setupAttachEnv(t *testing.T) (home string, base string) {
+	t.Helper()
+	home = t.TempDir()
+	t.Setenv("HOME", home)
+	withCliToken(t, "")
+	ready := &atomic.Bool{}
+	ready.Store(true)
+	return home, fakeDaemon(t, ready).URL
+}
+
+func userHookEntry(command string) map[string]any {
+	return map[string]any{
+		"matcher": "Bash",
+		"hooks":   []any{map[string]any{"type": "command", "command": command}},
+	}
+}
+
+func writeClaudeSettings(t *testing.T, home string, settings map[string]any) {
+	t.Helper()
+	dir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func readClaudeSettings(t *testing.T, home string) map[string]any {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := map[string]any{}
+	if err := json.Unmarshal(raw, &settings); err != nil {
+		t.Fatal(err)
+	}
+	return settings
+}
+
+// countHooks classifies every entry under settings["hooks"] as riffpad-owned
+// (URL path under /hooks/claude/) or user-owned.
+func countHooks(t *testing.T, settings map[string]any) (riffpad, user int) {
+	t.Helper()
+	hooks, _ := settings["hooks"].(map[string]any)
+	for _, list := range hooks {
+		entries, _ := list.([]any)
+		for _, e := range entries {
+			entry, _ := e.(map[string]any)
+			nested, _ := entry["hooks"].([]any)
+			isRiffpad := false
+			for _, h := range nested {
+				hm, _ := h.(map[string]any)
+				if raw, _ := hm["url"].(string); strings.Contains(raw, "/hooks/claude/") {
+					isRiffpad = true
+				}
+			}
+			if isRiffpad {
+				riffpad++
+			} else {
+				user++
+			}
+		}
+	}
+	return riffpad, user
+}
+
+func TestAttachPreservesUserHooks(t *testing.T) {
+	home, base := setupAttachEnv(t)
+	writeClaudeSettings(t, home, map[string]any{
+		"model": "opus",
+		"hooks": map[string]any{
+			"PreToolUse":   []any{userHookEntry("my-formatter")},
+			"Notification": []any{userHookEntry("my-notifier")},
+		},
+	})
+
+	if err := attachCmd(base); err != nil {
+		t.Fatal(err)
+	}
+	settings := readClaudeSettings(t, home)
+	if settings["model"] != "opus" {
+		t.Fatalf("unrelated setting lost: %+v", settings)
+	}
+	riffpad, user := countHooks(t, settings)
+	if user != 2 {
+		t.Fatalf("expected 2 user hook entries kept, got %d", user)
+	}
+	if riffpad != 8 {
+		t.Fatalf("expected 8 riffpad hook entries injected, got %d", riffpad)
+	}
+}
+
+func TestAttachIsIdempotent(t *testing.T) {
+	home, base := setupAttachEnv(t)
+	writeClaudeSettings(t, home, map[string]any{
+		"hooks": map[string]any{"PreToolUse": []any{userHookEntry("my-formatter")}},
+	})
+
+	for i := 0; i < 2; i++ {
+		if err := attachCmd(base); err != nil {
+			t.Fatal(err)
+		}
+	}
+	settings := readClaudeSettings(t, home)
+	riffpad, user := countHooks(t, settings)
+	if riffpad != 8 || user != 1 {
+		t.Fatalf("re-attach duplicated entries: riffpad=%d user=%d", riffpad, user)
+	}
+}
+
+func TestDetachRemovesOnlyRiffpadHooks(t *testing.T) {
+	home, base := setupAttachEnv(t)
+	writeClaudeSettings(t, home, map[string]any{
+		"hooks": map[string]any{"PreToolUse": []any{userHookEntry("my-formatter")}},
+	})
+	if err := attachCmd(base); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate the user adding another hook while attached.
+	settings := readClaudeSettings(t, home)
+	hooks := settings["hooks"].(map[string]any)
+	hooks["PostToolUse"] = append(hooks["PostToolUse"].([]any), userHookEntry("my-linter"))
+	writeClaudeSettings(t, home, settings)
+
+	if err := detachCmd(); err != nil {
+		t.Fatal(err)
+	}
+	settings = readClaudeSettings(t, home)
+	riffpad, user := countHooks(t, settings)
+	if riffpad != 0 {
+		t.Fatalf("expected no riffpad entries after detach, got %d", riffpad)
+	}
+	if user != 2 {
+		t.Fatalf("expected both user hook entries kept, got %d", user)
 	}
 }
