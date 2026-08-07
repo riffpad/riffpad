@@ -13,6 +13,7 @@ const zh: Record<string, string> = {
   sidebar_open: "打开菜单",
 
   github_login: "使用 GitHub 登录",
+  back_home: "← 回到 riffpad.ai",
 
   pair_title: "配对设备",
   pair_hero_title: "配对本地 daemon",
@@ -140,6 +141,7 @@ const en: Record<string, string> = {
   sidebar_open: "Open menu",
 
   github_login: "Continue with GitHub",
+  back_home: "← Back to riffpad.ai",
 
   pair_title: "Pair device",
   pair_hero_title: "Pair Local Daemon",

@@ -1,20 +1,11 @@
 import { useState } from "react";
+import DotMatrix from "./DotMatrix";
 
 export interface ToolLine {
   key: string;
   glyph: string;
   status: "run" | "done" | "fail";
   detail: string;
-}
-
-function DotMatrix() {
-  return (
-    <span className="dot-matrix" aria-hidden="true">
-      {Array.from({ length: 9 }).map((_, i) => (
-        <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />
-      ))}
-    </span>
-  );
 }
 
 export default function ToolLog({ line }: { line: ToolLine }) {

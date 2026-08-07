@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, deviceStore, isRelay } from "../lib/store";
 import { deviceDisplayName } from "../lib/device";
 import { useI18n } from "../lib/i18n";
+import DotMatrix from "./DotMatrix";
 
 interface Device {
   id: string;
@@ -171,7 +172,7 @@ export default function DeviceManager({ onCurrentRevoked }: Props) {
                       disabled={deleting || busy}
                       onClick={() => setConfirm({ kind: "device", id: d.id, name: displayName(d) })}
                     >
-                      {deleting ? <><span className="spinner" />{t("revoking")}</> : t("revoke")}
+                      {deleting ? <><DotMatrix />{t("revoking")}</> : t("revoke")}
                     </button>
                   </li>
                 );
@@ -180,7 +181,7 @@ export default function DeviceManager({ onCurrentRevoked }: Props) {
           )}
           <div className="device-danger">
             <button className="ghost-text-danger" disabled={busy || revoking !== null} onClick={() => setConfirm({ kind: "all" })}>
-              {busy ? <><span className="spinner" />{t("revoking")}</> : `⚠ ${isRelay ? t("revoke_all") : t("kill_switch")}`}
+              {busy ? <><DotMatrix />{t("revoking")}</> : `⚠ ${isRelay ? t("revoke_all") : t("kill_switch")}`}
             </button>
           </div>
           {err && <div className="err">{err}</div>}
