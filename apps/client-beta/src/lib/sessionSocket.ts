@@ -58,6 +58,12 @@ export function dedupeEvent(seen: Set<string>, ev: RiffpadEvent): boolean {
   return false;
 }
 
+// Watchdog parameters: if nothing (data or keepalive) arrives for
+// WS_STALE_TIMEOUT_MS, the socket is closed so the reconnect logic kicks in.
+// Exported for tests.
+export const WS_STALE_TIMEOUT_MS = 75_000;
+export const WS_WATCHDOG_INTERVAL_MS = 15_000;
+
 export async function openSessionSocket(
   sid: string,
   dev: Device,
@@ -68,6 +74,11 @@ export async function openSessionSocket(
   let sessionKey: CryptoKey | null = null;
   let reconnectAttempt = 0;
   let everConnected = false;
+  // Watchdog state: browsers cannot observe protocol-level ping/pong, so any
+  // incoming message (data or app-level {"kind":"ping"}) counts as activity.
+  // A half-open connection (lock screen, network switch) stays silent forever;
+  // closing the socket lets the existing reconnect logic take over.
+  let lastActivity = Date.now();
   const seenIds = new Set<string>();
   let historyState: { remaining: number; events: RiffpadEvent[] } | null = null;
   const outbox = new Outbox<{
@@ -103,6 +114,9 @@ export async function openSessionSocket(
           everConnected = true;
           handlers.onConn(t("connected_encrypted"));
           continue;
+        }
+        if (data.kind === "ping") {
+          continue; // app-level keepalive: activity already recorded in onmessage
         }
         if (data.kind === "history") {
           historyState = { remaining: Number(data.count) || 0, events: [] };
@@ -181,8 +195,12 @@ export async function openSessionSocket(
       `${proto}://${location.host}/ws?device=${dev.deviceId}&session=${sid}&eph=${ephPub}` +
       (tok ? "&token=" + encodeURIComponent(tok) : "");
     ws = new WebSocket(url);
+    lastActivity = Date.now();
 
-    ws.onopen = () => handlers.onConn(reconnectAttempt > 0 ? t("reconnecting") : t("connecting"));
+    ws.onopen = () => {
+      lastActivity = Date.now();
+      handlers.onConn(reconnectAttempt > 0 ? t("reconnecting") : t("connecting"));
+    };
     ws.onerror = () => {
       // onclose follows; keep state updates there.
     };
@@ -208,6 +226,7 @@ export async function openSessionSocket(
       }, delay);
     };
     ws.onmessage = (msg) => {
+      lastActivity = Date.now();
       queue.push(String(msg.data));
       if (!draining) {
         draining = true;
@@ -217,9 +236,16 @@ export async function openSessionSocket(
   }
 
   await connect();
+  const watchdog = window.setInterval(() => {
+    if (closed || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - lastActivity > WS_STALE_TIMEOUT_MS) {
+      ws.close(); // stale connection: let onclose drive the reconnect
+    }
+  }, WS_WATCHDOG_INTERVAL_MS);
   return {
     close() {
       closed = true;
+      window.clearInterval(watchdog);
       outbox.clear();
       ws?.close();
     },

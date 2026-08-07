@@ -731,3 +731,148 @@ func TestAuthProtection(t *testing.T) {
 		t.Fatalf("expected 401 without token, got %d", resp.StatusCode)
 	}
 }
+
+// shrinkHeartbeat shortens the heartbeat parameters for tests and restores
+// them afterwards. The parameters are atomics, so this is race-safe even
+// while connection goroutines are still running.
+func shrinkHeartbeat(t *testing.T) {
+	t.Helper()
+	oldWrite, oldPing, oldPong := wsWriteWait.Load(), wsPingPeriod.Load(), wsPongWait.Load()
+	wsWriteWait.Store(int64(100 * time.Millisecond))
+	wsPingPeriod.Store(int64(50 * time.Millisecond))
+	wsPongWait.Store(int64(300 * time.Millisecond))
+	t.Cleanup(func() {
+		wsWriteWait.Store(oldWrite)
+		wsPingPeriod.Store(oldPing)
+		wsPongWait.Store(oldPong)
+	})
+}
+
+func dialHostWS(t *testing.T, ts *httptest.Server, hostID, secret string) *websocket.Conn {
+	t.Helper()
+	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + hostID + "&token=" + secret
+	conn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	return conn
+}
+
+// expectClosedByPeer simulates a half-open peer (pings are swallowed, never
+// answered) and asserts the relay tears the connection down within maxWait.
+func expectClosedByPeer(t *testing.T, conn *websocket.Conn, maxWait time.Duration) {
+	t.Helper()
+	conn.SetPingHandler(func(string) error { return nil })
+	start := time.Now()
+	conn.SetReadDeadline(start.Add(5 * time.Second))
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			break
+		}
+	}
+	if elapsed := time.Since(start); elapsed > maxWait {
+		t.Fatalf("relay did not close the half-open connection (waited %v)", elapsed)
+	}
+}
+
+func TestHostHeartbeatDropsSilentPeer(t *testing.T) {
+	shrinkHeartbeat(t)
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "hb-host")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+	conn := dialHostWS(t, ts, hostID, hostSecret)
+
+	expectClosedByPeer(t, conn, 2*time.Second)
+
+	h.mu.Lock()
+	_, ok := h.hosts[hostID]
+	h.mu.Unlock()
+	if ok {
+		t.Fatal("silent host still registered after heartbeat timeout")
+	}
+}
+
+func TestHostHeartbeatKeepsResponsivePeer(t *testing.T) {
+	shrinkHeartbeat(t)
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "hb-alive")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+	conn := dialHostWS(t, ts, hostID, hostSecret)
+
+	readErr := make(chan error, 1)
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				readErr <- err
+				return
+			}
+		}
+	}()
+	// The default ping handler answers pongs while reading: the connection
+	// must survive well beyond the pong deadline.
+	time.Sleep(3 * wsPongTimeout())
+	select {
+	case err := <-readErr:
+		t.Fatalf("responsive host connection dropped: %v", err)
+	default:
+	}
+	h.mu.Lock()
+	_, ok := h.hosts[hostID]
+	h.mu.Unlock()
+	if !ok {
+		t.Fatal("responsive host removed from hub")
+	}
+}
+
+func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
+	shrinkHeartbeat(t)
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "hb-viewer")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+	hostConn := dialHostWS(t, ts, hostID, hostSecret)
+	fr, _ := json.Marshal(hostFrame{Kind: "sessions", Sessions: []SessionMeta{{ID: "s1", Name: "demo", CLI: "claude", Cwd: "/tmp", Status: "running"}}})
+	if err := hostConn.WriteMessage(websocket.TextMessage, fr); err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := authPost(ts, "/api/pairings", token, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pr struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	resp, err = authPost(ts, "/api/pair", token, `{"code":"`+pr.Code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pair struct {
+		DeviceID string `json:"deviceId"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pair); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
+	vc, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { vc.Close() })
+
+	expectClosedByPeer(t, vc, 2*time.Second)
+
+	h.mu.Lock()
+	n := len(h.viewers)
+	h.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("silent viewer still registered: %d", n)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -21,6 +22,26 @@ import (
 )
 
 const version = "0.2.0"
+
+// WebSocket heartbeat parameters, shared by host and viewer connections.
+// Pings go out every wsPingPeriod; if no pong (or any other frame) arrives
+// within wsPongWait the connection is treated as half-open and torn down.
+// Atomics (not constants) so tests can shrink them without data races.
+var (
+	wsWriteWait  atomic.Int64
+	wsPingPeriod atomic.Int64
+	wsPongWait   atomic.Int64
+)
+
+func init() {
+	wsWriteWait.Store(int64(10 * time.Second))
+	wsPingPeriod.Store(int64(30 * time.Second))
+	wsPongWait.Store(int64(75 * time.Second))
+}
+
+func wsWriteDeadline() time.Time    { return time.Now().Add(time.Duration(wsWriteWait.Load())) }
+func wsPingInterval() time.Duration { return time.Duration(wsPingPeriod.Load()) }
+func wsPongTimeout() time.Duration  { return time.Duration(wsPongWait.Load()) }
 
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
@@ -1049,6 +1070,10 @@ func (h *Hub) hostReadLoop(host *hostConn) {
 		host.closeDone()
 		_ = host.conn.Close()
 	}()
+	host.conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	host.conn.SetPongHandler(func(string) error {
+		return host.conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	})
 	for {
 		_, data, err := host.conn.ReadMessage()
 		if err != nil {
@@ -1181,6 +1206,10 @@ func (h *Hub) viewerReadLoop(v *viewerConn) {
 		v.closeDone()
 		_ = v.conn.Close()
 	}()
+	v.conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	v.conn.SetPongHandler(func(string) error {
+		return v.conn.SetReadDeadline(time.Now().Add(wsPongTimeout()))
+	})
 	for {
 		_, data, err := v.conn.ReadMessage()
 		if err != nil {
@@ -1202,10 +1231,17 @@ func hostSend(host *hostConn, fr hostFrame) {
 }
 
 func (h *hostConn) writeLoop() {
+	ticker := time.NewTicker(wsPingInterval())
+	defer ticker.Stop()
 	for {
 		select {
 		case data := <-h.send:
+			_ = h.conn.SetWriteDeadline(wsWriteDeadline())
 			if err := h.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				return
+			}
+		case <-ticker.C:
+			if err := h.conn.WriteControl(websocket.PingMessage, nil, wsWriteDeadline()); err != nil {
 				return
 			}
 		case <-h.done:
@@ -1215,10 +1251,17 @@ func (h *hostConn) writeLoop() {
 }
 
 func (v *viewerConn) writeLoop() {
+	ticker := time.NewTicker(wsPingInterval())
+	defer ticker.Stop()
 	for {
 		select {
 		case data := <-v.send:
+			_ = v.conn.SetWriteDeadline(wsWriteDeadline())
 			if err := v.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				return
+			}
+		case <-ticker.C:
+			if err := v.conn.WriteControl(websocket.PingMessage, nil, wsWriteDeadline()); err != nil {
 				return
 			}
 		case <-v.done:
