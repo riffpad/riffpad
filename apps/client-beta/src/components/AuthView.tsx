@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { relayStore } from "../lib/store";
 import { useI18n } from "../lib/i18n";
 
@@ -10,19 +10,19 @@ function GitHubIcon() {
   );
 }
 
-function CopyIcon() {
+function SunIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
-      <rect x="9" y="9" width="12" height="12" />
-      <path d="M5 15H3V3h12v2" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
   );
 }
 
-function CheckIcon() {
+function MoonIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
-      <path d="M4 12l5 5L20 6" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   );
 }
@@ -40,12 +40,14 @@ export function isAllowedOrigin(origin: string): boolean {
   return false;
 }
 
-const INSTALL_CMD = "curl -fsSL https://riffpad.ai/install.sh | sh";
+interface Props {
+  onAuthed(): void;
+  theme: "light" | "dark";
+  onToggleTheme(): void;
+}
 
-export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
-  const { t } = useI18n();
-  const [cloud, setCloud] = useState<"checking" | "online" | "offline">("checking");
-  const [copied, setCopied] = useState(false);
+export default function AuthView({ onAuthed, theme, onToggleTheme }: Props) {
+  const { t, lang, setLang } = useI18n();
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
@@ -60,60 +62,36 @@ export default function AuthView({ onAuthed }: { onAuthed: () => void }) {
     return () => window.removeEventListener("message", onMessage);
   }, [onAuthed]);
 
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/status")
-      .then((r) => {
-        if (alive) setCloud(r.ok ? "online" : "offline");
-      })
-      .catch(() => {
-        if (alive) setCloud("offline");
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  async function copyInstall() {
-    try {
-      await navigator.clipboard.writeText(INSTALL_CMD);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard unavailable; ignore
-    }
-  }
-
-  const cloudLabel = cloud === "online" ? t("cloud_online") : cloud === "offline" ? t("cloud_offline") : t("cloud_checking");
-
   return (
-    <>
-      <section id="auth-view" className="card auth-card">
-        <div className="auth-terminal">{t("auth_terminal")}</div>
-        <div id="cloud-status" className={"auth-status " + cloud}>
-          <span className="dot" />
-          {cloudLabel}
-        </div>
-        <h2><span className="glyph">//</span>{t("auth_required")}</h2>
-        <p className="muted auth-desc">{t("auth_desc")}</p>
+    <section id="auth-view" className="card auth-card">
+      <button
+        id="github-login"
+        className="auth-github github"
+        style={{ width: "100%" }}
+        onClick={() => window.open("/api/auth/github/login?opener=" + encodeURIComponent(location.origin), "_blank", "width=560,height=680")}
+      >
+        <GitHubIcon />
+        {t("github_login")}
+      </button>
+      <div className="auth-toggles">
         <button
-          id="github-login"
-          className="auth-github github"
-          style={{ width: "100%" }}
-          onClick={() => window.open("/api/auth/github/login?opener=" + encodeURIComponent(location.origin), "_blank", "width=560,height=680")}
+          id="theme-toggle"
+          className="icon-btn"
+          onClick={onToggleTheme}
+          title={theme === "dark" ? t("theme_light") : t("theme_dark")}
+          aria-label={theme === "dark" ? t("theme_light") : t("theme_dark")}
         >
-          <GitHubIcon />
-          {t("github_login")}
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
         </button>
-        <p className="muted install-label">{t("cli_install_label")}</p>
-        <div className="install-command">
-          <code><span className="prompt">$</span> {INSTALL_CMD}</code>
-          <button id="install-copy" className="icon-btn" onClick={() => void copyInstall()} aria-label={t("copy_command")}>
-            {copied ? <CheckIcon /> : <CopyIcon />}
-          </button>
-        </div>
-      </section>
-      <a className="back-home" href="https://riffpad.ai">{t("back_home")}</a>
-    </>
+        <button
+          id="lang-toggle"
+          className="lang-toggle"
+          onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+          title={lang === "zh" ? "English" : "中文"}
+        >
+          {t("lang_toggle")}
+        </button>
+      </div>
+    </section>
   );
 }

@@ -183,7 +183,11 @@ export default function App() {
   if (phase === "auth") {
     return (
       <main className="auth-stage">
-        <AuthView onAuthed={() => void afterAuth()} />
+        <AuthView
+          onAuthed={() => void afterAuth()}
+          theme={theme}
+          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        />
       </main>
     );
   }
