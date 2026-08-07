@@ -440,6 +440,7 @@ button.github {
   border-color: color-mix(in srgb, var(--on-console) 25%, transparent);
   background: color-mix(in srgb, var(--on-console) 8%, transparent);
 }
+.pair-above { text-align: center; margin: 0; font-size: 12px; }
 .pair-hint { text-align: center; margin: 0; }
 
 .scan-overlay {

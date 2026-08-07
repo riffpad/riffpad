@@ -32,13 +32,11 @@ function PairIllustration() {
   );
 }
 
-function QrIcon() {
+function ScanIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <path d="M14 14h3v3h-3zM21 14v7M14 21h3" />
+      <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
+      <line x1="6" y1="12" x2="18" y2="12" />
     </svg>
   );
 }
@@ -114,6 +112,7 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
           <p className="muted">{t("pair_hero_subtitle")}</p>
         </div>
 
+        <p className="muted pair-above">{t("pair_above")}</p>
         <div
           id="code-card"
           className="code-card"
@@ -141,7 +140,7 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
         <p className="muted pair-hint">{t("pair_hint", { cmd: "riffpad pair" })}</p>
 
         <button id="scan-btn" className="primary scan-btn" onClick={() => setScanning(true)}>
-          <QrIcon />
+          <ScanIcon />
           {t("scan_qr")}
         </button>
 
