@@ -44,8 +44,10 @@ curl -fsSL https://riffpad.ai/install.sh | sh
 **Windows PowerShell**
 
 ```powershell
-# Coming soon — build from source for now.
+irm https://riffpad.ai/install.ps1 | iex
 ```
+
+Windows 安装脚本会下载最新二进制、加入用户 PATH，并注册登录自启任务（daemon）。
 
 Then start the daemon and attach to your CLI:
 

@@ -4,9 +4,19 @@
 
 在电脑终端执行：
 
-```bash
+::: code-group
+
+```bash [macOS / Linux]
 curl -fsSL https://riffpad.ai/install.sh | sh
 ```
+
+```powershell [Windows]
+irm https://riffpad.ai/install.ps1 | iex
+```
+
+:::
+
+Windows 安装脚本会下载最新二进制、加入 PATH，并注册登录自启任务（daemon）；`riffpad setup --remove` 可移除。
 
 安装后确认：
 

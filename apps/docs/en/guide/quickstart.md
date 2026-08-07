@@ -4,9 +4,19 @@
 
 On your computer:
 
-```bash
+::: code-group
+
+```bash [macOS / Linux]
 curl -fsSL https://riffpad.ai/install.sh | sh
 ```
+
+```powershell [Windows]
+irm https://riffpad.ai/install.ps1 | iex
+```
+
+:::
+
+The Windows script downloads the latest binary, adds it to your user PATH, and registers a logon autostart task for the daemon; remove it with `riffpad setup --remove`.
 
 Verify:
 
