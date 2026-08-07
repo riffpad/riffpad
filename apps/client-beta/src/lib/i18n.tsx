@@ -16,6 +16,7 @@ const zh: Record<string, string> = {
   sidebar_open: "打开菜单",
 
   github_login: "使用 GitHub 登录",
+  auth_popup_blocked: "浏览器拦截了弹窗，请允许本站弹窗后重试。",
   back_home: "← 回到 riffpad.ai",
 
   pair_title: "配对设备",
@@ -132,6 +133,7 @@ const zh: Record<string, string> = {
   cli_auth_desc: "这是终端里 {cmd} 发起的登录请求。",
   auth_code: "授权码：",
   cli_auth_missing: "链接缺少授权码，请从终端重新发起登录。",
+  cli_auth_expired: "授权码已失效，请从终端重新运行 riffpad login。",
 
   lang_toggle: "EN",
 };
@@ -150,6 +152,7 @@ const en: Record<string, string> = {
   sidebar_open: "Open menu",
 
   github_login: "Continue with GitHub",
+  auth_popup_blocked: "Pop-up blocked — allow pop-ups for this site and try again.",
   back_home: "← Back to riffpad.ai",
 
   pair_title: "Pair device",
@@ -266,6 +269,7 @@ const en: Record<string, string> = {
   cli_auth_desc: "This request came from {cmd} in your terminal.",
   auth_code: "Code:",
   cli_auth_missing: "Missing code in the link. Start login again from the terminal.",
+  cli_auth_expired: "This code is no longer valid. Run riffpad login again in the terminal.",
 
   lang_toggle: "中",
 };

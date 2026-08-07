@@ -836,7 +836,7 @@ func doLogin(args []string, dataDir string) error {
 	}
 	cfg.RelayURL = relayURL
 	cfg.RelayToken = out.Token
-	if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+	if err := syncHostCreds(httpURL, out.Token, *username, cfg); err != nil {
 		return err
 	}
 	cfg.RelayUser = *username
@@ -852,8 +852,11 @@ func doLogin(args []string, dataDir string) error {
 // accounts can log in from the CLI. The CLI polls until the user authorizes
 // in the browser (https://app.riffpad.ai/device?code=…).
 func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
+	// A wedged relay connection must not hang the login forever; every
+	// request in the device flow gets a hard timeout.
+	oauthClient := &http.Client{Timeout: 10 * time.Second}
 	body, _ := json.Marshal(map[string]string{})
-	resp, err := http.Post(httpURL+"/api/auth/oauth/device", "application/json", bytes.NewReader(body))
+	resp, err := oauthClient.Post(httpURL+"/api/auth/oauth/device", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("login_oauth_failed"), err)
 	}
@@ -886,7 +889,7 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 	for time.Now().Before(deadline) {
 		time.Sleep(time.Duration(dev.Interval) * time.Second)
 		payload, _ := json.Marshal(map[string]string{"code": dev.UserCode})
-		presp, err := http.Post(httpURL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
+		presp, err := oauthClient.Post(httpURL+"/api/auth/oauth/device/poll", "application/json", bytes.NewReader(payload))
 		if err != nil {
 			// Transient network failure: keep polling until the deadline.
 			lastErr = err
@@ -931,7 +934,7 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 		}
 		cfg.RelayURL = relayURL
 		cfg.RelayToken = out.Token
-		if err := syncHostCreds(httpURL, out.Token, cfg); err != nil {
+		if err := syncHostCreds(httpURL, out.Token, out.Username, cfg); err != nil {
 			return err
 		}
 		cfg.RelayUser = out.Username
@@ -949,20 +952,32 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 }
 
 // syncHostCreds clears stale host credentials when the stored host belongs to
-// a different relay account than the one just logged into. A transient API
-// failure never destroys the stored credentials.
-func syncHostCreds(httpURL, token string, cfg *config.Config) error {
+// a different relay account than the one just logged into.
+//
+// An account switch is handled locally (no network needed) so a successful
+// authorization is never thrown away because the relay is briefly unreachable.
+// Same-account re-login keeps the credentials; the relay ownership check is
+// best-effort and only clears credentials when it can confirm the host no
+// longer belongs to the user.
+func syncHostCreds(httpURL, token, username string, cfg *config.Config) error {
 	if cfg.HostID == "" || cfg.HostSecret == "" {
+		return nil
+	}
+	if cfg.RelayUser != "" && cfg.RelayUser != username {
+		cfg.HostID = ""
+		cfg.HostSecret = ""
 		return nil
 	}
 	req, err := http.NewRequest(http.MethodGet, httpURL+"/api/hosts", nil)
 	if err != nil {
-		return err
+		return nil
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("%s: %w", t.T("login_host_check_failed"), err)
+		fmt.Fprintln(os.Stderr, t.T("login_host_check_warn", err))
+		return nil
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

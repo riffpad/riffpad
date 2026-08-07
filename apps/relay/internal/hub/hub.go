@@ -176,6 +176,7 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/api/auth/github/callback", h.handleGitHubCallback)
 	mux.HandleFunc("/api/auth/oauth/device", h.handleDeviceLogin)
 	mux.HandleFunc("/api/auth/oauth/device/poll", h.handleDeviceLoginPoll)
+	mux.HandleFunc("/api/auth/oauth/device/status", h.handleDeviceLoginStatus)
 	mux.HandleFunc("/api/hosts", h.handleHosts)
 	mux.HandleFunc("/api/hosts/register", h.handleRegisterHost)
 	mux.HandleFunc("/api/pairings", h.handleCreatePairing)
@@ -401,6 +402,38 @@ func (h *Hub) handleDeviceLoginPoll(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleDeviceLoginStatus lets the /device page verify a code up front so a
+// stale or already-used link fails immediately instead of after the user
+// clicks "Continue with GitHub".
+func (h *Hub) handleDeviceLoginStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	if !h.allowRate("oauth-device-status", clientIP(r), 30, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
+	code := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("code")))
+	h.mu.Lock()
+	d, ok := h.deviceLogins[code]
+	if ok && time.Now().After(d.ExpiresAt) {
+		delete(h.deviceLogins, code)
+		ok = false
+	}
+	valid := ok && !d.Ready
+	expiresIn := 0
+	if valid {
+		expiresIn = int(time.Until(d.ExpiresAt).Seconds())
+	}
+	h.mu.Unlock()
+	if !valid {
+		writeJSON(w, http.StatusOK, map[string]any{"valid": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"valid": true, "expiresIn": expiresIn})
+}
+
 // handleGitHubLogin starts the GitHub OAuth flow (Authorization Code + state).
 func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 	if h.githubID == "" || h.githubSecret == "" {
@@ -417,16 +450,22 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 	if lang != "zh" && lang != "en" {
 		lang = "zh"
 	}
-	state := protocol.NewID()
 	h.mu.Lock()
 	if device != "" {
 		d, ok := h.deviceLogins[device]
 		if !ok || d.Ready || time.Now().After(d.ExpiresAt) {
 			h.mu.Unlock()
-			writeError(w, http.StatusBadRequest, "invalid or expired code")
+			if lang == "en" {
+				writeHTML(w, http.StatusBadRequest, errorHTML(lang, "Code expired", "This authorization code is no longer valid. Run riffpad login again for a fresh code."))
+			} else {
+				writeHTML(w, http.StatusBadRequest, errorHTML(lang, "授权码已失效", "该授权码已失效，请重新运行 riffpad login 获取新授权码。"))
+			}
 			return
 		}
 	}
+	// GitHub echoes only the state parameter on the callback, so the language
+	// is embedded in it: "<state>.<lang>".
+	state := protocol.NewID() + "." + lang
 	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device, opener: opener, lang: lang}
 	h.mu.Unlock()
 	redirect, _ := url.Parse("https://github.com/login/oauth/authorize")
@@ -449,7 +488,10 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	if code == "" || state == "" {
-		lang := oauthLang(r)
+		lang := oauthLangFromState(state)
+		if lang == "" {
+			lang = oauthLang(r)
+		}
 		if lang == "en" {
 			writeHTML(w, http.StatusBadRequest, errorHTML(lang, "Sign-in failed", "The link is incomplete — please start again."))
 		} else {
@@ -464,7 +506,10 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.Unlock()
 	if !ok || time.Now().After(st.expires) {
-		lang := oauthLang(r)
+		lang := oauthLangFromState(state)
+		if lang == "" {
+			lang = oauthLang(r)
+		}
 		if lang == "en" {
 			writeHTML(w, http.StatusUnauthorized, errorHTML(lang, "Link expired", "The authorization flow expired. Run riffpad login again for a fresh link."))
 		} else {
@@ -487,7 +532,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	tokenReq.Header.Set("Accept", "application/json")
 	tokenResp, err := http.DefaultClient.Do(tokenReq)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "github token exchange failed")
+		writeOAuthError(w, st.lang, "GitHub sign-in failed", "GitHub did not complete the sign-in. Please try again.", "GitHub 登录失败", "GitHub 未能完成登录，请稍后重试。")
 		return
 	}
 	defer tokenResp.Body.Close()
@@ -497,7 +542,11 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(tokenResp.Body).Decode(&tok); err != nil || tok.AccessToken == "" {
 		h.log.Printf("github token exchange error: %s", tok.Error)
-		writeError(w, http.StatusBadGateway, "github token exchange failed")
+		if tok.Error == "access_denied" {
+			writeOAuthError(w, st.lang, "Authorization canceled", "You declined the GitHub authorization. Run riffpad login again and choose Authorize.", "授权已取消", "你拒绝了 GitHub 授权。请重新运行 riffpad login 并选择 Authorize。")
+		} else {
+			writeOAuthError(w, st.lang, "GitHub sign-in failed", "GitHub did not complete the sign-in. Please try again.", "GitHub 登录失败", "GitHub 未能完成登录，请稍后重试。")
+		}
 		return
 	}
 	// Fetch the GitHub user.
@@ -506,7 +555,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	userReq.Header.Set("Accept", "application/vnd.github+json")
 	userResp, err := http.DefaultClient.Do(userReq)
 	if err != nil || userResp.StatusCode != http.StatusOK {
-		writeError(w, http.StatusBadGateway, "github user fetch failed")
+		writeOAuthError(w, st.lang, "GitHub sign-in failed", "Could not verify your GitHub account. Please try again.", "GitHub 登录失败", "无法校验你的 GitHub 账号，请稍后重试。")
 		return
 	}
 	defer userResp.Body.Close()
@@ -516,17 +565,17 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 	}
 	if err := json.NewDecoder(userResp.Body).Decode(&ghUser); err != nil || ghUser.ID == 0 {
-		writeError(w, http.StatusBadGateway, "invalid github user")
+		writeOAuthError(w, st.lang, "GitHub sign-in failed", "GitHub returned an invalid account. Please try again.", "GitHub 登录失败", "GitHub 返回了无效账号，请稍后重试。")
 		return
 	}
 	u, err := h.store.FindOrCreateGitHubUser(fmt.Sprintf("%d", ghUser.ID), ghUser.Login, ghUser.Email)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "account failed")
+		writeOAuthError(w, st.lang, "Sign-in failed", "Your account could not be created. Please try again.", "登录失败", "无法创建账号，请稍后重试。")
 		return
 	}
 	token, err := h.store.CreateToken(u.ID, 30*24*time.Hour)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "token failed")
+		writeOAuthError(w, st.lang, "Sign-in failed", "Your session could not be created. Please try again.", "登录失败", "无法创建登录会话，请稍后重试。")
 		return
 	}
 	h.log.Printf("github oauth user=%s gh=%s", u.Username, ghUser.Login)
@@ -640,6 +689,31 @@ func oauthLang(r *http.Request) string {
 		lang = "zh"
 	}
 	return lang
+}
+
+// oauthLangFromState recovers the language embedded in the OAuth state
+// ("<state>.<lang>") for callbacks where the state lookup failed and the
+// original query parameter is gone.
+func oauthLangFromState(state string) string {
+	i := strings.LastIndex(state, ".")
+	if i <= 0 || i+1 >= len(state) {
+		return ""
+	}
+	lang := state[i+1:]
+	if lang != "zh" && lang != "en" {
+		return ""
+	}
+	return lang
+}
+
+// writeOAuthError renders a styled error page for browser-facing OAuth
+// failures instead of leaking raw JSON into the user's browser.
+func writeOAuthError(w http.ResponseWriter, lang, enTitle, enDesc, zhTitle, zhDesc string) {
+	if lang == "en" {
+		writeHTML(w, http.StatusBadGateway, errorHTML(lang, enTitle, enDesc))
+		return
+	}
+	writeHTML(w, http.StatusBadGateway, errorHTML(lang, zhTitle, zhDesc))
 }
 
 // ---------- hosts / pairing / sessions ----------

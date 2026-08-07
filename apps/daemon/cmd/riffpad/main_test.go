@@ -72,6 +72,31 @@ func TestOAuthDeviceLoginRetriesTransientError(t *testing.T) {
 	}
 }
 
+func TestSyncHostCredsAccountSwitchClearsLocally(t *testing.T) {
+	cfg := &config.Config{HostID: "host1", HostSecret: "secret1", RelayUser: "alice"}
+	// The relay is deliberately unreachable; an account switch must still
+	// clear stale host credentials so a successful authorization is never
+	// thrown away by a transient network failure.
+	if err := syncHostCreds("http://127.0.0.1:1", "tok", "bob", cfg); err != nil {
+		t.Fatalf("syncHostCreds failed: %v", err)
+	}
+	if cfg.HostID != "" || cfg.HostSecret != "" {
+		t.Fatalf("stale host credentials not cleared: %+v", cfg)
+	}
+}
+
+func TestSyncHostCredsSameUserKeepsHost(t *testing.T) {
+	cfg := &config.Config{HostID: "host1", HostSecret: "secret1", RelayUser: "alice"}
+	// Same-account re-login while the relay is unreachable keeps the host
+	// credentials; the ownership check is best-effort.
+	if err := syncHostCreds("http://127.0.0.1:1", "tok", "alice", cfg); err != nil {
+		t.Fatalf("syncHostCreds failed: %v", err)
+	}
+	if cfg.HostID != "host1" || cfg.HostSecret != "secret1" {
+		t.Fatalf("host credentials should be kept: %+v", cfg)
+	}
+}
+
 func TestEnsureDaemonSkipsWhenReachable(t *testing.T) {
 	ready := &atomic.Bool{}
 	ready.Store(true)
