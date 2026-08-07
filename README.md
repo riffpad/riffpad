@@ -1,10 +1,35 @@
+<div align="center">
+
+<img src=".github/assets/banner.png" alt="Riffpad — a laptop terminal and a phone connected by an encrypted sync line" width="100%" />
+
 # Riffpad
 
-The pocket remote for your AI coding agents. Watch, approve, and steer Claude Code, Codex, DeepSeek CLI, and other AI coding agents from your phone — without staying chained to the desk.
+**The pocket remote for your AI coding agents.**
 
-## What is Riffpad?
+Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your phone — without staying chained to the desk.
 
-A lightweight bridge between your local AI coding agents and your phone. Your agents keep running on your own machine; Riffpad mirrors them to your phone for supervision, approval, and remote steering.
+[![CI](https://github.com/riffpad/riffpad/actions/workflows/ci.yml/badge.svg)](https://github.com/riffpad/riffpad/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
+[![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://riffpad.ai/docs)
+[![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
+
+[Website](https://riffpad.ai) · [Documentation](https://riffpad.ai/docs) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
+
+</div>
+
+---
+
+## Why Riffpad?
+
+AI coding agents are powerful — and needy. They pause for approvals, finish tasks while you're away, and quietly wait for input you could have given from the couch. Riffpad bridges the CLI agents running on your own machine to your phone, so a long refactor doesn't chain you to the desk:
+
+- **Watch from anywhere** — live event stream of every session, mirrored to your phone in real time.
+- **Approve in one tap** — permission prompts become approval cards; decide from the couch, the office, or the subway.
+- **Steer remotely** — send messages and course-correct a running session without SSH or screen-sharing hacks.
+- **Nothing leaves your machine unencrypted** — end-to-end encryption with a zero-knowledge relay, local-first by design.
+- **Read-only by default** — every approve, reject, or prompt is an explicit action, never ambient access.
+
+<img src=".github/assets/demo-mockup.png" alt="A Mac terminal waiting on a Bash approval while the phone shows the same approval card with Approve and Reject buttons" width="100%" />
 
 ## Quickstart
 
@@ -39,9 +64,7 @@ English.
 
 ## How it works
 
-```
-Adapter → Daemon → Encrypted Relay → Mobile app
-```
+<img src=".github/assets/arch-diagram.png" alt="Architecture: client phone and daemon computer exchange encrypted events and approvals through a zero-knowledge relay" width="100%" />
 
 - **Adapter** — parses each CLI's structured output and hooks into a unified event stream (Claude Code, Codex, DeepSeek, Kimi, …).
 - **Daemon** — runs on your computer, owns the keys, manages sessions, and bridges adapters to the relay.
@@ -52,11 +75,15 @@ Adapter → Daemon → Encrypted Relay → Mobile app
 
 Yes, by design:
 
-- End-to-end encrypted — X25519 key exchange + AES-256-GCM.
-- Keys live only on your daemon and phone; the relay never sees plaintext.
-- Local-first — code, repositories, and API keys never leave your computer.
-- Read-only by default — every approve, reject, or prompt is an explicit action.
+- **End-to-end encrypted** — X25519 key exchange + AES-256-GCM.
+- **Keys never leave your devices** — they live only on your daemon and phone; the relay never sees plaintext.
+- **Local-first** — code, repositories, and API keys never leave your computer.
+- **Read-only by default** — every approve, reject, or prompt is an explicit action.
 
-## Documentation
+## Community
 
-[riffpad.ai/docs](https://riffpad.ai/docs)
+Questions, ideas, or show-and-tell? Join us:
+
+- [Discord](https://discord.gg/CDNFTg2QyM) — the community hangout
+- [GitHub Issues](https://github.com/riffpad/riffpad/issues) — bugs and feature requests
+- [Documentation](https://riffpad.ai/docs) — install, pairing, security model
