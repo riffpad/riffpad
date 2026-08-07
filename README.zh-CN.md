@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/banner.png" alt="Riffpad — 一台电脑终端和一部手机通过加密同步线相连" width="100%" />
+<img src=".github/assets/banner.png" alt="Riffpad banner" width="100%" />
 
 # Riffpad
 
