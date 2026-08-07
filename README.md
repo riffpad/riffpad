@@ -33,7 +33,7 @@ AI coding agents are powerful — and needy. They pause for approvals, finish ta
 
 ## Quickstart
 
-Install the daemon:
+### 1. Install the daemon
 
 **macOS / Linux**
 
@@ -49,20 +49,42 @@ irm https://riffpad.ai/install.ps1 | iex
 
 Windows 安装脚本会下载最新二进制、加入用户 PATH，并注册登录自启任务（daemon）。
 
-Then start the daemon and attach to your CLI:
+### 2. Sign in on the computer
 
 ```bash
-riffpad daemon start
-riffpad attach
-claude
+riffpad login
 ```
 
-Open `http://127.0.0.1:8787`, pair your phone, and approve from anywhere.
+This opens a browser for GitHub authorization (like `gh auth login`). The
+daemon registers this computer as a host under your account and restarts
+automatically.
+
+### 3. Pair your phone
+
+```bash
+riffpad pair
+```
+
+The terminal prints a 6-character code and a QR code. On your phone, open
+[https://app.riffpad.ai](https://app.riffpad.ai), sign in with the **same**
+GitHub account, and enter the code (or scan the QR).
+
+### 4. Start and control a session
+
+```bash
+riffpad run --cli codex
+```
+
+The session appears in the app immediately — watch progress, approve actions,
+and send instructions from your phone, from anywhere.
 
 The CLI speaks English and Chinese. It detects your locale from
 `LC_ALL`/`LC_MESSAGES`/`LANG`; override it anytime with
 `riffpad --lang zh` or `riffpad --lang en`. Unsupported locales fall back to
 English.
+
+> Want to capture a Claude session you started yourself? Use `riffpad attach`
+> instead — see the [documentation](https://www.riffpad.ai/docs/guide/quickstart).
 
 ## How it works
 
