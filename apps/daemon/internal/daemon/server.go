@@ -45,28 +45,28 @@ type pendingPair struct {
 }
 
 type session struct {
-	id       string
-	meta     protocol.SessionStartPayload
-	adapter  adapter.Session
-	events   <-chan protocol.Event
-	status   string
-	ended    bool
-	managed  bool      // daemon spawned the agent process: Shutdown reclaims it (#170)
-	lease    bool      // local TUI attached: session closes when heartbeat lapses
-	lastHB   time.Time // last lease heartbeat from the local CLI
+	id      string
+	meta    protocol.SessionStartPayload
+	adapter adapter.Session
+	events  <-chan protocol.Event
+	status  string
+	ended   bool
+	managed bool      // daemon spawned the agent process: Shutdown reclaims it (#170)
+	lease   bool      // local TUI attached: session closes when heartbeat lapses
+	lastHB  time.Time // last lease heartbeat from the local CLI
 	// leaseMissed records that the previous sweep already saw the lease
 	// expired; the session is closed only when two consecutive sweeps see no
 	// heartbeat, so a post-sleep sweep racing the heartbeat can't kill a live
 	// TUI (#170). Reset by every heartbeat.
 	leaseMissed bool
 	lastSeen    time.Time // last event activity (for dashboard "recent" display)
-	created  time.Time
-	connect  map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
-	mu       sync.Mutex
-	pumpMu   sync.Mutex // serializes pumpEvent across the pump, hook handlers, and viewer dispatch (#171)
-	seq      uint64     // last assigned event sequence number (#173)
-	history  []protocol.Event
-	clients  map[*client]struct{}
+	created     time.Time
+	connect     map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
+	mu          sync.Mutex
+	pumpMu      sync.Mutex // serializes pumpEvent across the pump, hook handlers, and viewer dispatch (#171)
+	seq         uint64     // last assigned event sequence number (#173)
+	history     []protocol.Event
+	clients     map[*client]struct{}
 }
 
 // getAdapter returns the session's adapter under sess.mu. The adapter can be
@@ -682,6 +682,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name   string `json:"name"`
 		CLI    string `json:"cli"`
+		Binary string `json:"binary"`
 		Cwd    string `json:"cwd"`
 		Prompt string `json:"prompt"`
 	}
@@ -704,6 +705,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		ID:        id,
 		Name:      req.Name,
 		CLI:       req.CLI,
+		Binary:    req.Binary,
 		Cwd:       req.Cwd,
 		Prompt:    req.Prompt,
 		DataDir:   s.dataDir,

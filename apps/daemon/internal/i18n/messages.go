@@ -8,7 +8,8 @@ Usage:
   riffpad daemon start          start the background daemon (same binary)
   riffpad daemon stop           stop the daemon
   riffpad status                show daemon status
-  riffpad pair                  print a pairing code and QR
+  riffpad pair [--local]        print a pairing code and QR (requires login;
+                                --local allows a local-only code without login)
   riffpad sessions              list sessions
   riffpad auth                  show the logged-in relay account
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
@@ -38,6 +39,7 @@ Usage:
 		"run_failed_status":           "Failed to start session (HTTP %d)",
 		"pair_code":                   "Pairing code: %s\nEnter it in the phone/browser (or scan the QR)",
 		"pair_local":                  "Pairing code: %s\nLocal mode (not logged in): open this URL in a browser on THIS machine:\n%s",
+		"pair_requires_login":         "Not logged in. Run `riffpad login` first, or use `riffpad pair --local` for a local-only code.",
 		"pair_failed_status":          "Failed to get pairing code (HTTP %d)",
 		"pair_login_expired":          "Relay login has expired. Please log in again: riffpad login",
 		"config_file_healed":          "Warning: %s was corrupted; rebuilt with defaults. The original was backed up to %s",
@@ -98,7 +100,8 @@ Usage:
   riffpad daemon start          启动后台 daemon（同一二进制）
   riffpad daemon stop           停止 daemon
   riffpad status                查看 daemon 状态
-  riffpad pair                  打印配对码和二维码
+  riffpad pair [--local]        打印配对码和二维码（需先登录；
+                                --local 允许未登录时生成仅本机可用的码）
   riffpad sessions              列出会话
   riffpad auth                  查看当前登录的 relay 账号
   riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
@@ -128,6 +131,7 @@ Usage:
 		"session_url":                 "会话：%s\n打开 %s 查看",
 		"run_failed_status":           "启动会话失败（HTTP %d）",
 		"pair_code":                   "配对码：%s\n在手机/浏览器输入此配对码（或扫描二维码）",
+		"pair_requires_login":         "未登录。请先运行 `riffpad login`，或使用 `riffpad pair --local` 生成仅本机可用的配对码。",
 		"pair_local":                  "配对码：%s\n本地模式（未登录）：请在本机浏览器打开以下链接：\n%s",
 		"pair_failed_status":          "获取配对码失败（HTTP %d）",
 		"pair_login_expired":          "登录已过期，请重新运行 riffpad login",

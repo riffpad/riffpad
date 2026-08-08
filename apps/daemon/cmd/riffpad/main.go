@@ -123,7 +123,7 @@ func main() {
 	case "status":
 		err = statusCmd(base)
 	case "pair":
-		err = withDaemon(func() error { return pairCmd(base) }, base, dataDir)
+		err = withDaemon(func() error { return pairCmd(base, os.Args[2:]) }, base, dataDir)
 	case "sessions":
 		err = withDaemon(func() error { return sessionsCmd(base) }, base, dataDir)
 	case "run":
@@ -169,6 +169,7 @@ func runDaemon(args []string) int {
 	fs := flag.NewFlagSet("_daemon", flag.ExitOnError)
 	dataDir := fs.String("data-dir", "", "daemon data directory (default ~/.config/riffpad)")
 	_ = fs.Parse(args)
+	enrichDaemonPath()
 	dir := *dataDir
 	if dir == "" {
 		var err error
@@ -218,6 +219,46 @@ func runDaemon(args []string) int {
 	}
 	logger.Printf("daemon stopped")
 	return 0
+}
+
+// enrichDaemonPath appends common user bin directories to PATH so the daemon
+// can spawn coding CLIs (codex/kimi/claude) even when it was started by
+// systemd with a minimal PATH. Only existing directories are added; the
+// authoritative PATH captured by `riffpad setup` and per-command binary paths
+// passed by `riffpad run` take precedence because they are earlier in PATH.
+func enrichDaemonPath() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	extra := []string{
+		filepath.Join(home, ".local", "bin"),
+		filepath.Join(home, ".codex", "bin"),
+		filepath.Join(home, ".kimi-code", "bin"),
+		filepath.Join(home, ".opencode", "bin"),
+		filepath.Join(home, ".cargo", "bin"),
+		filepath.Join(home, "go", "bin"),
+		filepath.Join(home, ".bun", "bin"),
+		filepath.Join(home, ".npm-global", "bin"),
+	}
+	seen := map[string]bool{}
+	parts := make([]string, 0, 16)
+	for _, p := range filepath.SplitList(os.Getenv("PATH")) {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			parts = append(parts, p)
+		}
+	}
+	for _, d := range extra {
+		if seen[d] {
+			continue
+		}
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			parts = append(parts, d)
+			seen[d] = true
+		}
+	}
+	os.Setenv("PATH", strings.Join(parts, string(os.PathListSeparator)))
 }
 
 func usage() {
@@ -372,18 +413,24 @@ func setupCmd(args []string, dataDir string) error {
 	if strings.Contains(exe, " ") {
 		execStart = `"` + exe + `"`
 	}
+	// The systemd user manager runs with a minimal PATH, which would hide
+	// coding CLIs installed in user dirs (~/.local/bin etc.). Capture the
+	// PATH of the shell that ran `riffpad setup` so the daemon can spawn
+	// codex/kimi/claude. "%" is a systemd specifier, so escape it.
+	path := strings.ReplaceAll(os.Getenv("PATH"), "%", "%%")
 	unit := fmt.Sprintf(`[Unit]
 Description=Riffpad daemon (AI agent remote control)
 After=network-online.target
 
 [Service]
+Environment=PATH=%s
 ExecStart=%s _daemon --data-dir %s
 Restart=on-failure
 RestartSec=2
 
 [Install]
 WantedBy=default.target
-`, execStart, dataDir)
+`, path, execStart, dataDir)
 	if err := os.WriteFile(unitPath, []byte(unit), 0o600); err != nil {
 		return err
 	}
@@ -493,7 +540,10 @@ func statusCmd(base string) error {
 	return nil
 }
 
-func pairCmd(base string) error {
+func pairCmd(base string, args []string) error {
+	fs := flag.NewFlagSet("pair", flag.ExitOnError)
+	local := fs.Bool("local", false, "allow a local-only pairing code without login")
+	_ = fs.Parse(args)
 	resp, err := daemonDo(nil, http.MethodPost, base+"/api/pairings", nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
@@ -519,6 +569,9 @@ func pairCmd(base string) error {
 		return fmt.Errorf("%s", t.T("pair_failed_status", resp.StatusCode))
 	}
 	if data.Local {
+		if !*local {
+			return fmt.Errorf("%s", t.T("pair_requires_login"))
+		}
 		// Local mode: the URL points at 127.0.0.1 and is only meaningful in a
 		// browser on this machine, so a QR code (which implies scanning with
 		// another device) would be misleading — print the URL instead.
@@ -565,8 +618,15 @@ func runCmd(args []string, base string) error {
 			*cwd = wd
 		}
 	}
+	// Resolve the CLI binary from the user's interactive PATH so sessions
+	// work even when the daemon runs under systemd with a minimal PATH.
+	// Empty is fine: the daemon falls back to its own PATH lookup.
+	binary := ""
+	if p, err := exec.LookPath(*cli); err == nil {
+		binary = p
+	}
 	body, _ := json.Marshal(map[string]string{
-		"name": *name, "prompt": *prompt, "cwd": *cwd, "cli": *cli,
+		"name": *name, "prompt": *prompt, "cwd": *cwd, "cli": *cli, "binary": binary,
 	})
 	resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions", bytes.NewReader(body))
 	if err != nil {
