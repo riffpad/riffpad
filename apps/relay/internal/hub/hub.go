@@ -846,11 +846,19 @@ func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 		PublicKey: req.PublicKey, Expires: time.Now().Add(10 * time.Minute),
 	}
 	h.mu.Unlock()
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
+	// The pairing link must land on the web UI origin (appURL), not on the
+	// request's own host: behind a TLS-terminating reverse proxy r.TLS is nil
+	// and r.Host is the API domain (e.g. api.riffpad.ai), which serves no web
+	// UI. Fall back to the request host only if appURL is unconfigured.
+	base := strings.TrimSuffix(h.appURL, "/")
+	if base == "" {
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		base = scheme + "://" + r.Host
 	}
-	url := scheme + "://" + r.Host + "/?pair=" + code
+	url := base + "/?pair=" + code
 	writeJSON(w, http.StatusOK, map[string]any{
 		"code": code, "url": url,
 		"expiresAt": time.Now().Add(10 * time.Minute).Format(time.RFC3339),
