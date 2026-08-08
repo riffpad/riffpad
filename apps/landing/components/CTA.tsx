@@ -22,26 +22,6 @@ export function CTA() {
       >
         {t.cta.button} <span aria-hidden="true">→</span>
       </a>
-      <p className="mt-6 text-sm text-body">
-        {t.cta.betaPrefix}{" "}
-        <a
-          href="https://formspree.io/f/xjgqddar"
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold text-ink underline decoration-hairline-strong underline-offset-4 transition-colors hover:decoration-accent"
-        >
-          {t.cta.betaWaitlist}
-        </a>{" "}
-        {t.cta.betaOr}{" "}
-        <a
-          href="https://discord.gg/CDNFTg2QyM"
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold text-ink underline decoration-hairline-strong underline-offset-4 transition-colors hover:decoration-accent"
-        >
-          {t.cta.betaDiscord}
-        </a>
-      </p>
       <p className="mt-4 text-xs text-mute">{t.cta.note}</p>
     </section>
   );

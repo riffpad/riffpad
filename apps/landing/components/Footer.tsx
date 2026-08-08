@@ -1,6 +1,7 @@
 "use client";
 
 import { Logo } from "./Logo";
+import { BookIcon, DiscordIcon, GitHubIcon, MailIcon } from "./icons";
 import { useLanguage } from "./LanguageProvider";
 
 export function Footer() {
@@ -28,28 +29,32 @@ export function Footer() {
               href="https://github.com/riffpad/riffpad"
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-ink"
+              className="flex items-center gap-1.5 transition-colors hover:text-ink"
             >
+              <GitHubIcon className="h-4 w-4" />
               {t.footer.github}
             </a>
             <a
               href="https://www.riffpad.ai/docs/guide/quickstart"
-              className="transition-colors hover:text-ink"
+              className="flex items-center gap-1.5 transition-colors hover:text-ink"
             >
+              <BookIcon className="h-4 w-4" />
               {t.footer.docs}
             </a>
             <a
               href="https://discord.gg/CDNFTg2QyM"
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-ink"
+              className="flex items-center gap-1.5 transition-colors hover:text-ink"
             >
+              <DiscordIcon className="h-4 w-4" />
               {t.footer.discord}
             </a>
             <a
               href="mailto:hi@riffpad.ai"
-              className="transition-colors hover:text-ink"
+              className="flex items-center gap-1.5 transition-colors hover:text-ink"
             >
+              <MailIcon className="h-4 w-4" />
               {t.footer.contact}
             </a>
           </nav>
