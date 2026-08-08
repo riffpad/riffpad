@@ -63,6 +63,39 @@ export default defineConfig({
   base: "/docs/",
   cleanUrls: true,
   ignoreDeadLinks: true,
+  head: [
+    ["link", { rel: "icon", type: "image/png", href: "/docs/favicon-light.png", id: "riffpad-favicon" }],
+    [
+      "script",
+      {
+        innerHTML: `(function () {
+          var link = document.getElementById("riffpad-favicon");
+          if (!link) return;
+          var html = document.documentElement;
+          function currentTheme() {
+            var stored = null;
+            try { stored = localStorage.getItem("vitepress-theme-appearance"); } catch (e) {}
+            if (html.classList.contains("dark") || stored === "dark") return "dark";
+            if (stored === "light") return "light";
+            return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          function apply() {
+            link.setAttribute(
+              "href",
+              currentTheme() === "dark" ? "/docs/favicon-dark.png" : "/docs/favicon-light.png"
+            );
+          }
+          apply();
+          if ("MutationObserver" in window) {
+            new MutationObserver(apply).observe(html, {
+              attributes: true,
+              attributeFilter: ["class"],
+            });
+          }
+        })();`,
+      },
+    ],
+  ],
   // Build straight into the landing app so riffpad.ai/docs is served by the
   // same Vercel deployment.
   outDir: resolve(import.meta.dirname, "../../landing/public/docs"),
