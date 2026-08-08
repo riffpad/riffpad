@@ -14,6 +14,7 @@
 #   RIFFPAD_PREFIX    install directory (default: ~/.local/bin)
 #   RIFFPAD_DOWNLOAD_URL  direct binary URL (for testing/mirrors)
 #   RIFFPAD_SUMS_URL      checksums URL when RIFFPAD_DOWNLOAD_URL is set
+#   RIFFPAD_NO_AUTOSTART  set to 1 to skip registering daemon autostart
 set -eu
 
 REPO="riffpad/riffpad"
@@ -179,3 +180,29 @@ case ":${PATH:-}:" in
   *":$PREFIX:"*) ;;
   *) echo "riffpad: note: $PREFIX is not on PATH — add it or run: export PATH=\"$PREFIX:\$PATH\"" ;;
 esac
+
+# Best-effort autostart: register a systemd user service so the daemon
+# starts at login and restarts after crashes. This never fails the install —
+# if systemd is unavailable (WSL without systemd, containers, macOS), warn
+# and let the user run `riffpad setup` later. Opt out with
+# RIFFPAD_NO_AUTOSTART=1.
+if [ "$(uname -s)" = "Linux" ] &&
+  [ -z "${RIFFPAD_NO_AUTOSTART:-}" ] &&
+  command -v systemctl >/dev/null 2>&1; then
+  if systemctl --user is-enabled riffpad.service >/dev/null 2>&1; then
+    echo "riffpad: daemon autostart already enabled"
+  else
+    # A manually started daemon would conflict with the systemd unit, so
+    # stop it first and let the service take over.
+    if "$PREFIX/riffpad" status >/dev/null 2>&1; then
+      "$PREFIX/riffpad" daemon stop >/dev/null 2>&1 || true
+    fi
+    echo "riffpad: enabling daemon autostart (systemd user service)"
+    if "$PREFIX/riffpad" setup >/dev/null 2>&1; then
+      echo "riffpad: daemon autostart enabled"
+    else
+      echo "riffpad: warning: could not enable daemon autostart (systemd unavailable?)" >&2
+      echo "riffpad: run 'riffpad setup' manually when systemd is available" >&2
+    fi
+  fi
+fi
