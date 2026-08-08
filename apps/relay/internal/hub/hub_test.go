@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/riffpad/riffpad/packages/protocol"
 )
 
 func newTestHub(t *testing.T) (*Hub, *httptest.Server) {
@@ -1027,5 +1028,145 @@ func TestSupersededFrameSentToReplacedHost(t *testing.T) {
 	conn1.SetReadDeadline(time.Now().Add(3 * time.Second))
 	if _, _, err := conn1.ReadMessage(); err == nil {
 		t.Fatal("old connection still open after superseded")
+	}
+}
+
+// connectViewer pairs a device and dials a viewer for session s1 (announced
+// by hostConn), returning the viewer connection and its relay viewer id.
+func connectViewer(t *testing.T, ts *httptest.Server, token, hostID string, hostConn *websocket.Conn) (*websocket.Conn, string) {
+	t.Helper()
+	resp, err := authPost(ts, "/api/pairings", token, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pr struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	resp, err = authPost(ts, "/api/pair", token, `{"code":"`+pr.Code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pair struct {
+		DeviceID string `json:"deviceId"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pair); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
+	vc, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { vc.Close() })
+
+	hostConn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_, raw, err := hostConn.ReadMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var join hostFrame
+	if err := json.Unmarshal(raw, &join); err != nil {
+		t.Fatal(err)
+	}
+	if join.Kind != "join" || join.ViewerID == "" {
+		t.Fatalf("unexpected join frame: %+v", join)
+	}
+	return vc, join.ViewerID
+}
+
+// Issue #173: the daemon asks the relay to close a viewer's browser
+// connection ("kick") after dropping it, so the client reconnects and
+// replays instead of hanging on a silent socket.
+func TestKickFrameClosesViewer(t *testing.T) {
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "kick")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+	hostConn := dialHostWS(t, ts, hostID, secret)
+	announceSessions(t, hostConn, SessionMeta{ID: "s1", Name: "s1", CLI: "claude", Status: "running"})
+	vc, viewerID := connectViewer(t, ts, token, hostID, hostConn)
+
+	kick, _ := json.Marshal(hostFrame{Kind: protocol.RelayFrameKick, ViewerID: viewerID})
+	if err := hostConn.WriteMessage(websocket.TextMessage, kick); err != nil {
+		t.Fatal(err)
+	}
+
+	vc.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		if _, _, err := vc.ReadMessage(); err != nil {
+			break
+		}
+	}
+	h.mu.Lock()
+	_, ok := h.viewers[viewerID]
+	h.mu.Unlock()
+	if ok {
+		t.Fatal("kicked viewer still registered")
+	}
+}
+
+// Issue #173: a viewer send-buffer overflow must drop the connection (the
+// payload is encrypted, so the relay cannot tell critical from noise) and
+// log it, instead of silently dropping the message.
+func TestViewerSendBufferFullDropsViewer(t *testing.T) {
+	var buf bytes.Buffer
+	h, err := New(log.New(&buf, "", 0), t.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := &hostConn{id: "h1", send: make(chan []byte, 1), done: make(chan struct{})}
+	v := &viewerConn{id: "v1", sessionID: "s1", host: host, send: make(chan []byte, 1), done: make(chan struct{})}
+	h.mu.Lock()
+	h.viewers["v1"] = v
+	h.mu.Unlock()
+	v.send <- []byte("filler") // buffer full; writeLoop not running
+
+	h.sendToViewer(v, []byte("payload"))
+
+	h.mu.Lock()
+	_, ok := h.viewers["v1"]
+	h.mu.Unlock()
+	if ok {
+		t.Fatal("overflowing viewer still registered")
+	}
+	select {
+	case <-v.done:
+	default:
+		t.Fatal("overflowing viewer not closed")
+	}
+	if !strings.Contains(buf.String(), "send buffer full") ||
+		!strings.Contains(buf.String(), "v1") ||
+		!strings.Contains(buf.String(), "s1") {
+		t.Fatalf("missing warn log: %q", buf.String())
+	}
+}
+
+// Issue #173: same policy on the host-bound queue (viewer → daemon
+// direction): overflow closes the host connection so the daemon reconnects
+// and everything replays.
+func TestHostSendBufferFullClosesHost(t *testing.T) {
+	var buf bytes.Buffer
+	h, err := New(log.New(&buf, "", 0), t.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := &hostConn{id: "h1", send: make(chan []byte, 1), done: make(chan struct{})}
+	host.send <- []byte("filler")
+
+	h.hostSend(host, hostFrame{Kind: "viewer", ViewerID: "v1"})
+
+	select {
+	case <-host.done:
+	default:
+		t.Fatal("overflowing host connection not closed")
+	}
+	if !strings.Contains(buf.String(), "host send buffer full") || !strings.Contains(buf.String(), "h1") {
+		t.Fatalf("missing warn log: %q", buf.String())
 	}
 }

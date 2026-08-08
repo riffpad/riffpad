@@ -6,6 +6,7 @@ import {
   openSessionSocket,
   Outbox,
   reconnectBackoff,
+  SeqTracker,
   WS_STALE_TIMEOUT_MS,
   WS_WATCHDOG_INTERVAL_MS,
   type SocketHandlers,
@@ -33,6 +34,52 @@ describe("dedupeEvent", () => {
     const burst = [ev("a"), ev("b"), ev("c"), ev("a")];
     const skipped = burst.filter((e) => dedupeEvent(seen, e));
     expect(skipped).toHaveLength(1);
+  });
+});
+
+// SeqTracker powers the #173 gap detection: a jump in the per-session seq
+// means a send buffer somewhere dropped events. Holes may still be filled by
+// replay/live interleaving on the same connection, so only a hole that stays
+// open is reported.
+describe("SeqTracker", () => {
+  it("stays quiet on a contiguous stream", () => {
+    const tr = new SeqTracker();
+    for (const seq of [1, 2, 3, 4]) tr.note(seq);
+    expect(tr.pendingGap()).toBeNull();
+  });
+
+  it("ignores events without a seq (old daemon)", () => {
+    const tr = new SeqTracker();
+    tr.note(undefined);
+    tr.note(0);
+    tr.note(7);
+    expect(tr.pendingGap()).toBeNull(); // first seq establishes the baseline
+  });
+
+  it("reports a hole that stays open", () => {
+    const tr = new SeqTracker();
+    tr.note(10);
+    tr.note(13); // 11..12 lost
+    expect(tr.pendingGap()).toEqual({ floor: 11, ceil: 12, missing: 2 });
+    tr.clearGap();
+    expect(tr.pendingGap()).toBeNull();
+  });
+
+  it("treats late in-stream arrivals as fills, not losses", () => {
+    const tr = new SeqTracker();
+    tr.note(10);
+    tr.note(13); // apparent hole 11..12 (replay/live interleave)
+    tr.note(11);
+    tr.note(12);
+    expect(tr.pendingGap()).toBeNull();
+  });
+
+  it("ignores replayed events at or below the high-water mark", () => {
+    const tr = new SeqTracker();
+    tr.note(10);
+    tr.note(3); // replayed old event: no gap, lastSeq unchanged
+    tr.note(11);
+    expect(tr.pendingGap()).toBeNull();
   });
 });
 
