@@ -255,7 +255,7 @@ func daemonCmd(args []string, base, dataDir string) error {
 	case "start":
 		return daemonStart(base, dataDir)
 	case "stop":
-		return daemonStop(base)
+		return daemonStop(base, dataDir)
 	default:
 		return fmt.Errorf("%s", t.T("usage_daemon"))
 	}
@@ -424,16 +424,30 @@ func setupWindowsTask(remove bool, dataDir string) error {
 	return nil
 }
 
-func daemonStop(base string) error {
+func daemonStop(base, dataDir string) error {
 	if !reachable(base) {
 		return fmt.Errorf("%s", t.T("daemon_not_running"))
 	}
-	resp, err := daemonDo(nil, http.MethodPost, base+"/api/shutdown", nil)
-	if err != nil {
+	// Bound the shutdown request itself: a wedged daemon may accept the
+	// connection yet never answer, and http.DefaultClient has no timeout.
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := daemonDo(client, http.MethodPost, base+"/api/shutdown", nil)
+	if err == nil {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}
+	for i := 0; i < 20; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if !reachable(base) {
+			fmt.Println(t.T("daemon_stopped"))
+			return nil
+		}
+	}
+	// HTTP shutdown failed or the daemon ignored it; fall back to the pid
+	// file written by daemonStart and kill the process (#174).
+	if err := forceKillDaemon(dataDir); err != nil {
 		return err
 	}
-	io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
 		if !reachable(base) {
@@ -442,6 +456,27 @@ func daemonStop(base string) error {
 		}
 	}
 	return fmt.Errorf("%s", t.T("daemon_did_not_stop"))
+}
+
+// forceKillDaemon reads the pid file written by daemonStart and terminates
+// the process after verifying it really is a riffpad daemon, so a stale or
+// recycled pid can never take down an unrelated process (#174).
+func forceKillDaemon(dataDir string) error {
+	raw, err := os.ReadFile(filepath.Join(dataDir, "daemon.pid"))
+	if err != nil {
+		return fmt.Errorf("%s", t.T("daemon_stop_no_pid"))
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil || pid <= 0 {
+		return fmt.Errorf("%s", t.T("daemon_stop_no_pid"))
+	}
+	if !isRiffpadDaemonProcess(pid) {
+		return fmt.Errorf("%s", t.T("daemon_stop_pid_mismatch", pid))
+	}
+	if err := terminateProcess(pid); err != nil {
+		return fmt.Errorf("%s", t.T("daemon_stop_kill_failed", err))
+	}
+	return nil
 }
 
 func statusCmd(base string) error {
@@ -540,12 +575,19 @@ func runCmd(args []string, base string) error {
 	}
 	defer resp.Body.Close()
 	var data struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
-		CLI string `json:"cli"`
+		ID    string `json:"id"`
+		URL   string `json:"url"`
+		CLI   string `json:"cli"`
+		Error string `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
+	}
+	if data.ID == "" {
+		if data.Error != "" {
+			return fmt.Errorf("%s", data.Error)
+		}
+		return fmt.Errorf("%s", t.T("run_failed_status", resp.StatusCode))
 	}
 	if data.CLI == "codex" {
 		return attachCodexTUI(base, data.ID)
@@ -1226,7 +1268,7 @@ func restartDaemon(dataDir string) {
 	if !reachable(base) {
 		return
 	}
-	if err := daemonStop(base); err != nil {
+	if err := daemonStop(base, dataDir); err != nil {
 		fmt.Println(t.T("login_restart_failed", err))
 		return
 	}
@@ -1358,7 +1400,10 @@ func defaultDaemonBase() string {
 }
 
 func latestReleaseTag() (string, error) {
-	resp, err := http.Get("https://api.github.com/repos/" + updateRepo + "/releases/latest")
+	// http.DefaultClient has no timeout; a wedged network must fail the
+	// update instead of hanging it forever (#174).
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get("https://api.github.com/repos/" + updateRepo + "/releases/latest")
 	if err != nil {
 		return "", err
 	}
@@ -1397,7 +1442,9 @@ func updatePlatform() (string, string, error) {
 }
 
 func downloadFile(url string, w io.Writer) error {
-	resp, err := http.Get(url)
+	// Binary downloads get a generous but bounded timeout (#174).
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
@@ -1410,7 +1457,8 @@ func downloadFile(url string, w io.Writer) error {
 }
 
 func verifyChecksum(sumsURL, asset, path string) error {
-	resp, err := http.Get(sumsURL)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(sumsURL)
 	if err != nil {
 		return err
 	}

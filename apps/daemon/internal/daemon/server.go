@@ -414,7 +414,15 @@ func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 	}
 	code := newPairingCode()
 	s.mu.Lock()
-	s.pending[code] = pendingPair{Code: code, Expires: time.Now().Add(10 * time.Minute)}
+	now := time.Now()
+	// Expired codes are only reaped when used (#174); sweep them here so
+	// repeated `riffpad pair` calls cannot grow s.pending without bound.
+	for c, p := range s.pending {
+		if now.After(p.Expires) {
+			delete(s.pending, c)
+		}
+	}
+	s.pending[code] = pendingPair{Code: code, Expires: now.Add(10 * time.Minute)}
 	s.mu.Unlock()
 	// Local mode: the daemon only listens on 127.0.0.1, so this URL is only
 	// reachable from a browser on this machine. The `local` flag tells the
