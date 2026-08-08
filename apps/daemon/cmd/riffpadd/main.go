@@ -31,6 +31,14 @@ func main() {
 		log.Fatalf("init logging: %v", err)
 	}
 	defer closer.Close()
+	// Corrupted state files are backed up and rebuilt automatically (#172);
+	// log a loud warning instead of dying at startup.
+	config.OnHeal = func(h config.Heal) {
+		logger.Printf("WARNING: %s was corrupted; rebuilt with defaults (backup: %s)", h.Path, h.Backup)
+		if h.Kind == "keys" {
+			logger.Printf("WARNING: identity keys regenerated; all paired devices are now invalid and must re-pair")
+		}
+	}
 
 	cfg, err := config.Load(dir)
 	if err != nil {

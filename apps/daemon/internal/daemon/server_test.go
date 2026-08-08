@@ -759,3 +759,80 @@ func TestLocalPairingMarkedLocal(t *testing.T) {
 		t.Fatalf("pairing url %q, want %q", pr.URL, want)
 	}
 }
+
+// TestRemotePairingExpiredTokenHint: when the relay rejects /api/pairings
+// with 401 (login token expired after its 30-day TTL), the daemon must answer
+// with an actionable re-login hint and a stable errorCode the CLI can
+// localize, instead of passing through the relay's bare "unauthorized" (#172).
+func TestRemotePairingExpiredTokenHint(t *testing.T) {
+	dir := t.TempDir()
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer relay.Close()
+
+	cfg := config.Default()
+	cfg.LocalToken = config.NewLocalToken()
+	cfg.RelayURL = relay.URL
+	cfg.RelayToken = "expired-token"
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings", cfg.LocalToken, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status %d, want 401", resp.StatusCode)
+	}
+	var out struct {
+		Error     string `json:"error"`
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.ErrorCode != "relay_auth_expired" {
+		t.Fatalf("errorCode %q, want relay_auth_expired", out.ErrorCode)
+	}
+	if !strings.Contains(out.Error, "riffpad login") {
+		t.Fatalf("error should point at re-login, got %q", out.Error)
+	}
+}
+
+// TestLoadDevicesHealsCorrupted: a truncated devices.json is backed up to
+// devices.json.bak and the daemon starts with an empty device list instead of
+// silently ignoring the file (#172).
+func TestLoadDevicesHealsCorrupted(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "devices.json")
+	if err := os.WriteFile(path, []byte(`[{"id": "d1", "name": "trun`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	srv.mu.Lock()
+	n := len(srv.devices)
+	srv.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("expected no devices after healing, got %d", n)
+	}
+	bak, err := os.ReadFile(path + ".bak")
+	if err != nil {
+		t.Fatal("expected devices.json.bak backup")
+	}
+	if string(bak) != `[{"id": "d1", "name": "trun` {
+		t.Fatalf("backup content %q", bak)
+	}
+}

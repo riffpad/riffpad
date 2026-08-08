@@ -289,13 +289,21 @@ func (s *Server) Start() error {
 		persistCreds := func(hostID, secret string) {
 			s.cfg.HostID = hostID
 			s.cfg.HostSecret = secret
-			if err := config.Save(s.dataDir, s.cfg); err != nil {
+			// Merge into the on-disk config under a lock: `riffpad login` may
+			// be writing at the same time, and a blind Save would clobber its
+			// fresh token (last-write-wins, #172).
+			if err := config.Update(s.dataDir, func(c *config.Config) {
+				c.HostID = hostID
+				c.HostSecret = secret
+			}); err != nil {
 				s.log.Printf("save host credentials: %v", err)
 			}
 		}
 		persistToken := func(token string) {
 			s.cfg.RelayToken = token
-			if err := config.Save(s.dataDir, s.cfg); err != nil {
+			if err := config.Update(s.dataDir, func(c *config.Config) {
+				c.RelayToken = token
+			}); err != nil {
 				s.log.Printf("save relay token: %v", err)
 			}
 		}
@@ -449,6 +457,17 @@ func (s *Server) createRemotePairing(w http.ResponseWriter) {
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		// Relay login tokens expire (30-day TTL) while the host WS keeps
+		// working (it authenticates with the host secret), so an expired
+		// login often surfaces here first. Give the user an actionable
+		// message; errorCode lets the CLI localize it (#172).
+		writeJSON(w, http.StatusUnauthorized, map[string]string{
+			"error":     "登录已过期，请重新运行 riffpad login",
+			"errorCode": "relay_auth_expired",
+		})
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
 		var relayErr struct {
 			Error string `json:"error"`
@@ -992,12 +1011,20 @@ func (s *Server) getSession(id string) *session {
 }
 
 func (s *Server) loadDevices() {
-	data, err := os.ReadFile(filepath.Join(s.dataDir, "devices.json"))
+	path := filepath.Join(s.dataDir, "devices.json")
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
 	var list []Device
-	if json.Unmarshal(data, &list) != nil {
+	if err := json.Unmarshal(data, &list); err != nil {
+		// Corrupted devices file: back it up and start with an empty list
+		// instead of silently ignoring it (#172).
+		if backup, berr := config.BackupCorrupted(path, "devices"); berr != nil {
+			s.log.Printf("devices.json corrupted (%v); backup failed: %v", err, berr)
+		} else {
+			s.log.Printf("devices.json corrupted (%v); backed up to %s, starting with no paired devices", err, backup)
+		}
 		return
 	}
 	for _, d := range list {
@@ -1016,7 +1043,7 @@ func (s *Server) saveDevices() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.dataDir, "devices.json"), data, 0o600)
+	return config.WriteFileAtomic(filepath.Join(s.dataDir, "devices.json"), data, 0o600)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

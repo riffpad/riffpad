@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
-import { b64u } from "./crypto";
+import { b64u, encryptEvent } from "./crypto";
 import {
   dedupeEvent,
   openSessionSocket,
   Outbox,
   reconnectBackoff,
   SeqTracker,
+  SESSION_KEY_FAILURE_LIMIT,
   WS_STALE_TIMEOUT_MS,
   WS_WATCHDOG_INTERVAL_MS,
   type SocketHandlers,
@@ -448,6 +449,74 @@ describe("offline vs revoked", () => {
     sock.retry();
     await wait(100);
     expect(FailingWebSocket.instances.length).toBeGreaterThan(n);
+    sock.close();
+  });
+});
+
+// Session key mismatch (#172): if the daemon's identity key is regenerated
+// (e.g. the user deleted keys.json to "reset"), the device record still
+// exists, so nothing server-side rejects the connection — but the stored
+// serverPub no longer matches and every event fails to decrypt. After enough
+// consecutive failures the socket must escalate to the fatal re-pair prompt
+// (the same UI path as a revoked device) instead of spinning silently.
+describe("session key mismatch", () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function genEcdh() {
+    return crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  }
+
+  async function settle(ms = 30) {
+    await new Promise((r) => setTimeout(r, ms));
+  }
+
+  it("escalates to a fatal re-pair prompt after repeated decrypt failures", async () => {
+    // The device is paired against the OLD server identity.
+    const oldServerIdentity = await genEcdh();
+    const serverPub = b64u(await crypto.subtle.exportKey("raw", oldServerIdentity.publicKey));
+    const devIdentity = await genEcdh();
+    const jwk = await crypto.subtle.exportKey("jwk", devIdentity.privateKey);
+    const dev = { deviceId: "d1", serverPub, jwk } as Device;
+
+    const onFatal = vi.fn();
+    const onError = vi.fn();
+    const sock = await openSessionSocket("s1", dev, {
+      onConn: () => {},
+      onEvent: () => {},
+      onError,
+      onFatal,
+    });
+    await settle();
+    const ws = FakeWebSocket.instances[0];
+
+    // The daemon (now running a NEW identity) answers hello; the client
+    // derives a session key that does not match the daemon's.
+    const serverEph = await genEcdh();
+    ws.emit(JSON.stringify({ kind: "hello", serverEphPub: b64u(await crypto.subtle.exportKey("raw", serverEph.publicKey)) }));
+    await settle(50);
+
+    // Events arrive encrypted under the daemon's (correct) key; to the client
+    // they are undecryptable. A random AES key simulates that mismatch.
+    const daemonKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    for (let i = 0; i < SESSION_KEY_FAILURE_LIMIT + 2; i++) {
+      const boxed = await encryptEvent(daemonKey, "s1", ev("bad" + i));
+      ws.emit(JSON.stringify({ v: 1, kind: "event", sessionId: "s1", ...boxed }));
+      await settle(10);
+    }
+
+    expect(onFatal).toHaveBeenCalledTimes(1); // once, not per failure
+    expect(typeof onFatal.mock.calls[0][0]).toBe("string");
+    expect(onFatal.mock.calls[0][0]).not.toBe("");
+    // Failures below the limit are ordinary errors, not fatal.
+    expect(onError).toHaveBeenCalledTimes(SESSION_KEY_FAILURE_LIMIT - 1);
     sock.close();
   });
 });

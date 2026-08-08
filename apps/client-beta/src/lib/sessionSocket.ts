@@ -131,6 +131,14 @@ export const WS_WATCHDOG_INTERVAL_MS = 15_000;
 // Reconnect backoff parameters, mutable so tests can shrink the delays.
 export const reconnectBackoff = { baseMs: 1000, maxMs: 30000 };
 
+// SESSION_KEY_FAILURE_LIMIT is how many consecutive events may fail to
+// decrypt before the pairing is declared broken. This catches the case where
+// the daemon's identity key was regenerated (e.g. the user deleted keys.json
+// to "reset"): the device record still exists, so nothing server-side rejects
+// the connection, but the stored serverPub no longer matches and every event
+// is undecryptable. Exported for tests.
+export const SESSION_KEY_FAILURE_LIMIT = 3;
+
 // probeDeviceRevoked decides whether a device has truly been revoked.
 // Browsers cannot read the HTTP status of a failed WS handshake, so the
 // devices endpoint is probed over HTTP instead. It works in both modes:
@@ -161,6 +169,11 @@ export async function openSessionSocket(
   let reconnectAttempt = 0;
   let reconnectTimer: number | null = null;
   let everConnected = false;
+  // Consecutive decrypt failures: past SESSION_KEY_FAILURE_LIMIT the stored
+  // pairing no longer matches the daemon's identity key, so escalate to a
+  // fatal re-pair prompt (same UI path as a revoked device).
+  let keyFailures = 0;
+  let keyMismatchFatal = false;
   // Watchdog state: browsers cannot observe protocol-level ping/pong, so any
   // incoming message (data or app-level {"kind":"ping"}) counts as activity.
   // A half-open connection (lock screen, network switch) stays silent forever;
@@ -197,6 +210,7 @@ export async function openSessionSocket(
             dsec,
             sid,
           );
+          keyFailures = 0;
           await flushOutbox();
           reconnectAttempt = 0;
           everConnected = true;
@@ -216,8 +230,27 @@ export async function openSessionSocket(
           continue;
         }
         if (sessionKey) {
-          const pt = await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext);
-          const ev = pt as RiffpadEvent;
+          let ev: RiffpadEvent;
+          try {
+            ev = (await decryptEvent(sessionKey, sid, data.nonce, data.ciphertext)) as RiffpadEvent;
+          } catch (e) {
+            // Undecryptable events mean the derived session key is wrong —
+            // after enough of them in a row the pairing itself is broken
+            // (daemon identity regenerated, e.g. deleted keys.json), so
+            // surface the fatal re-pair prompt instead of silent errors.
+            keyFailures++;
+            if (keyFailures >= SESSION_KEY_FAILURE_LIMIT) {
+              if (!keyMismatchFatal) {
+                keyMismatchFatal = true;
+                handlers.onFatal?.(t("session_key_mismatch"));
+                handlers.onConn(t("session_key_mismatch"));
+              }
+            } else {
+              handlers.onError(e instanceof Error ? e.message : String(e));
+            }
+            continue;
+          }
+          keyFailures = 0;
           if (historyState) {
             if (historyState.remaining > 0) historyState.remaining--;
             if (!dedupeEvent(seenIds, ev)) historyState.events.push(ev);
