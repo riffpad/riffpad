@@ -10,7 +10,39 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Riffpad" />
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="icon" type="image/png" href="/assets/favicon-light.png" id="riffpad-favicon" />
+    <script>
+      (function () {
+        var link = document.getElementById("riffpad-favicon");
+        if (!link) return;
+        var html = document.documentElement;
+        function currentTheme() {
+          var stored = null;
+          try { stored = localStorage.getItem("riffpad.theme"); } catch (e) {}
+          var attr = html.getAttribute("data-theme");
+          if (attr === "dark" || stored === "dark") return "dark";
+          if (attr === "light" || stored === "light") return "light";
+          return window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+        function apply() {
+          link.setAttribute(
+            "href",
+            currentTheme() === "dark"
+              ? "/assets/favicon-dark.png"
+              : "/assets/favicon-light.png"
+          );
+        }
+        apply();
+        if ("MutationObserver" in window) {
+          new MutationObserver(apply).observe(html, {
+            attributes: true,
+            attributeFilter: ["data-theme"],
+          });
+        }
+      })();
+    </script>
     <meta property="og:title" content="Riffpad — pocket remote for AI coding agents" />
     <meta property="og:description" content="Watch, approve and steer AI coding CLIs from your phone. Local daemon, end-to-end encryption, zero-knowledge relay." />
     <meta property="og:type" content="website" />
