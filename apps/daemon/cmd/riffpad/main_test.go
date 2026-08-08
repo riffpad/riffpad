@@ -243,6 +243,16 @@ func userHookEntry(command string) map[string]any {
 	}
 }
 
+func riffpadHookEntry(path string) map[string]any {
+	return map[string]any{
+		"matcher": "",
+		"hooks": []any{map[string]any{
+			"type": "http",
+			"url":  "http://127.0.0.1:8787/hooks/claude/" + path,
+		}},
+	}
+}
+
 func writeClaudeSettings(t *testing.T, home string, settings map[string]any) {
 	t.Helper()
 	dir := filepath.Join(home, ".claude")
@@ -308,59 +318,48 @@ func TestAttachPreservesUserHooks(t *testing.T) {
 		},
 	})
 
-	if err := attachCmd(base); err != nil {
-		t.Fatal(err)
+	if err := attachCmd(base); err == nil || !strings.Contains(err.Error(), "deprecated") {
+		t.Fatalf("expected deprecated error, got %v", err)
 	}
 	settings := readClaudeSettings(t, home)
 	if settings["model"] != "opus" {
 		t.Fatalf("unrelated setting lost: %+v", settings)
 	}
 	riffpad, user := countHooks(t, settings)
-	if user != 2 {
-		t.Fatalf("expected 2 user hook entries kept, got %d", user)
-	}
-	if riffpad != 8 {
-		t.Fatalf("expected 8 riffpad hook entries injected, got %d", riffpad)
-	}
-}
-
-func TestAttachIsIdempotent(t *testing.T) {
-	home, base := setupAttachEnv(t)
-	writeClaudeSettings(t, home, map[string]any{
-		"hooks": map[string]any{"PreToolUse": []any{userHookEntry("my-formatter")}},
-	})
-
-	for i := 0; i < 2; i++ {
-		if err := attachCmd(base); err != nil {
-			t.Fatal(err)
-		}
-	}
-	settings := readClaudeSettings(t, home)
-	riffpad, user := countHooks(t, settings)
-	if riffpad != 8 || user != 1 {
-		t.Fatalf("re-attach duplicated entries: riffpad=%d user=%d", riffpad, user)
+	if riffpad != 0 || user != 2 {
+		t.Fatalf("disabled attach must not touch settings: riffpad=%d user=%d", riffpad, user)
 	}
 }
 
 func TestDetachRemovesOnlyRiffpadHooks(t *testing.T) {
-	home, base := setupAttachEnv(t)
-	writeClaudeSettings(t, home, map[string]any{
-		"hooks": map[string]any{"PreToolUse": []any{userHookEntry("my-formatter")}},
-	})
-	if err := attachCmd(base); err != nil {
-		t.Fatal(err)
+	home, _ := setupAttachEnv(t)
+	legacyHooks := map[string]any{
+		"MessageDisplay":    []any{riffpadHookEntry("message-display")},
+		"Notification":      []any{riffpadHookEntry("notification")},
+		"PermissionRequest": []any{riffpadHookEntry("permission")},
+		"PostToolUse":       []any{riffpadHookEntry("post-tool-use")},
+		"PreToolUse":        []any{riffpadHookEntry("pre-tool-use")},
+		"SessionEnd":        []any{riffpadHookEntry("session-end")},
+		"SessionStart":      []any{riffpadHookEntry("session-start")},
+		"UserPromptSubmit":  []any{riffpadHookEntry("user-prompt-submit")},
 	}
-
-	// Simulate the user adding another hook while attached.
-	settings := readClaudeSettings(t, home)
-	hooks := settings["hooks"].(map[string]any)
-	hooks["PostToolUse"] = append(hooks["PostToolUse"].([]any), userHookEntry("my-linter"))
-	writeClaudeSettings(t, home, settings)
+	writeClaudeSettings(t, home, map[string]any{
+		"model": "opus",
+		"hooks": map[string]any{
+			"PreToolUse":   []any{userHookEntry("my-formatter"), riffpadHookEntry("pre-tool-use")},
+			"Notification": []any{userHookEntry("my-notifier")},
+			"PostToolUse":  legacyHooks["PostToolUse"],
+			"SessionStart": legacyHooks["SessionStart"],
+		},
+	})
 
 	if err := detachCmd(); err != nil {
 		t.Fatal(err)
 	}
-	settings = readClaudeSettings(t, home)
+	settings := readClaudeSettings(t, home)
+	if settings["model"] != "opus" {
+		t.Fatalf("unrelated setting lost: %+v", settings)
+	}
 	riffpad, user := countHooks(t, settings)
 	if riffpad != 0 {
 		t.Fatalf("expected no riffpad entries after detach, got %d", riffpad)
@@ -423,6 +422,40 @@ func TestRunCmdSuccess(t *testing.T) {
 	}
 	if gotBinary != want {
 		t.Fatalf("expected resolved binary %q in request, got %q", want, gotBinary)
+	}
+}
+
+func TestRunCmdAcceptsPositionalCLI(t *testing.T) {
+	var gotCLI string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			CLI string `json:"cli"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		gotCLI = req.CLI
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "s1", "url": "http://x/s1", "cli": req.CLI})
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := runCmd([]string{"kimi"}, srv.URL); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if gotCLI != "kimi" {
+		t.Fatalf("expected positional cli kimi, got %q", gotCLI)
+	}
+}
+
+func TestRunCmdRejectsMultiplePositionals(t *testing.T) {
+	err := runCmd([]string{"codex", "claude"}, "http://127.0.0.1:1")
+	if err == nil || !strings.Contains(err.Error(), "unexpected arguments") {
+		t.Fatalf("expected unexpected-arguments error, got %v", err)
+	}
+}
+
+func TestAttachCmdDeprecated(t *testing.T) {
+	err := attachCmd("http://127.0.0.1:1")
+	if err == nil || !strings.Contains(err.Error(), "deprecated") {
+		t.Fatalf("expected deprecated error, got %v", err)
 	}
 }
 

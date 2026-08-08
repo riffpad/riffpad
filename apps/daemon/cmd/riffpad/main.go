@@ -707,8 +707,18 @@ func runCmd(args []string, base string) error {
 	name := fs.String("name", "", "session name")
 	prompt := fs.String("prompt", "", "initial prompt")
 	cwd := fs.String("cwd", "", "working directory")
-	cli := fs.String("cli", "claude", "agent CLI (claude|kimi|codex)")
+	cli := fs.String("cli", "", "agent CLI (claude|kimi|codex)")
 	_ = fs.Parse(args)
+	rest := fs.Args()
+	if len(rest) > 1 {
+		return fmt.Errorf("unexpected arguments: %v", rest)
+	}
+	if len(rest) == 1 {
+		*cli = rest[0]
+	}
+	if *cli == "" {
+		*cli = "claude"
+	}
 	if *cwd == "" {
 		// Default to the directory where the user ran the command, not the
 		// daemon's own cwd (the daemon may have been started elsewhere).
@@ -854,6 +864,11 @@ func logsCmd(dataDir string) error {
 // from the web UI / mobile. Existing user hooks are preserved: only riffpad's
 // own entries are replaced, making repeated attaches idempotent.
 func attachCmd(base string) error {
+	// Attach mode is deprecated: it permanently edits the user's global
+	// Claude settings, which breaks normal claude startup when the daemon is
+	// off or unpaired. The implementation is kept below for reference; only
+	// the entry point is disabled (#214).
+	return fmt.Errorf("%s", t.T("attach_deprecated"))
 	if !reachable(base) {
 		return fmt.Errorf("%s", t.T("daemon_start_hint", base))
 	}
