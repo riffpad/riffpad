@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev": "next dev",
-    "build": "pnpm --filter docs build && next build",
+    "dev": "sh ../../scripts/sync-installers.sh && next dev",
+    "build": "sh ../../scripts/sync-installers.sh && pnpm --filter docs build && next build",
     "start": "next start",
     "lint": "next lint"
   },
