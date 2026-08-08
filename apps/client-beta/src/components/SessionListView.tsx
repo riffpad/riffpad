@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../lib/store";
+import { api, isRelay } from "../lib/store";
 import { useI18n } from "../lib/i18n";
 import type { SessionInfo } from "../lib/types";
 
@@ -82,6 +82,10 @@ export default function SessionListView({ onOpen }: Props) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
+  // relay mode: the request succeeded but no host is connected — the list is
+  // empty because the daemon is offline, not because there are no sessions
+  // (#174). Local mode never sets this: a 200 there means the daemon is up.
+  const [hostOffline, setHostOffline] = useState(false);
   const timer = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
@@ -90,6 +94,7 @@ export default function SessionListView({ onOpen }: Props) {
       const data = await res.json();
       setSessions(data.sessions || []);
       setOffline(!res.ok);
+      if (res.ok) setHostOffline(isRelay && data.hostOnline === false);
     } catch {
       // transient network glitch; poll again later
       setOffline(true);
@@ -171,11 +176,18 @@ export default function SessionListView({ onOpen }: Props) {
               </li>
             );
           })}
-          {sessions.length === 0 && <li className="empty muted">{t("no_sessions")}</li>}
+          {sessions.length === 0 && <li className="empty muted">{t(hostOffline ? "offline_title" : "no_sessions")}</li>}
         </ul>
       )}
 
-      {!loading && sessions.length === 0 && (
+      {!loading && sessions.length === 0 && hostOffline && (
+        <section className="card empty-card">
+          <h3><span className="glyph">//</span>{t("offline_title")}</h3>
+          <p className="muted">{t("offline_hint")}</p>
+        </section>
+      )}
+
+      {!loading && sessions.length === 0 && !hostOffline && (
         <section className="card empty-card">
           <h3><span className="glyph">//</span>{t("empty_title")}</h3>
           <p className="muted">{t("empty_run_hint")}</p>

@@ -947,6 +947,12 @@ button.github {
   color: var(--chat-mute);
 }
 
+.load-earlier {
+  align-self: center;
+  margin: 4px auto;
+  font-size: 11px;
+}
+
 .agent-running {
   display: flex;
   align-items: center;
@@ -1301,11 +1307,14 @@ button.github {
   text-transform: uppercase;
   color: var(--ink);
 }
+.device-stale-hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+}
 .device-danger {
   margin-top: 28px;
   padding-top: 20px;
-  border-top: 1px solid var(--hairline);
-  text-align: center;
+  border-top: 1px solid var(--hairline);  text-align: center;
 }
 #device-list { list-style: none; padding: 0; margin: 0; }
 .device-item {

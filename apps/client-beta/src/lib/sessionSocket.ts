@@ -30,8 +30,13 @@ export interface SessionSocket {
   retry(): void;
 }
 
+// ConnTone grades the connection status for the status light, so the UI
+// never has to regex-match translated label text (#174: English labels used
+// to fall through every Chinese pattern and always render green).
+export type ConnTone = "good" | "pending" | "bad";
+
 export interface SocketHandlers {
-  onConn(label: string): void;
+  onConn(label: string, tone: ConnTone): void;
   onEvent(ev: RiffpadEvent): void;
   onError(message: string): void;
   onFatal?(message: string): void;
@@ -76,6 +81,24 @@ export class Outbox<T> {
 export function dedupeEvent(seen: Set<string>, ev: RiffpadEvent): boolean {
   if (seen.has(ev.id)) return true;
   seen.add(ev.id);
+  return false;
+}
+
+// MAX_SEEN_IDS bounds the dedupe set: a session open for days would otherwise
+// grow it without limit (#174). JS Sets iterate in insertion order, so the
+// oldest ids are evicted first; reconnect replays only cover recent history,
+// far below this bound, so dedupe accuracy is unaffected in practice.
+export const MAX_SEEN_IDS = 5000;
+
+// dedupeBounded is dedupeEvent plus the size bound. Exported for tests.
+export function dedupeBounded(seen: Set<string>, ev: RiffpadEvent): boolean {
+  if (dedupeEvent(seen, ev)) return true;
+  if (seen.size > MAX_SEEN_IDS) {
+    const it = seen.values();
+    for (let i = seen.size - MAX_SEEN_IDS; i > 0; i--) {
+      seen.delete(it.next().value as string);
+    }
+  }
   return false;
 }
 
@@ -215,7 +238,7 @@ export async function openSessionSocket(
           reconnectAttempt = 0;
           everConnected = true;
           handlers.onOffline?.(null);
-          handlers.onConn(t("connected_encrypted"));
+          handlers.onConn(t("connected_encrypted"), "good");
           continue;
         }
         if (data.kind === "ping") {
@@ -243,7 +266,7 @@ export async function openSessionSocket(
               if (!keyMismatchFatal) {
                 keyMismatchFatal = true;
                 handlers.onFatal?.(t("session_key_mismatch"));
-                handlers.onConn(t("session_key_mismatch"));
+                handlers.onConn(t("session_key_mismatch"), "bad");
               }
             } else {
               handlers.onError(e instanceof Error ? e.message : String(e));
@@ -253,11 +276,11 @@ export async function openSessionSocket(
           keyFailures = 0;
           if (historyState) {
             if (historyState.remaining > 0) historyState.remaining--;
-            if (!dedupeEvent(seenIds, ev)) historyState.events.push(ev);
+            if (!dedupeBounded(seenIds, ev)) historyState.events.push(ev);
             if (historyState.remaining <= 0) finalizeHistory();
             continue;
           }
-          if (dedupeEvent(seenIds, ev)) continue; // replay dedup across reconnects
+          if (dedupeBounded(seenIds, ev)) continue; // replay dedup across reconnects
           seqTracker.note(ev.seq);
           handlers.onEvent(ev);
         }
@@ -328,7 +351,7 @@ export async function openSessionSocket(
       reconnectBackoff.maxMs,
     );
     reconnectAttempt++;
-    handlers.onConn(t("reconnect_in", { s: Math.round(delay / 1000) }));
+    handlers.onConn(t("reconnect_in", { s: Math.round(delay / 1000) }), "pending");
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       if (!closed) void connect();
@@ -348,7 +371,7 @@ export async function openSessionSocket(
 
     ws.onopen = () => {
       lastActivity = Date.now();
-      handlers.onConn(reconnectAttempt > 0 ? t("reconnecting") : t("connecting"));
+      handlers.onConn(reconnectAttempt > 0 ? t("reconnecting") : t("connecting"), "pending");
     };
     ws.onerror = () => {
       // onclose follows; keep state updates there.
@@ -357,7 +380,7 @@ export async function openSessionSocket(
       sessionKey = null;
       historyState = null;
       if (closed) {
-        handlers.onConn(t("disconnected"));
+        handlers.onConn(t("disconnected"), "bad");
         return;
       }
       if (!everConnected && reconnectAttempt >= 3) {
@@ -370,7 +393,7 @@ export async function openSessionSocket(
           if (closed) return;
           if (revoked) {
             handlers.onFatal?.(t("device_revoked"));
-            handlers.onConn(t("device_revoked"));
+            handlers.onConn(t("device_revoked"), "bad");
             return;
           }
           handlers.onOffline?.(t("daemon_offline"));
