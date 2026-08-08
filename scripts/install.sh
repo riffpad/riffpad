@@ -3,8 +3,8 @@
 # Riffpad installer — downloads the single riffpad binary from GitHub
 # Releases and installs it to ~/.local/bin (override with RIFFPAD_PREFIX).
 #
-# The copy served at https://riffpad.ai/install.sh lives in
-# apps/landing/public/install.sh — keep it in sync when editing this file.
+# The copy served at https://riffpad.ai/install.sh is generated from this
+# file by scripts/sync-installers.sh before the landing dev/build runs.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/riffpad/riffpad/main/scripts/install.sh | sh

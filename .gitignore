@@ -16,3 +16,5 @@ apps/client-beta/playwright-report/
 !infra/.env.example
 
 test-notes/
+apps/landing/public/install.sh
+apps/landing/public/install.ps1
