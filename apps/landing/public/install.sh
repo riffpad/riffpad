@@ -51,26 +51,128 @@ else
 fi
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT INT TERM
+
+# --- 3x3 dot-matrix marquee spinner --------------------------------
+# One dot lights at a time, sweeping left-to-right / top-to-bottom across
+# the grid (9 frames, ~0.12s each), mirroring the DotMatrix indicator in
+# the web client.
+FRAME0=$(printf '●··\n···\n···')
+FRAME1=$(printf '·●·\n···\n···')
+FRAME2=$(printf '··●\n···\n···')
+FRAME3=$(printf '···\n●··\n···')
+FRAME4=$(printf '···\n·●·\n···')
+FRAME5=$(printf '···\n··●\n···')
+FRAME6=$(printf '···\n···\n●··')
+FRAME7=$(printf '···\n···\n·●·')
+FRAME8=$(printf '···\n···\n··●')
+
+_spinner_pid=
+
+tick() {
+  if command -v perl >/dev/null 2>&1; then
+    perl -e 'select undef,undef,undef,0.12'
+  elif sleep 0.12 2>/dev/null; then
+    :
+  else
+    sleep 1
+  fi
+}
+
+spinner_start() {
+  i=0
+  first=1
+  while :; do
+    if [ "$first" -eq 1 ]; then
+      first=0
+    else
+      printf '\033[3A' >&2
+    fi
+    eval "frame=\$FRAME$i"
+    printf '\r\033[K%s\n\033[K%s\n\033[K%s\n' "$frame" >&2
+    i=$(((i + 1) % 9))
+    tick
+  done
+}
+
+spinner_stop() {
+  if [ -n "$_spinner_pid" ]; then
+    kill "$_spinner_pid" 2>/dev/null || true
+    wait "$_spinner_pid" 2>/dev/null || true
+    _spinner_pid=
+    if [ -t 2 ]; then
+      printf '\033[3A\033[J' >&2
+    fi
+  fi
+}
+
+cleanup() {
+  spinner_stop
+  rm -rf "$tmp"
+}
+trap cleanup EXIT INT TERM
+
+# Runs a command with the spinner animating on stderr; returns the command's
+# status and always stops the spinner first.
+with_spinner() {
+  if [ -t 2 ]; then
+    spinner_start &
+    _spinner_pid=$!
+  fi
+  "$@" || {
+    rc=$?
+    spinner_stop
+    return $rc
+  }
+  spinner_stop
+  return 0
+}
 
 echo "riffpad: downloading $URL"
-curl -fsSL "$URL" -o "$tmp/$ASSET"
+if ! with_spinner curl -fsSL "$URL" -o "$tmp/$ASSET"; then
+  echo "riffpad: download failed" >&2
+  exit 1
+fi
 
 if [ -n "$SUMS_URL" ]; then
   echo "riffpad: verifying checksum"
-  curl -fsSL "$SUMS_URL" -o "$tmp/sha256sums.txt"
+  if ! with_spinner curl -fsSL "$SUMS_URL" -o "$tmp/sha256sums.txt"; then
+    echo "riffpad: failed to fetch checksums" >&2
+    exit 1
+  fi
   if command -v sha256sum >/dev/null 2>&1; then
-    (cd "$tmp" && grep " $ASSET$" sha256sums.txt | sha256sum -c - >/dev/null)
+    if ! (cd "$tmp" && grep " $ASSET$" sha256sums.txt | sha256sum -c - >/dev/null); then
+      echo "riffpad: checksum mismatch" >&2
+      exit 1
+    fi
   elif command -v shasum >/dev/null 2>&1; then
-    (cd "$tmp" && grep " $ASSET$" sha256sums.txt | shasum -a 256 -c - >/dev/null)
+    if ! (cd "$tmp" && grep " $ASSET$" sha256sums.txt | shasum -a 256 -c - >/dev/null); then
+      echo "riffpad: checksum mismatch" >&2
+      exit 1
+    fi
   else
     echo "riffpad: warning: no sha256sum/shasum found, skipping verification" >&2
   fi
 fi
 
-chmod 0755 "$tmp/$ASSET"
-mkdir -p "$PREFIX"
-install -m 0755 "$tmp/$ASSET" "$PREFIX/riffpad"
+echo "riffpad: installing"
+if ! with_spinner sh -c 'chmod 0755 "$1" && mkdir -p "$2" && install -m 0755 "$1" "$2/riffpad"' sh "$tmp/$ASSET" "$PREFIX"; then
+  echo "riffpad: install failed" >&2
+  exit 1
+fi
+
+if [ -t 1 ]; then
+  printf '\033[32m'
+fi
+cat <<'LOGO'
+ ██ ██ ██
+       ██
+ ██ ██ ██
+       ██
+ ██ ██ ██
+LOGO
+if [ -t 1 ]; then
+  printf '\033[0m'
+fi
 
 echo "riffpad: installed $PREFIX/riffpad ($OS/$ARCH, $VERSION)"
 case ":${PATH:-}:" in
