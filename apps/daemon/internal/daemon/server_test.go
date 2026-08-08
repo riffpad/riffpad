@@ -836,3 +836,51 @@ func TestLoadDevicesHealsCorrupted(t *testing.T) {
 		t.Fatalf("backup content %q", bak)
 	}
 }
+
+// TestLocalPairingSweepsExpiredCodes: expired pending codes were only reaped
+// when used, so repeated `riffpad pair` calls grew s.pending without bound;
+// creating a new code now sweeps the stale ones (#174).
+func TestLocalPairingSweepsExpiredCodes(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	srv.mu.Lock()
+	srv.pending["STALE1"] = pendingPair{Code: "STALE1", Expires: time.Now().Add(-time.Minute)}
+	srv.pending["FRESH1"] = pendingPair{Code: "FRESH1", Expires: time.Now().Add(time.Minute)}
+	srv.mu.Unlock()
+
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings", cfg.LocalToken, nil)
+	var pr struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if pr.Code == "" {
+		t.Fatal("no pairing code returned")
+	}
+
+	srv.mu.Lock()
+	_, stale := srv.pending["STALE1"]
+	_, fresh := srv.pending["FRESH1"]
+	_, newCode := srv.pending[pr.Code]
+	srv.mu.Unlock()
+	if stale {
+		t.Fatal("expired pairing code was not swept")
+	}
+	if !fresh {
+		t.Fatal("unexpired pairing code should be kept")
+	}
+	if !newCode {
+		t.Fatal("new pairing code missing from pending")
+	}
+}

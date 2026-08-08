@@ -368,3 +368,66 @@ func TestDetachRemovesOnlyRiffpadHooks(t *testing.T) {
 		t.Fatalf("expected both user hook entries kept, got %d", user)
 	}
 }
+
+// --- run command error propagation (issue #174 #1) ---
+
+func TestRunCmdPropagatesDaemonError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/sessions" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": `unsupported cli "claud"`})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	err := runCmd([]string{"--cli", "claud"}, srv.URL)
+	if err == nil || !strings.Contains(err.Error(), `unsupported cli "claud"`) {
+		t.Fatalf("expected unsupported cli error, got %v", err)
+	}
+}
+
+func TestRunCmdFailsOnErrorStatusWithoutMessage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	err := runCmd(nil, srv.URL)
+	if err == nil || !strings.Contains(err.Error(), "500") {
+		t.Fatalf("expected HTTP status error, got %v", err)
+	}
+}
+
+func TestRunCmdSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "s1", "url": "http://x/s1", "cli": "kimi"})
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := runCmd([]string{"--cli", "kimi"}, srv.URL); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+}
+
+// --- daemon stop force-kill safety (issue #174 #9) ---
+
+func TestForceKillDaemonMissingPidFile(t *testing.T) {
+	if err := forceKillDaemon(t.TempDir()); err == nil {
+		t.Fatal("expected error when daemon.pid is missing")
+	}
+}
+
+func TestForceKillDaemonRefusesForeignProcess(t *testing.T) {
+	// pid 1 is never a riffpad daemon; a stale/recycled pid file must not get
+	// an unrelated process killed (#174).
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "daemon.pid"), []byte("1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := forceKillDaemon(dir); err == nil || !strings.Contains(err.Error(), "not a riffpad daemon") {
+		t.Fatalf("expected refusal to kill pid 1, got %v", err)
+	}
+}
