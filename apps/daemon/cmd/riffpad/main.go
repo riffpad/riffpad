@@ -318,18 +318,35 @@ var systemdRestartFn = func() error {
 	return exec.Command("systemctl", "--user", "restart", "riffpad.service").Run()
 }
 
+// windowsTaskExistsFn reports whether the RiffpadDaemon scheduled task
+// (created by `riffpad setup` / install.ps1) exists.
+var windowsTaskExistsFn = func() (bool, error) {
+	if err := exec.Command("schtasks", "/Query", "/TN", "RiffpadDaemon").Run(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// windowsTaskRunFn starts the RiffpadDaemon scheduled task so Task Scheduler
+// stays the bookkeeper for the daemon process.
+var windowsTaskRunFn = func() error {
+	return exec.Command("schtasks", "/Run", "/TN", "RiffpadDaemon").Run()
+}
+
 // daemonRestart restarts the daemon. When the systemd user service is active,
 // it goes through systemctl so systemd stays the single source of truth;
-// otherwise it stops and starts the background process. A daemon that is not
-// running is an error.
+// on Windows, an existing RiffpadDaemon scheduled task is restarted through
+// Task Scheduler; otherwise it stops and starts the background process. A
+// daemon that is not running is an error.
 func daemonRestart(base, dataDir string) error {
-	if runtime.GOOS == "linux" {
+	switch runtime.GOOS {
+	case "linux":
 		if active, err := systemdActiveFn(); err == nil && active {
-			if err := systemdRestartFn(); err != nil {
-				return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
-			}
-			fmt.Println(t.T("daemon_restarted"))
-			return nil
+			return restartViaSystemd()
+		}
+	case "windows":
+		if ok, err := windowsTaskExistsFn(); err == nil && ok {
+			return restartViaWindowsTask(base, dataDir)
 		}
 	}
 	if !reachable(base) {
@@ -343,6 +360,43 @@ func daemonRestart(base, dataDir string) error {
 	}
 	fmt.Println(t.T("daemon_restarted"))
 	return nil
+}
+
+func restartViaSystemd() error {
+	if err := systemdRestartFn(); err != nil {
+		return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
+	}
+	fmt.Println(t.T("daemon_restarted"))
+	return nil
+}
+
+func restartViaWindowsTask(base, dataDir string) error {
+	// Stop the current daemon first (if any) so the task-started process can
+	// bind the port; Task Scheduler then owns the new instance.
+	if reachable(base) {
+		if err := daemonStop(base, dataDir); err != nil {
+			return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
+		}
+	}
+	if err := windowsTaskRunFn(); err != nil {
+		return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
+	}
+	if !waitReachable(base, 2*time.Second) {
+		return fmt.Errorf("%s", t.T("daemon_restart_wait_failed"))
+	}
+	fmt.Println(t.T("daemon_restarted"))
+	return nil
+}
+
+func waitReachable(base string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+		if reachable(base) {
+			return true
+		}
+	}
+	return false
 }
 
 func daemonStart(base, dataDir string) error {

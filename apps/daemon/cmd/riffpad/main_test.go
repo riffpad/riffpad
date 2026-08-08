@@ -483,6 +483,77 @@ func TestDaemonRestartRequiresRunningDaemon(t *testing.T) {
 	}
 }
 
+func TestRestartViaWindowsTaskStopsThenRuns(t *testing.T) {
+	oldRun := windowsTaskRunFn
+	var runs, shutdowns int
+	down := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			if down {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		case "/api/shutdown":
+			shutdowns++
+			down = true
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	windowsTaskRunFn = func() error {
+		runs++
+		down = false // the scheduled task spawns the daemon
+		return nil
+	}
+	t.Cleanup(func() { windowsTaskRunFn = oldRun })
+
+	if err := restartViaWindowsTask(srv.URL, t.TempDir()); err != nil {
+		t.Fatalf("restart failed: %v", err)
+	}
+	if runs != 1 || shutdowns != 1 {
+		t.Fatalf("runs=%d shutdowns=%d, want 1/1", runs, shutdowns)
+	}
+}
+
+func TestRestartViaWindowsTaskSkipsStopWhenNotRunning(t *testing.T) {
+	oldRun := windowsTaskRunFn
+	var runs, shutdowns int
+	down := true
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			if down {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		case "/api/shutdown":
+			shutdowns++
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	windowsTaskRunFn = func() error {
+		runs++
+		down = false
+		return nil
+	}
+	t.Cleanup(func() { windowsTaskRunFn = oldRun })
+
+	if err := restartViaWindowsTask(srv.URL, t.TempDir()); err != nil {
+		t.Fatalf("restart failed: %v", err)
+	}
+	if runs != 1 || shutdowns != 0 {
+		t.Fatalf("runs=%d shutdowns=%d, want 1/0", runs, shutdowns)
+	}
+}
+
 // --- daemon stop force-kill safety (issue #174 #9) ---
 
 func TestForceKillDaemonMissingPidFile(t *testing.T) {
