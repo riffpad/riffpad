@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -402,13 +403,53 @@ func TestRunCmdFailsOnErrorStatusWithoutMessage(t *testing.T) {
 }
 
 func TestRunCmdSuccess(t *testing.T) {
+	var gotBinary string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Binary string `json:"binary"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		gotBinary = req.Binary
 		_ = json.NewEncoder(w).Encode(map[string]string{"id": "s1", "url": "http://x/s1", "cli": "kimi"})
 	}))
 	t.Cleanup(srv.Close)
 
-	if err := runCmd([]string{"--cli", "kimi"}, srv.URL); err != nil {
+	if err := runCmd([]string{"--cli", "sh"}, srv.URL); err != nil {
 		t.Fatalf("run failed: %v", err)
+	}
+	want, err := exec.LookPath("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotBinary != want {
+		t.Fatalf("expected resolved binary %q in request, got %q", want, gotBinary)
+	}
+}
+
+func TestPairCmdRejectsLocalWithoutFlag(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": "ABC123", "url": "http://127.0.0.1:8787/?pair=ABC123", "local": true,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	err := pairCmd(srv.URL, nil)
+	if err == nil || !strings.Contains(err.Error(), "pair --local") {
+		t.Fatalf("expected login-required error mentioning --local, got %v", err)
+	}
+}
+
+func TestPairCmdAllowsLocalWithFlag(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": "ABC123", "url": "http://127.0.0.1:8787/?pair=ABC123", "local": true,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := pairCmd(srv.URL, []string{"--local"}); err != nil {
+		t.Fatalf("pair --local failed: %v", err)
 	}
 }
 

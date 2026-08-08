@@ -102,7 +102,7 @@ export default function ScanQR({ onCode, onClose }: Props) {
           <button className="ghost" onClick={onClose}>{t("scan_cancel")}</button>
         </div>
         {state === "starting" && <p className="muted scan-note">{t("scan_reading")}</p>}
-        {state === "scanning" && <video ref={videoRef} className="scan-video" playsInline muted />}
+        <video ref={videoRef} className="scan-video" playsInline muted />
         {state === "error" && <div className="err">{msg}</div>}
       </div>
     </div>
