@@ -87,6 +87,14 @@ func main() {
 	langFlag, args := extractLangFlag(os.Args[1:])
 	t = i18n.New(i18n.Detect(langFlag))
 	os.Args = append([]string{os.Args[0]}, args...)
+	// Corrupted state files are backed up and rebuilt automatically (#172);
+	// warn instead of dying at startup. runDaemon overrides this to also log.
+	config.OnHeal = func(h config.Heal) {
+		fmt.Fprintln(os.Stderr, t.T("config_file_healed", h.Path, h.Backup))
+		if h.Kind == "keys" {
+			fmt.Fprintln(os.Stderr, t.T("keys_regenerated_warn"))
+		}
+	}
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
@@ -177,6 +185,13 @@ func runDaemon(args []string) int {
 		return 1
 	}
 	defer closer.Close()
+	// Route self-heal warnings (#172) through the daemon log as well.
+	config.OnHeal = func(h config.Heal) {
+		logger.Printf("%s", t.T("config_file_healed", h.Path, h.Backup))
+		if h.Kind == "keys" {
+			logger.Printf("%s", t.T("keys_regenerated_warn"))
+		}
+	}
 
 	cfg, err := config.Load(dir)
 	if err != nil {
@@ -451,15 +466,19 @@ func pairCmd(base string) error {
 	}
 	defer resp.Body.Close()
 	var data struct {
-		Code  string `json:"code"`
-		URL   string `json:"url"`
-		Local bool   `json:"local"`
-		Error string `json:"error"`
+		Code      string `json:"code"`
+		URL       string `json:"url"`
+		Local     bool   `json:"local"`
+		Error     string `json:"error"`
+		ErrorCode string `json:"errorCode"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
 	}
 	if data.Code == "" {
+		if data.ErrorCode == "relay_auth_expired" {
+			return fmt.Errorf("%s", t.T("pair_login_expired"))
+		}
 		if data.Error != "" {
 			return fmt.Errorf("%s", data.Error)
 		}
@@ -901,7 +920,12 @@ func logoutCmd(dataDir string) error {
 	}
 	cfg.RelayToken = ""
 	cfg.RelayUser = ""
-	if err := config.Save(dataDir, cfg); err != nil {
+	// Merge under the config lock so a concurrently running daemon's writes
+	// (host creds, fresh relay token) survive (#172).
+	if err := config.Update(dataDir, func(c *config.Config) {
+		c.RelayToken = cfg.RelayToken
+		c.RelayUser = cfg.RelayUser
+	}); err != nil {
 		return err
 	}
 	fmt.Println(t.T("logout_done"))
@@ -986,7 +1010,16 @@ func doLogin(args []string, dataDir string) error {
 		return err
 	}
 	cfg.RelayUser = *username
-	if err := config.Save(dataDir, cfg); err != nil {
+	// Persist under the config lock, merging onto the current on-disk state:
+	// the running daemon may have written host credentials since our Load,
+	// and a blind Save would clobber them (last-write-wins, #172).
+	if err := config.Update(dataDir, func(c *config.Config) {
+		c.RelayURL = cfg.RelayURL
+		c.RelayToken = cfg.RelayToken
+		c.RelayUser = cfg.RelayUser
+		c.HostID = cfg.HostID
+		c.HostSecret = cfg.HostSecret
+	}); err != nil {
 		return err
 	}
 	fmt.Println(t.T("login_success", *username))
@@ -1084,7 +1117,15 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 			return err
 		}
 		cfg.RelayUser = out.Username
-		if err := config.Save(dataDir, cfg); err != nil {
+		// Persist under the config lock, merging onto the current on-disk
+		// state so concurrent daemon writes are not clobbered (#172).
+		if err := config.Update(dataDir, func(c *config.Config) {
+			c.RelayURL = cfg.RelayURL
+			c.RelayToken = cfg.RelayToken
+			c.RelayUser = cfg.RelayUser
+			c.HostID = cfg.HostID
+			c.HostSecret = cfg.HostSecret
+		}); err != nil {
 			return err
 		}
 		fmt.Println(t.T("login_success", out.Username))
