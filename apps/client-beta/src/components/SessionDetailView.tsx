@@ -474,6 +474,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
       )}
       <form
         className="prompt-form"
+        autoComplete="off"
         onSubmit={(e) => {
           e.preventDefault();
           void sendPrompt();
@@ -487,6 +488,8 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             name="message"
             autoComplete="off"
             inputMode="text"
+            enterKeyHint="send"
+            data-form-type="other"
             disabled={ended}
           />
           {prompt.trim() && !running && !ended && (
