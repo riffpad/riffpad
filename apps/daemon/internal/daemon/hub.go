@@ -79,7 +79,18 @@ func (c *client) sendEvent(ev protocol.Event) {
 	select {
 	case c.send <- data:
 	default:
-		// Slow client: drop rather than block the event pump.
+		if protocol.IsCriticalEvent(ev.Type) {
+			// Never silently drop a critical event: close the connection so
+			// the client reconnects and gets a history replay instead (#173).
+			// Blocking the event pump would stall every other viewer.
+			c.log.Printf("send buffer full on critical event, closing connection to force replay device=%s session=%s type=%s",
+				c.deviceID, ev.SessionID, ev.Type)
+			c.closeDone()
+			_ = c.transport.Close()
+			return
+		}
+		c.log.Printf("send buffer full, event dropped device=%s session=%s type=%s",
+			c.deviceID, ev.SessionID, ev.Type)
 	}
 }
 
@@ -87,6 +98,8 @@ func (c *client) sendRaw(data []byte) {
 	select {
 	case c.send <- data:
 	default:
+		c.log.Printf("send buffer full, control message dropped device=%s session=%s",
+			c.deviceID, c.session.id)
 	}
 }
 
@@ -114,13 +127,18 @@ func (s *session) broadcast(ev protocol.Event) {
 	}
 }
 
-func (s *session) addEvent(ev protocol.Event) {
+// addEvent appends ev to the session history after assigning it the next
+// per-session sequence number, and returns the sequenced event (#173).
+func (s *session) addEvent(ev protocol.Event) protocol.Event {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.seq++
+	ev.Seq = s.seq
 	s.history = append(s.history, ev)
 	if len(s.history) > 200 {
 		s.history = s.history[len(s.history)-200:]
 	}
+	return ev
 }
 
 func (s *session) snapshot() []protocol.Event {

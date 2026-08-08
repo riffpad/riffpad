@@ -79,6 +79,49 @@ export function dedupeEvent(seen: Set<string>, ev: RiffpadEvent): boolean {
   return false;
 }
 
+// SeqTracker detects holes in the per-session event sequence (#173). Send
+// buffers that overflow drop messages, so a client that only counts what
+// arrives can never notice a missing approval card. Events carry an
+// increasing per-session seq; a jump means something was lost in between.
+//
+// Replay and live events can interleave on one connection (the daemon queues
+// the replay burst while the pump keeps broadcasting), so a hole may be
+// filled by messages that simply arrive later in the same stream: note()
+// only records the gap, and pendingGap() reports it once the drain finished
+// with the hole still open. Exported for tests.
+export class SeqTracker {
+  private lastSeq = 0;
+  private gapFloor = 0;
+  private gapCeil = 0;
+  private gapMissing = 0;
+
+  note(seq: number | undefined): void {
+    if (!seq || seq <= 0) return; // no seq (old daemon): skip detection
+    if (seq > this.lastSeq) {
+      if (this.lastSeq > 0 && seq > this.lastSeq + 1) {
+        if (this.gapMissing === 0) this.gapFloor = this.lastSeq + 1;
+        this.gapCeil = seq - 1;
+        this.gapMissing += seq - this.lastSeq - 1;
+      }
+      this.lastSeq = seq;
+    } else if (this.gapMissing > 0 && seq >= this.gapFloor && seq <= this.gapCeil) {
+      this.gapMissing--;
+    }
+  }
+
+  // pendingGap returns the still-unfilled hole, if any.
+  pendingGap(): { floor: number; ceil: number; missing: number } | null {
+    if (this.gapMissing <= 0) return null;
+    return { floor: this.gapFloor, ceil: this.gapCeil, missing: this.gapMissing };
+  }
+
+  clearGap(): void {
+    this.gapMissing = 0;
+    this.gapFloor = 0;
+    this.gapCeil = 0;
+  }
+}
+
 // Watchdog parameters: if nothing (data or keepalive) arrives for
 // WS_STALE_TIMEOUT_MS, the socket is closed so the reconnect logic kicks in.
 // Exported for tests.
@@ -124,6 +167,7 @@ export async function openSessionSocket(
   // closing the socket lets the existing reconnect logic take over.
   let lastActivity = Date.now();
   const seenIds = new Set<string>();
+  const seqTracker = new SeqTracker();
   let historyState: { remaining: number; events: RiffpadEvent[] } | null = null;
   const outbox = new Outbox<{
     id: string;
@@ -181,6 +225,7 @@ export async function openSessionSocket(
             continue;
           }
           if (dedupeEvent(seenIds, ev)) continue; // replay dedup across reconnects
+          seqTracker.note(ev.seq);
           handlers.onEvent(ev);
         }
       } catch (e) {
@@ -188,6 +233,18 @@ export async function openSessionSocket(
       }
     }
     draining = false;
+    // A still-open seq hole after the whole burst was drained means events
+    // were really lost (not just reordered in transit): reconnect so the
+    // daemon replays recent history and refills it (#173).
+    const gap = seqTracker.pendingGap();
+    if (gap) {
+      seqTracker.clearGap();
+      console.warn(
+        `[riffpad] session ${sid}: ${gap.missing} event(s) lost ` +
+          `(seq ${gap.floor}..${gap.ceil}); reconnecting to replay history`,
+      );
+      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+    }
   }
 
   function finalizeHistory() {

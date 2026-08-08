@@ -57,6 +57,7 @@ type session struct {
 	created  time.Time
 	connect  map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
 	mu       sync.Mutex
+	seq      uint64 // last assigned event sequence number (#173)
 	history  []protocol.Event
 	clients  map[*client]struct{}
 }
@@ -821,7 +822,7 @@ func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
 			sess.status = p.Status
 		}
 	}
-	sess.addEvent(ev)
+	ev = sess.addEvent(ev)
 	sess.broadcast(ev)
 	s.persistEvent(sess, ev)
 	if ev.Type == protocol.EventSessionEnd {

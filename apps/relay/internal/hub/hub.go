@@ -1032,7 +1032,7 @@ func (h *Hub) disconnectViewers(match func(*viewerConn) bool) int {
 	}
 	for _, v := range targets {
 		delete(h.viewers, v.id)
-		hostSend(v.host, hostFrame{Kind: "leave", ViewerID: v.id})
+		h.hostSend(v.host, hostFrame{Kind: "leave", ViewerID: v.id})
 		v.closeDone()
 		_ = v.conn.Close()
 	}
@@ -1138,9 +1138,16 @@ func (h *Hub) hostReadLoop(host *hostConn) {
 			if err != nil {
 				continue
 			}
-			select {
-			case v.send <- payload:
-			default:
+			h.sendToViewer(v, payload)
+		case protocol.RelayFrameKick:
+			// The daemon dropped this viewer (e.g. send-buffer overflow on a
+			// critical event, #173): close the browser connection so the
+			// client reconnects and replays instead of hanging silently.
+			h.mu.Lock()
+			v, ok := h.viewers[fr.ViewerID]
+			h.mu.Unlock()
+			if ok {
+				h.dropViewer(v, "kicked by host")
 			}
 		}
 	}
@@ -1226,7 +1233,7 @@ func (h *Hub) handleViewerWS(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.viewers[v.id] = v
 	h.mu.Unlock()
-	hostSend(host, hostFrame{
+	h.hostSend(host, hostFrame{
 		Kind: "join", ViewerID: v.id, SessionID: sid, DeviceID: deviceID,
 		Curve: dev.Curve, Pub: dev.PublicKey, Eph: eph,
 	})
@@ -1241,7 +1248,7 @@ func (h *Hub) viewerReadLoop(v *viewerConn) {
 			delete(h.viewers, v.id)
 		}
 		h.mu.Unlock()
-		hostSend(v.host, hostFrame{Kind: "leave", ViewerID: v.id})
+		h.hostSend(v.host, hostFrame{Kind: "leave", ViewerID: v.id})
 		v.closeDone()
 		_ = v.conn.Close()
 	}()
@@ -1254,11 +1261,40 @@ func (h *Hub) viewerReadLoop(v *viewerConn) {
 		if err != nil {
 			return
 		}
-		hostSend(v.host, hostFrame{Kind: "viewer", ViewerID: v.id, Data: base64.RawStdEncoding.EncodeToString(data)})
+		h.hostSend(v.host, hostFrame{Kind: "viewer", ViewerID: v.id, Data: base64.RawStdEncoding.EncodeToString(data)})
 	}
 }
 
-func hostSend(host *hostConn, fr hostFrame) {
+// sendToViewer queues one payload for a viewer. The relay cannot inspect the
+// encrypted contents, so an overflow may be dropping a critical event: close
+// the connection instead of silently dropping, forcing the client to
+// reconnect and replay history (#173).
+func (h *Hub) sendToViewer(v *viewerConn, payload []byte) {
+	select {
+	case v.send <- payload:
+	default:
+		h.dropViewer(v, "send buffer full")
+	}
+}
+
+// dropViewer removes a viewer and closes its connection. The viewer's read
+// loop notices the close and sends the host a "leave" notice.
+func (h *Hub) dropViewer(v *viewerConn, reason string) {
+	h.mu.Lock()
+	if h.viewers[v.id] != v {
+		h.mu.Unlock()
+		return
+	}
+	delete(h.viewers, v.id)
+	h.mu.Unlock()
+	h.log.Printf("viewer dropped (%s) viewer=%s session=%s host=%s", reason, v.id, v.sessionID, v.host.id)
+	v.closeDone()
+	if v.conn != nil {
+		_ = v.conn.Close()
+	}
+}
+
+func (h *Hub) hostSend(host *hostConn, fr hostFrame) {
 	data, err := json.Marshal(fr)
 	if err != nil {
 		return
@@ -1266,6 +1302,14 @@ func hostSend(host *hostConn, fr hostFrame) {
 	select {
 	case host.send <- data:
 	default:
+		// Same reasoning as sendToViewer: with no visibility into the payload,
+		// any drop may be critical. Closing forces the daemon to reconnect and
+		// re-announce, and its viewers to reconnect and replay (#173).
+		h.log.Printf("host send buffer full, closing connection host=%s kind=%s", host.id, fr.Kind)
+		host.closeDone()
+		if host.conn != nil {
+			_ = host.conn.Close()
+		}
 	}
 }
 

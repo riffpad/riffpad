@@ -27,6 +27,9 @@ export interface RiffpadEvent {
   sessionId: string;
   timestamp: number;
   type: string;
+  // Per-session increasing sequence number assigned by the daemon (#173).
+  // Absent/0 on events from older daemons or one-off messages.
+  seq?: number;
   payload?: EventPayload;
 }
 

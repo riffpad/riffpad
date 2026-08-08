@@ -95,3 +95,18 @@ func TestEnvelopeJSONShape(t *testing.T) {
 
 func decodeRaw(s string) ([]byte, error) { return DecodeKey(s) }
 func encodeRaw(b []byte) string           { return EncodeKey(b) }
+
+func TestIsCriticalEvent(t *testing.T) {
+	critical := []string{EventApprovalReq, EventApprovalResp, EventSessionEnd}
+	for _, typ := range critical {
+		if !IsCriticalEvent(typ) {
+			t.Fatalf("%s must be critical", typ)
+		}
+	}
+	nonCritical := []string{EventAgentMessage, EventToolCall, EventNotify, EventSessionStart, ""}
+	for _, typ := range nonCritical {
+		if IsCriticalEvent(typ) {
+			t.Fatalf("%s must not be critical", typ)
+		}
+	}
+}

@@ -57,6 +57,14 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 | `prompt` | mobile → daemon | 文字新指令 |
 | `file_change` | daemon → mobile | 路径与变更摘要 |
 
+每个事件带会话内递增的 `seq`（daemon 在事件泵处赋值，0 表示无序号）。client 检测到 seq 空洞时打警告日志并重连，靠重连回放补洞（#173）。
+
+**缓冲丢弃策略**（#173）：各跳发送缓冲（256 条）满时——
+
+- 关键事件（`approval_request` / `approval_response` / `session_end`）一律不丢：关闭该连接，强迫 client 重连并回放历史；
+- relay 无法解密信封、无法区分事件类型，因此 relay 侧任何缓冲溢出都直接关闭对应连接（host 或 viewer）；
+- 其余非关键事件丢弃时必须打 warn 日志（带 session id 与事件类型）。
+
 daemon ↔ relay 之间另有一组不加密的路由控制帧（`/ws/host` 连接，kind 字段）：
 
 | 帧 | 方向 | 说明 |
@@ -64,6 +72,7 @@ daemon ↔ relay 之间另有一组不加密的路由控制帧（`/ws/host` 连�
 | `sessions` | daemon → relay | 上报本 host 的会话列表；relay 只替换该 host 的条目，不影响同账号其他 host |
 | `join` / `leave` / `viewer` | relay ↔ daemon | viewer 接入、离开与加密信封转发 |
 | `superseded` | relay → daemon | 同一 host 凭据在别处新连接，本连接被顶替；daemon 收到后停止自动重连并日志提示（防双 daemon 互踢），重启 daemon 可重试 |
+| `kick` | daemon → relay | daemon 丢弃某 viewer 后要求 relay 关闭其浏览器连接（如关键事件缓冲溢出），client 重连后获得历史回放（#173） |
 
 ## 4. 安全基线
 
