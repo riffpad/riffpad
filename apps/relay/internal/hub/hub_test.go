@@ -876,3 +876,156 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 		t.Fatalf("silent viewer still registered: %d", n)
 	}
 }
+
+// announceSessions sends a "sessions" frame from a host connection.
+func announceSessions(t *testing.T, conn *websocket.Conn, sessions ...SessionMeta) {
+	t.Helper()
+	fr, _ := json.Marshal(hostFrame{Kind: "sessions", Sessions: sessions})
+	if err := conn.WriteMessage(websocket.TextMessage, fr); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func listSessionIDs(t *testing.T, ts *httptest.Server, token string) map[string]bool {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Sessions []SessionMeta `json:"sessions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for _, s := range out.Sessions {
+		ids[s.ID] = true
+	}
+	return ids
+}
+
+// waitForSessions polls /api/sessions until exactly the wanted session ids
+// are listed (announces are processed asynchronously on the host read loop).
+func waitForSessions(t *testing.T, ts *httptest.Server, token string, want ...string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got := listSessionIDs(t, ts, token)
+		if len(got) == len(want) {
+			match := true
+			for _, id := range want {
+				if !got[id] {
+					match = false
+					break
+				}
+			}
+			if match {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("sessions = %v, want %v", got, want)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// One host re-announcing its sessions must not clear the sessions announced
+// by another host of the same account (desktop + laptop) (#169).
+func TestHostAnnouncesDoNotClearOtherHosts(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "multi-host")
+	hostA, secretA := registerHost(t, ts, token, "desktop")
+	hostB, secretB := registerHost(t, ts, token, "laptop")
+
+	connA := dialHostWS(t, ts, hostA, secretA)
+	connB := dialHostWS(t, ts, hostB, secretB)
+
+	announceSessions(t, connA, SessionMeta{ID: "a1", Name: "a1", CLI: "claude", Status: "running"})
+	announceSessions(t, connB, SessionMeta{ID: "b1", Name: "b1", CLI: "claude", Status: "running"})
+	waitForSessions(t, ts, token, "a1", "b1")
+
+	// A replaces its own list; B's sessions must survive.
+	announceSessions(t, connA, SessionMeta{ID: "a2", Name: "a2", CLI: "claude", Status: "running"})
+	waitForSessions(t, ts, token, "a2", "b1")
+}
+
+// A reconnecting host registers its new connection before the old one's
+// deferred removeHost runs; the old cleanup must not wipe the sessions the
+// new connection just announced (#169).
+func TestReconnectDoesNotWipeReannouncedSessions(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "reconnect")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+
+	conn1 := dialHostWS(t, ts, hostID, secret)
+	announceSessions(t, conn1, SessionMeta{ID: "s1", Name: "s1", CLI: "claude", Status: "running"})
+	waitForSessions(t, ts, token, "s1")
+
+	// New connection supersedes the old one (e.g. after a network flap), and
+	// the daemon re-announces. The old connection's deferred removeHost then
+	// runs and must leave the fresh entries alone.
+	conn2 := dialHostWS(t, ts, hostID, secret)
+	announceSessions(t, conn2, SessionMeta{ID: "s2", Name: "s2", CLI: "claude", Status: "running"})
+	waitForSessions(t, ts, token, "s2")
+
+	// Give the old connection's read loop time to notice the close and run
+	// its deferred removeHost, then confirm the sessions are still there.
+	conn1.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		if _, _, err := conn1.ReadMessage(); err != nil {
+			break
+		}
+	}
+	time.Sleep(100 * time.Millisecond)
+	waitForSessions(t, ts, token, "s2")
+}
+
+// A plain disconnect (no replacement connection) still clears the host's
+// sessions from the live list.
+func TestHostDisconnectClearsSessions(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "disconnect")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+
+	conn := dialHostWS(t, ts, hostID, secret)
+	announceSessions(t, conn, SessionMeta{ID: "s1", Name: "s1", CLI: "claude", Status: "running"})
+	waitForSessions(t, ts, token, "s1")
+
+	_ = conn.Close()
+	waitForSessions(t, ts, token)
+}
+
+// When a new connection with the same host credentials replaces an old one,
+// the relay must send a superseded frame first so the old daemon stops
+// reconnecting instead of kick-looping (#169).
+func TestSupersededFrameSentToReplacedHost(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "supersede")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+
+	conn1 := dialHostWS(t, ts, hostID, secret)
+	_ = dialHostWS(t, ts, hostID, secret)
+
+	conn1.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_, raw, err := conn1.ReadMessage()
+	if err != nil {
+		t.Fatalf("old connection got no superseded frame: %v", err)
+	}
+	var fr hostFrame
+	if err := json.Unmarshal(raw, &fr); err != nil {
+		t.Fatal(err)
+	}
+	if fr.Kind != "superseded" {
+		t.Fatalf("old connection got kind %q, want superseded", fr.Kind)
+	}
+	// The relay drops the old connection right after the notice.
+	conn1.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if _, _, err := conn1.ReadMessage(); err == nil {
+		t.Fatal("old connection still open after superseded")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -101,9 +102,24 @@ func newRelayClient(baseURL, hostID, secret string, logger *log.Logger, onJoin f
 	}
 }
 
+// errSuperseded is returned by runOnce when the relay reports that another
+// connection with the same host credentials took over. It is process-level
+// only: restarting the daemon retries normally.
+var errSuperseded = errors.New("host superseded by another connection")
+
 func (c *relayClient) run(ctx context.Context) {
 	for {
-		if err := c.runOnce(ctx); err != nil && ctx.Err() == nil {
+		err := c.runOnce(ctx)
+		if errors.Is(err, errSuperseded) && ctx.Err() == nil {
+			// The same hostId+secret connected elsewhere — almost always a
+			// config copied to a second machine. Reconnecting would kick the
+			// other daemon off and loop forever (#169), so stop here.
+			c.log.Printf("relay: this host is already connected elsewhere (superseded); " +
+				"not reconnecting — check whether the riffpad config was copied to another machine, " +
+				"then restart this daemon")
+			return
+		}
+		if err != nil && ctx.Err() == nil {
 			c.log.Printf("relay disconnected: %v (reconnecting in 3s)", err)
 			select {
 			case <-ctx.Done():
@@ -144,6 +160,8 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 		c.announce(sessions)
 	}
 
+	superseded := false
+readLoop:
 	for {
 		_, data, err := conn.ReadMessage()
 		if err != nil {
@@ -169,6 +187,9 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 				continue
 			}
 			c.deliver(fr.ViewerID, payload)
+		case protocol.RelayFrameSuperseded:
+			superseded = true
+			break readLoop
 		}
 	}
 	c.mu.Lock()
@@ -179,6 +200,9 @@ func (c *relayClient) runOnce(ctx context.Context) error {
 	c.viewers = map[string]*relayViewer{}
 	c.mu.Unlock()
 	_ = conn.Close()
+	if superseded {
+		return errSuperseded
+	}
 	return fmt.Errorf("relay connection closed")
 }
 
