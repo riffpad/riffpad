@@ -72,7 +72,10 @@ func (t *relayViewerTransport) Recv() ([]byte, error) {
 }
 
 func (t *relayViewerTransport) Close() error {
-	t.c.closeViewer(t.v.id)
+	// Ask the relay to close the browser socket as well: otherwise the client
+	// would sit on a silent connection until its watchdog fires, unaware that
+	// the daemon dropped this viewer (e.g. a critical-event overflow, #173).
+	t.c.kickViewer(t.v.id)
 	return nil
 }
 
@@ -320,7 +323,20 @@ func (c *relayClient) deliver(id string, data []byte) {
 	select {
 	case v.recv <- data:
 	default:
+		// The payload is E2EE, so the daemon cannot tell whether the dropped
+		// message was an approval_response: treat any overflow as potentially
+		// critical and force the viewer to reconnect and replay (#173).
+		c.log.Printf("relay viewer recv buffer full, dropping connection viewer=%s", id)
+		c.kickViewer(id)
 	}
+}
+
+// kickViewer drops a relay viewer locally and asks the relay to close the
+// browser connection too, so the client reconnects (and replays history)
+// instead of hanging on a dead channel.
+func (c *relayClient) kickViewer(id string) {
+	_ = c.sendFrame(relayFrame{Kind: protocol.RelayFrameKick, ViewerID: id})
+	c.closeViewer(id)
 }
 
 func (c *relayClient) closeViewer(id string) {

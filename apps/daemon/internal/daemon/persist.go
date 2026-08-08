@@ -241,6 +241,11 @@ func (s *Server) restoreSessions() {
 			history: history,
 			clients: map[*client]struct{}{},
 		}
+		// Resume the sequence counter where the persisted history left off so
+		// clients never see seq go backwards after a daemon restart (#173).
+		if n := len(history); n > 0 {
+			sess.seq = history[n-1].Seq
+		}
 		s.mu.Lock()
 		s.sessions[ps.ID] = sess
 		s.mu.Unlock()

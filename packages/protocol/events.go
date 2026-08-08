@@ -34,7 +34,25 @@ const (
 	// when a new connection with the same host credentials replaces it.
 	// The daemon must stop auto-reconnecting to avoid a kick loop.
 	RelayFrameSuperseded = "superseded"
+	// RelayFrameKick is sent by the daemon to ask the relay to close a
+	// viewer's browser connection, e.g. after the daemon dropped that viewer
+	// for a send-buffer overflow on a critical event. The client reconnects
+	// and gets a history replay, so nothing is silently lost (#173).
+	RelayFrameKick = "kick"
 )
+
+// IsCriticalEvent reports whether an event must never be silently dropped:
+// losing one leaves the UI in a state the user cannot reconcile (a missing
+// approval card, a lost approval result, or a session that looks alive
+// forever). When a send buffer is full, connections are closed instead of
+// dropping these events, forcing the client to reconnect and replay (#173).
+func IsCriticalEvent(typ string) bool {
+	switch typ {
+	case EventApprovalReq, EventApprovalResp, EventSessionEnd:
+		return true
+	}
+	return false
+}
 
 // Agent status values.
 const (
@@ -45,12 +63,16 @@ const (
 )
 
 // Event is the wire-level event container. Payload holds the typed JSON
-// payload for the event type.
+// payload for the event type. Seq is a per-session increasing sequence
+// number assigned by the daemon; clients use it to detect silently dropped
+// events (#173). Zero means "no sequence" (old daemon or one-off events sent
+// outside the session pump).
 type Event struct {
 	ID        string          `json:"id"`
 	SessionID string          `json:"sessionId"`
 	Timestamp int64           `json:"timestamp"`
 	Type      string          `json:"type"`
+	Seq       uint64          `json:"seq,omitempty"`
 	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
