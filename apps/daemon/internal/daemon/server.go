@@ -376,10 +376,15 @@ func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.pending[code] = pendingPair{Code: code, Expires: time.Now().Add(10 * time.Minute)}
 	s.mu.Unlock()
+	// Local mode: the daemon only listens on 127.0.0.1, so this URL is only
+	// reachable from a browser on this machine. The `local` flag tells the
+	// CLI to print the URL instead of a QR code (a phone scanning it would
+	// try to open the phone's own localhost).
 	url := fmt.Sprintf("http://127.0.0.1:%d/?pair=%s&token=%s", s.cfg.Port, code, s.token)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"code":      code,
 		"url":       url,
+		"local":     true,
 		"expiresAt": time.Now().Add(10 * time.Minute).Format(time.RFC3339),
 	})
 }

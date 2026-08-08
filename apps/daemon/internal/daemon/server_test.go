@@ -558,3 +558,40 @@ func sendEncrypted(t *testing.T, conn *websocket.Conn, sid string, key *[32]byte
 		t.Fatal(err)
 	}
 }
+
+// TestLocalPairingMarkedLocal verifies that in local mode (no relay) the
+// pairing response is flagged `local` and its URL targets 127.0.0.1, so the
+// CLI knows to print the URL for a same-machine browser instead of a QR code.
+func TestLocalPairingMarkedLocal(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings", cfg.LocalToken, nil)
+	var pr struct {
+		Code  string `json:"code"`
+		URL   string `json:"url"`
+		Local bool   `json:"local"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if pr.Code == "" {
+		t.Fatal("no pairing code returned")
+	}
+	if !pr.Local {
+		t.Fatal("local pairing response missing local flag")
+	}
+	want := fmt.Sprintf("http://127.0.0.1:%d/?pair=%s&token=%s", cfg.Port, pr.Code, cfg.LocalToken)
+	if pr.URL != want {
+		t.Fatalf("pairing url %q, want %q", pr.URL, want)
+	}
+}

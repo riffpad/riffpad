@@ -233,6 +233,71 @@ func TestPairingRequiresOnlineAndOwnedHost(t *testing.T) {
 	}
 }
 
+// TestPairingURLUsesAppURL covers the reverse-proxy deployment: TLS is
+// terminated upstream (r.TLS == nil) and the request Host is the API domain,
+// so the pairing URL must be built from the configured appURL instead.
+func TestPairingURLUsesAppURL(t *testing.T) {
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "alice")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+
+	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + hostID + "&token=" + hostSecret
+	hostConn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hostConn.Close()
+
+	pairingURL := func(t *testing.T) string {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, ts.URL+"/api/pairings",
+			strings.NewReader(`{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Simulate a TLS-terminating reverse proxy in front of the API vhost.
+		req.Host = "api.riffpad.ai"
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("pairing status %d", resp.StatusCode)
+		}
+		var pr struct {
+			Code string `json:"code"`
+			URL  string `json:"url"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+			t.Fatal(err)
+		}
+		if pr.Code == "" || !strings.HasSuffix(pr.URL, "/?pair="+pr.Code) {
+			t.Fatalf("bad pairing response code=%q url=%q", pr.Code, pr.URL)
+		}
+		return pr.URL
+	}
+
+	h.appURL = "https://app.riffpad.ai"
+	if got, want := pairingURL(t), "https://app.riffpad.ai/?pair="; !strings.HasPrefix(got, want) {
+		t.Fatalf("pairing url %q, want prefix %q", got, want)
+	}
+
+	// Trailing slashes in appURL must not produce a double-slash path.
+	h.appURL = "https://app.riffpad.ai/"
+	if got, want := pairingURL(t), "https://app.riffpad.ai/?pair="; !strings.HasPrefix(got, want) {
+		t.Fatalf("pairing url %q, want prefix %q", got, want)
+	}
+
+	// Without appURL the handler falls back to the request scheme/host.
+	h.appURL = ""
+	if got, want := pairingURL(t), "http://api.riffpad.ai/?pair="; !strings.HasPrefix(got, want) {
+		t.Fatalf("pairing url %q, want prefix %q", got, want)
+	}
+}
+
 func TestPairForeignOwnerReturnsGenericError(t *testing.T) {
 	_, ts := newTestHub(t)
 	alice := registerUser(t, ts, "alice")

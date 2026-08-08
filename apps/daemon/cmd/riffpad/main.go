@@ -453,6 +453,7 @@ func pairCmd(base string) error {
 	var data struct {
 		Code  string `json:"code"`
 		URL   string `json:"url"`
+		Local bool   `json:"local"`
 		Error string `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
@@ -463,6 +464,13 @@ func pairCmd(base string) error {
 			return fmt.Errorf("%s", data.Error)
 		}
 		return fmt.Errorf("%s", t.T("pair_failed_status", resp.StatusCode))
+	}
+	if data.Local {
+		// Local mode: the URL points at 127.0.0.1 and is only meaningful in a
+		// browser on this machine, so a QR code (which implies scanning with
+		// another device) would be misleading — print the URL instead.
+		fmt.Println(t.T("pair_local", data.Code, data.URL))
+		return nil
 	}
 	fmt.Println(t.T("pair_code", data.Code))
 	qrterminal.GenerateWithConfig(data.URL, qrterminal.Config{
