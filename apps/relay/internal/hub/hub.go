@@ -5,6 +5,7 @@ package hub
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -48,14 +49,6 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
-}
-
-type Pairing struct {
-	Code      string
-	HostID    string
-	Curve     string
-	PublicKey string
-	Expires   time.Time
 }
 
 // oauthState tracks a pending GitHub authorization. device is set when the
@@ -133,7 +126,6 @@ type Hub struct {
 	sessions       map[string]SessionMeta
 	sessionHosts   map[string]string
 	viewers        map[string]*viewerConn
-	pairings       map[string]Pairing
 	rateLimits     map[string]ipCounter
 	oauthStates    map[string]oauthState
 	deviceLogins   map[string]*deviceLogin
@@ -163,7 +155,6 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		sessions:       map[string]SessionMeta{},
 		sessionHosts:   map[string]string{},
 		viewers:        map[string]*viewerConn{},
-		pairings:       map[string]Pairing{},
 		rateLimits:     map[string]ipCounter{},
 		oauthStates:    map[string]oauthState{},
 		deviceLogins:   map[string]*deviceLogin{},
@@ -840,12 +831,14 @@ func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := newCode()
-	h.mu.Lock()
-	h.pairings[code] = Pairing{
+	expiresAt := time.Now().Add(10 * time.Minute)
+	if err := h.store.CreatePairing(&PairingRecord{
 		Code: code, HostID: req.HostID, Curve: req.Curve,
-		PublicKey: req.PublicKey, Expires: time.Now().Add(10 * time.Minute),
+		PublicKey: req.PublicKey, ExpiresAt: expiresAt, CreatedAt: time.Now(),
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "create pairing failed")
+		return
 	}
-	h.mu.Unlock()
 	// The pairing link must land on the web UI origin (appURL), not on the
 	// request's own host: behind a TLS-terminating reverse proxy r.TLS is nil
 	// and r.Host is the API domain (e.g. api.riffpad.ai), which serves no web
@@ -861,7 +854,7 @@ func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 	url := base + "/?pair=" + code
 	writeJSON(w, http.StatusOK, map[string]any{
 		"code": code, "url": url,
-		"expiresAt": time.Now().Add(10 * time.Minute).Format(time.RFC3339),
+		"expiresAt": expiresAt.Format(time.RFC3339),
 	})
 }
 
@@ -890,10 +883,8 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := strings.ToUpper(strings.TrimSpace(req.Code))
-	h.mu.Lock()
-	p, ok := h.pairings[code]
-	h.mu.Unlock()
-	if !ok || time.Now().After(p.Expires) {
+	p, err := h.store.GetPairing(code)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid or expired pairing code")
 		return
 	}
@@ -905,18 +896,35 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid or expired pairing code")
 		return
 	}
+	// The code is consumed before the device is created so that concurrent
+	// pair attempts (double click, two phones scanning one QR) cannot each
+	// mint a device from the same code: ConsumePairing is a DB-level
+	// compare-and-swap and only one caller wins. The ownership check above
+	// runs first so a foreign user can neither burn nor probe the code.
+	if p.ConsumedAt != nil {
+		writeErrorCode(w, http.StatusConflict, "pairing_code_used", "pairing code already used")
+		return
+	}
+	if err := h.store.ConsumePairing(code); err != nil {
+		if errors.Is(err, ErrPairingUsed) {
+			writeErrorCode(w, http.StatusConflict, "pairing_code_used", "pairing code already used")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "pair failed")
+		return
+	}
 	name := req.Name
 	if name == "" {
 		name = "device"
 	}
 	dev, err := h.store.CreateDevice(u.ID, p.HostID, name, req.Curve, req.PublicKey)
 	if err != nil {
+		// The code stays consumed: CreateDevice only fails on a database
+		// error, in which case an un-consume write would very likely fail
+		// too. The user regenerates a code.
 		writeError(w, http.StatusInternalServerError, "create device failed")
 		return
 	}
-	h.mu.Lock()
-	delete(h.pairings, code)
-	h.mu.Unlock()
 	h.log.Printf("paired device=%s host=%s user=%s", dev.ID, p.HostID, u.Username)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"deviceId":        dev.ID,
@@ -1422,6 +1430,13 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// writeErrorCode is writeError plus a machine-readable code field so clients
+// can localize the message. Older clients only read "error", so adding the
+// field is backward compatible.
+func writeErrorCode(w http.ResponseWriter, status int, code, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg, "code": code})
 }
 
 func writeHTML(w http.ResponseWriter, status int, html string) {

@@ -64,6 +64,19 @@ type Device struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// PairingRecord is a one-time pairing code issued for a host. Codes live in
+// the database so a relay restart does not invalidate in-flight pairings, and
+// ConsumedAt enforces single use (a code can pair exactly one device).
+type PairingRecord struct {
+	Code       string `gorm:"primaryKey"`
+	HostID     string `gorm:"index"`
+	Curve      string
+	PublicKey  string
+	ExpiresAt  time.Time
+	ConsumedAt *time.Time
+	CreatedAt  time.Time
+}
+
 // SessionMeta is the metadata of a session announced by a host.
 type SessionMeta struct {
 	ID         string    `gorm:"primaryKey" json:"id"`
@@ -97,7 +110,7 @@ func OpenStore(dataDir, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &SessionMeta{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}); err != nil {
 		return nil, err
 	}
 	return &Store{db: db}, nil
@@ -220,6 +233,49 @@ func (s *Store) GetHost(id string) (*HostRecord, error) {
 		return nil, err
 	}
 	return &h, nil
+}
+
+// Pairing lookup/consumption outcomes.
+var (
+	ErrPairingInvalid = errors.New("invalid or expired pairing code")
+	ErrPairingUsed    = errors.New("pairing code already used")
+)
+
+// CreatePairing stores a new pairing code, opportunistically purging expired
+// rows so the table does not grow without bound.
+func (s *Store) CreatePairing(p *PairingRecord) error {
+	_ = s.db.Where("expires_at < ?", time.Now()).Delete(&PairingRecord{}).Error
+	return s.db.Create(p).Error
+}
+
+// GetPairing returns the pairing row for code. Unknown and expired codes both
+// yield ErrPairingInvalid; expired rows are deleted lazily.
+func (s *Store) GetPairing(code string) (*PairingRecord, error) {
+	var p PairingRecord
+	if err := s.db.First(&p, "code = ?", code).Error; err != nil {
+		return nil, ErrPairingInvalid
+	}
+	if time.Now().After(p.ExpiresAt) {
+		_ = s.db.Delete(&p).Error
+		return nil, ErrPairingInvalid
+	}
+	return &p, nil
+}
+
+// ConsumePairing atomically marks the code used. The conditional UPDATE is a
+// compare-and-swap: concurrent consumers race on consumed_at IS NULL and only
+// one wins; the losers get ErrPairingUsed.
+func (s *Store) ConsumePairing(code string) error {
+	res := s.db.Model(&PairingRecord{}).
+		Where("code = ? AND consumed_at IS NULL", code).
+		Update("consumed_at", time.Now())
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrPairingUsed
+	}
+	return nil
 }
 
 func (s *Store) CreateDevice(ownerID, hostID, name, curve, pub string) (*Device, error) {
