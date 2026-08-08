@@ -199,6 +199,8 @@
 | M3.18 | 会话按主机组织：relay 返回 hostName，client 会话列表按主机分组/标注 | `[ ]` | 多台电脑会话可区分；分组展示；同步确认设备访问主机策略 | #151 |
 | M3.19 | CLI 登录页（/device）与授权回执页 UI 优化：对齐登录页质感、深色主题卡片、中英文随 lang 渲染 | `[x]` | device 页终端头部 + 授权码 + GitHub 按钮；回执页深色卡片 + 绿色状态；单测覆盖 en 回执 | #160 |
 | M3.20 | 本地模式配对体验与 LAN 自托管：`riffpad pair` 默认要求登录，`--local` 才生成仅本机可用的配对码；后续支持同一局域网内自托管（relay 退化/直连），手机可直接配对本机 daemon | `[~]` | pair 登录引导已实现（#206）；LAN 直连待 M3.4 排期 | #206 |
+| M3.21 | macOS daemon 管理：`riffpad setup` 支持 launchd LaunchAgent（登录自启 + 崩溃重启）；`riffpad daemon restart` 与 `riffpad update` 自动重启在 macOS 优先走 `launchctl kickstart -k`，保持 launchd 为唯一进程账本 | `[ ]` | setup 安装/移除 LaunchAgent；restart/update 检测 launchd 托管并走 launchctl；真机验证 | — |
+| M3.22 | Windows daemon 管理：`riffpad daemon restart` 与 `riffpad update` 自动重启检测 `RiffpadDaemon` 计划任务，停止旧进程后 `schtasks /Run` 由任务管理器拉起，保持任务账本一致 | `[x]` | daemonRestart 任务分支 + 单测（运行中停旧启新 / 未运行直接拉起）已实现 | #208 |
 
 ---
 

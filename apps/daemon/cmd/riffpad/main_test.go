@@ -453,6 +453,107 @@ func TestPairCmdAllowsLocalWithFlag(t *testing.T) {
 	}
 }
 
+func TestDaemonRestartPrefersSystemd(t *testing.T) {
+	oldActive, oldRestart := systemdActiveFn, systemdRestartFn
+	systemdActiveFn = func() (bool, error) { return true, nil }
+	var calls int
+	systemdRestartFn = func() error { calls++; return nil }
+	t.Cleanup(func() { systemdActiveFn, systemdRestartFn = oldActive, oldRestart })
+
+	if err := daemonRestart("http://127.0.0.1:1", t.TempDir()); err != nil {
+		t.Fatalf("restart failed: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one systemctl restart, got %d", calls)
+	}
+}
+
+func TestDaemonRestartRequiresRunningDaemon(t *testing.T) {
+	oldActive, oldRestart := systemdActiveFn, systemdRestartFn
+	systemdActiveFn = func() (bool, error) { return false, nil }
+	systemdRestartFn = func() error {
+		t.Fatal("must not call systemctl when service is inactive")
+		return nil
+	}
+	t.Cleanup(func() { systemdActiveFn, systemdRestartFn = oldActive, oldRestart })
+
+	err := daemonRestart("http://127.0.0.1:1", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "daemon is not running") {
+		t.Fatalf("expected not-running error, got %v", err)
+	}
+}
+
+func TestRestartViaWindowsTaskStopsThenRuns(t *testing.T) {
+	oldRun := windowsTaskRunFn
+	var runs, shutdowns int
+	down := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			if down {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		case "/api/shutdown":
+			shutdowns++
+			down = true
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	windowsTaskRunFn = func() error {
+		runs++
+		down = false // the scheduled task spawns the daemon
+		return nil
+	}
+	t.Cleanup(func() { windowsTaskRunFn = oldRun })
+
+	if err := restartViaWindowsTask(srv.URL, t.TempDir()); err != nil {
+		t.Fatalf("restart failed: %v", err)
+	}
+	if runs != 1 || shutdowns != 1 {
+		t.Fatalf("runs=%d shutdowns=%d, want 1/1", runs, shutdowns)
+	}
+}
+
+func TestRestartViaWindowsTaskSkipsStopWhenNotRunning(t *testing.T) {
+	oldRun := windowsTaskRunFn
+	var runs, shutdowns int
+	down := true
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			if down {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		case "/api/shutdown":
+			shutdowns++
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	windowsTaskRunFn = func() error {
+		runs++
+		down = false
+		return nil
+	}
+	t.Cleanup(func() { windowsTaskRunFn = oldRun })
+
+	if err := restartViaWindowsTask(srv.URL, t.TempDir()); err != nil {
+		t.Fatalf("restart failed: %v", err)
+	}
+	if runs != 1 || shutdowns != 0 {
+		t.Fatalf("runs=%d shutdowns=%d, want 1/0", runs, shutdowns)
+	}
+}
+
 // --- daemon stop force-kill safety (issue #174 #9) ---
 
 func TestForceKillDaemonMissingPidFile(t *testing.T) {
