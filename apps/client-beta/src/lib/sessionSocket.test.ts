@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
 import { b64u, encryptEvent } from "./crypto";
 import {
+  dedupeBounded,
   dedupeEvent,
+  MAX_SEEN_IDS,
   openSessionSocket,
   Outbox,
   reconnectBackoff,
@@ -10,6 +12,7 @@ import {
   SESSION_KEY_FAILURE_LIMIT,
   WS_STALE_TIMEOUT_MS,
   WS_WATCHDOG_INTERVAL_MS,
+  type ConnTone,
   type SocketHandlers,
 } from "./sessionSocket";
 import type { Device, RiffpadEvent } from "./types";
@@ -35,6 +38,23 @@ describe("dedupeEvent", () => {
     const burst = [ev("a"), ev("b"), ev("c"), ev("a")];
     const skipped = burst.filter((e) => dedupeEvent(seen, e));
     expect(skipped).toHaveLength(1);
+  });
+});
+
+// dedupeBounded caps the dedupe set (#174): a session open for days must not
+// grow it without limit, while recent replays must still be recognized.
+describe("dedupeBounded", () => {
+  it("bounds the set and still dedupes recent events", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < MAX_SEEN_IDS + 100; i++) {
+      expect(dedupeBounded(seen, ev("e" + i))).toBe(false);
+    }
+    expect(seen.size).toBe(MAX_SEEN_IDS);
+    // Recent ids are still remembered...
+    expect(dedupeBounded(seen, ev("e" + (MAX_SEEN_IDS + 99)))).toBe(true);
+    // ...and the oldest ones have been evicted (a stale replay of those would
+    // render twice, which the bounded-set trade-off accepts).
+    expect(seen.has("e0")).toBe(false);
   });
 });
 
@@ -518,5 +538,50 @@ describe("session key mismatch", () => {
     // Failures below the limit are ordinary errors, not fatal.
     expect(onError).toHaveBeenCalledTimes(SESSION_KEY_FAILURE_LIMIT - 1);
     sock.close();
+  });
+});
+
+// Connection tone (#174): the status light consumes a structured tone from
+// the socket instead of regex-matching the (translated) label, so English
+// UI no longer renders every state green.
+describe("connection tone", () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function genEcdh() {
+    return crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  }
+
+  it("reports pending while connecting, good after the hello handshake, bad on close", async () => {
+    const serverIdentity = await genEcdh();
+    const serverPub = b64u(await crypto.subtle.exportKey("raw", serverIdentity.publicKey));
+    const devIdentity = await genEcdh();
+    const jwk = await crypto.subtle.exportKey("jwk", devIdentity.privateKey);
+    const dev = { deviceId: "d1", serverPub, jwk } as Device;
+
+    const tones: ConnTone[] = [];
+    const sock = await openSessionSocket("s1", dev, {
+      onConn: (_label, tone) => tones.push(tone),
+      onEvent: () => {},
+      onError: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 20)); // ws open microtask
+    expect(tones.at(-1)).toBe("pending");
+
+    const serverEph = await genEcdh();
+    const ws = FakeWebSocket.instances[0];
+    ws.emit(JSON.stringify({ kind: "hello", serverEphPub: b64u(await crypto.subtle.exportKey("raw", serverEph.publicKey)) }));
+    await vi.waitFor(() => expect(tones.at(-1)).toBe("good"));
+
+    sock.close();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(tones.at(-1)).toBe("bad");
   });
 });

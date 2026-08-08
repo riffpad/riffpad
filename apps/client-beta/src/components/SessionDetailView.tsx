@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ensureIdentity } from "../lib/device";
-import { openSessionSocket, type SessionSocket } from "../lib/sessionSocket";
+import { openSessionSocket, type ConnTone, type SessionSocket } from "../lib/sessionSocket";
 import { useI18n } from "../lib/i18n";
 import type { RiffpadEvent } from "../lib/types";
 import DotMatrix from "./DotMatrix";
@@ -22,11 +22,10 @@ type Row =
 
 const HISTORY_PAGE_SIZE = 100;
 
-function statusClass(status: string): string {
-  if (/未连接|未配对|握手失败|连接失败|失败|断开/.test(status)) return "bad";
-  if (/连接中|重连|等待|离线|offline/i.test(status)) return "pending";
-  return "good";
-}
+// RENDER_WINDOW caps how many rows are in the DOM at once (#174): a session
+// open for days would otherwise render every event and get progressively
+// slower. Older already-loaded rows sit behind a "load earlier" button.
+const RENDER_WINDOW = 200;
 
 function StopIcon() {
   return (
@@ -93,7 +92,9 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const [offline, setOffline] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
   const [status, setStatus] = useState(t("connecting"));
+  const [connTone, setConnTone] = useState<ConnTone>("pending");
   const [agentStatus, setAgentStatus] = useState("");
   const [meta, setMeta] = useState<{ cwd?: string; cli?: string }>({ cwd, cli });
   // Fate of queued approval_responses, keyed by approval requestId; consumed
@@ -110,6 +111,20 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const toolsRef = useRef<Record<string, ToolLine>>({});
   const rowsRef = useRef<Row[]>([]);
   const anchorRef = useRef<number | null>(null);
+  // tRef always holds the current translator so the socket effect below does
+  // not depend on `t`: depending on it rebuilt the WS (and dropped the
+  // outbox) on every language switch (#174).
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+  // Mirror of historyLoading readable from socket callbacks captured in the
+  // effect closure (their state reads would be stale otherwise).
+  const historyLoadingRef = useRef(false);
+  const setHistLoading = useCallback((v: boolean) => {
+    historyLoadingRef.current = v;
+    setHistoryLoading(v);
+  }, []);
 
   const updateScroll = useCallback(() => {
     const el = listRef.current;
@@ -127,8 +142,10 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     setTools({});
     toolsRef.current = {};
     setHasMoreHistory(true);
-    setHistoryLoading(false);
-    setStatus(t("connecting"));
+    setHistLoading(false);
+    setRenderLimit(RENDER_WINDOW);
+    setStatus(tRef.current("connecting"));
+    setConnTone("pending");
     setFatal("");
     setOffline("");
     setAgentStatus("");
@@ -139,11 +156,15 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     ensureIdentity()
       .then((dev) => {
         if (!dev.deviceId) {
-          setStatus(t("not_paired"));
+          setStatus(tRef.current("not_paired"));
+          setConnTone("bad");
           return null;
         }
         return openSessionSocket(sid, dev, {
-          onConn: setStatus,
+          onConn: (label, tone) => {
+            setStatus(label);
+            setConnTone(tone);
+          },
           onEvent: (ev) => {
             if (cancelled) return;
             if (ev.type === "agent_status") {
@@ -169,7 +190,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
               if (rid) setResolvedApprovals((m) => ({ ...m, [rid]: String(rp.decision || "") }));
               return;
             }
-            const tool = toolLineFromEvent(ev, t);
+            const tool = toolLineFromEvent(ev, tRef.current);
             if (tool) {
               const cur = toolsRef.current;
               const ex = cur[tool.key];
@@ -218,7 +239,10 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             rowsRef.current = [...rowsRef.current, { id: ev.id, kind: "event", ev }];
             setRows([...rowsRef.current]);
           },
-          onError: (message) => setStatus(t("handshake_failed") + message),
+          onError: (message) => {
+            setStatus(tRef.current("handshake_failed") + message);
+            setConnTone("bad");
+          },
           onFatal: (message) => setFatal(message),
           onOffline: (message) => setOffline(message ?? ""),
           onHistory: (events) => applyHistory(events),
@@ -238,13 +262,16 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
         }
         sockRef.current = sock;
       })
-      .catch((e) => setStatus(t("connect_failed") + (e instanceof Error ? e.message : String(e))));
+      .catch((e) => {
+        setStatus(tRef.current("connect_failed") + (e instanceof Error ? e.message : String(e)));
+        setConnTone("bad");
+      });
     return () => {
       cancelled = true;
       sockRef.current?.close();
       sockRef.current = null;
     };
-  }, [sid, t, cwd, cli]);
+  }, [sid, cwd, cli, setHistLoading]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -257,12 +284,12 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
     if (nearBottom || rows.length === 0) el.scrollTop = el.scrollHeight;
     updateScroll();
-  }, [rows, tools, updateScroll]);
+  }, [rows, tools, renderLimit, updateScroll]);
 
   function applyHistory(batch: RiffpadEvent[]) {
     if (batch.length === 0) {
       setHasMoreHistory(false);
-      setHistoryLoading(false);
+      setHistLoading(false);
       return;
     }
     const el = listRef.current;
@@ -276,7 +303,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
         if (rid) setResolvedApprovals((m) => ({ ...m, [rid]: String((ev.payload || {}).decision || "") }));
         continue;
       }
-      const tool = toolLineFromEvent(ev, t);
+      const tool = toolLineFromEvent(ev, tRef.current);
       if (tool) {
         const cur = toolsRef.current;
         const ex = cur[tool.key];
@@ -293,7 +320,13 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     setTools({ ...toolsRef.current });
     setRows([...rowsRef.current]);
     setHasMoreHistory(batch.length >= HISTORY_PAGE_SIZE);
-    setHistoryLoading(false);
+    if (historyLoadingRef.current && prepend.length > 0) {
+      // A user-requested history page should become visible right away, so
+      // widen the render window along with it instead of hiding the fresh
+      // rows behind the "load earlier" button.
+      setRenderLimit((l) => l + prepend.length);
+    }
+    setHistLoading(false);
     if (el && !nearBottom) {
       anchorRef.current = prevHeight;
     }
@@ -311,10 +344,18 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
       hasMoreHistory &&
       sockRef.current
     ) {
-      setHistoryLoading(true);
+      setHistLoading(true);
       const ok = sockRef.current.requestHistory(anchor, HISTORY_PAGE_SIZE);
-      if (!ok) setHistoryLoading(false);
+      if (!ok) setHistLoading(false);
     }
+  }
+
+  // Reveal older already-loaded rows hidden by the render window; keep the
+  // scroll position anchored like a history prepend does.
+  function showEarlier() {
+    const el = listRef.current;
+    if (el) anchorRef.current = el.scrollHeight;
+    setRenderLimit((l) => l + RENDER_WINDOW);
   }
 
   function scrollToBottom() {
@@ -343,6 +384,10 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const dir = cwdPath?.split("/").filter(Boolean).pop();
   const detailTitle = [meta.cli || cli, dir, sid.slice(0, 6)].filter(Boolean).join(" · ") || name || t("session_default");
   const fadeClass = !scroll.can ? "" : scroll.top ? (scroll.bottom ? "" : "fade-bottom") : scroll.bottom ? "fade-top" : "fade-both";
+  // Only the tail of the row list is in the DOM; older loaded rows sit behind
+  // the "load earlier" button (#174).
+  const hiddenCount = Math.max(0, rows.length - renderLimit);
+  const visibleRows = hiddenCount > 0 ? rows.slice(hiddenCount) : rows;
 
   return (
     <section id="detail" className="card detail-card">
@@ -351,7 +396,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
         <div className="detail-title truncate">
           <span className="detail-name truncate">{detailTitle}</span>
         </div>
-        <span id="session-conn" className={"conn-dot " + statusClass(status)} title={status} aria-label={status} />
+        <span id="session-conn" className={"conn-dot " + connTone} title={status} aria-label={status} />
       </div>
       <div id="events" ref={listRef} className={"events" + (fadeClass ? " " + fadeClass : "")} onScroll={handleScroll}>
         {historyLoading && (
@@ -360,7 +405,12 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             {t("history_loading")}
           </div>
         )}
-        {rows.map((row) =>
+        {hiddenCount > 0 && (
+          <button className="ghost load-earlier" onClick={showEarlier}>
+            {t("load_earlier", { n: hiddenCount })}
+          </button>
+        )}
+        {visibleRows.map((row) =>
           row.kind === "tool" ? (
             <ToolLog key={row.key} line={tools[row.key]} />
           ) : (

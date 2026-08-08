@@ -962,8 +962,18 @@ func (h *Hub) handleSessions(w http.ResponseWriter, r *http.Request) {
 			liveSessions = append(liveSessions, s)
 		}
 	}
+	// hostOnline lets the client tell "daemon offline" (empty list because no
+	// host is connected) apart from "no sessions" (host connected, nothing
+	// running): the two need very different empty states (#174).
+	hostOnline := false
+	for _, id := range hostIDs {
+		if live[id] {
+			hostOnline = true
+			break
+		}
+	}
 	h.mu.Unlock()
-	writeJSON(w, http.StatusOK, map[string]any{"sessions": liveSessions})
+	writeJSON(w, http.StatusOK, map[string]any{"sessions": liveSessions, "hostOnline": hostOnline})
 }
 
 // handleDevices lists devices paired to the authenticated user's hosts.

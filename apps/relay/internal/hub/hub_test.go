@@ -1220,6 +1220,57 @@ func TestHostDisconnectClearsSessions(t *testing.T) {
 	waitForSessions(t, ts, token)
 }
 
+// fetchHostOnline reads the hostOnline flag from /api/sessions.
+func fetchHostOnline(t *testing.T, ts *httptest.Server, token string) bool {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		HostOnline bool `json:"hostOnline"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out.HostOnline
+}
+
+// /api/sessions must tell the client whether any of the user's hosts is
+// currently connected, so an empty list can be rendered as "daemon offline"
+// instead of the misleading "no sessions, go run one" empty state (#174).
+func TestSessionsReportsHostOnline(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "host-online")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+
+	// Host registered but not connected: offline.
+	if fetchHostOnline(t, ts, token) {
+		t.Fatal("hostOnline should be false before the host connects")
+	}
+
+	conn := dialHostWS(t, ts, hostID, secret)
+	deadline := time.Now().Add(3 * time.Second)
+	for !fetchHostOnline(t, ts, token) {
+		if time.Now().After(deadline) {
+			t.Fatal("hostOnline did not turn true after the host connected")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	_ = conn.Close()
+	deadline = time.Now().Add(3 * time.Second)
+	for fetchHostOnline(t, ts, token) {
+		if time.Now().After(deadline) {
+			t.Fatal("hostOnline did not turn false after the host disconnected")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 // When a new connection with the same host credentials replaces an old one,
 // the relay must send a superseded frame first so the old daemon stops
 // reconnecting instead of kick-looping (#169).

@@ -179,6 +179,7 @@ export default function DeviceManager({ onCurrentRevoked }: Props) {
               })}
             </ul>
           )}
+          <p className="muted device-stale-hint">{t("device_stale_hint")}</p>
           <div className="device-danger">
             <button className="ghost-text-danger" disabled={busy || revoking !== null} onClick={() => setConfirm({ kind: "all" })}>
               {busy ? <><DotMatrix />{t("revoking")}</> : `⚠ ${isRelay ? t("revoke_all") : t("kill_switch")}`}

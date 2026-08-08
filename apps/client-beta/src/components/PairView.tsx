@@ -178,6 +178,7 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
         <button id="install-cli-link" className="install-cli-link" onClick={() => setInstallOpen(true)}>
           {t("install_cli_link")} <span className="chevron">▾</span>
         </button>
+        <p className="muted pair-hint">{t("device_stale_hint")}</p>
         {err && <div id="pair-err" className="err">{err}</div>}
       </section>
       {installOpen && (
