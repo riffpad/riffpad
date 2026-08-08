@@ -14,3 +14,5 @@ __pycache__/
 apps/client-beta/test-results/
 apps/client-beta/playwright-report/
 !infra/.env.example
+
+test-notes/

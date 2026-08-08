@@ -44,6 +44,7 @@ jobs:
         working-directory: apps/daemon
         run: |
           mkdir -p dist
+          VERSION="${GITHUB_REF_NAME#v}"
           for target in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64" "windows arm64"; do
             set -- $target
             os=$1
@@ -51,9 +52,15 @@ jobs:
             ext=""
             if [ "$os" = "windows" ]; then ext=".exe"; fi
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-              go build -trimpath -ldflags "-s -w" \
+              go build -trimpath \
+              -ldflags "-s -w -X github.com/riffpad/riffpad/apps/daemon/internal/version.Version=$VERSION" \
               -o "dist/riffpad-$os-$arch$ext" ./cmd/riffpad
           done
+          # Fail the release if the baked-in version does not match the tag.
+          ./dist/riffpad-linux-amd64 version | grep -q "$VERSION" || {
+            echo "error: binary reports an unexpected version (expected $VERSION)"
+            exit 1
+          }
           (cd dist && sha256sum riffpad-* > sha256sums.txt)
 
       - name: Upload binaries
