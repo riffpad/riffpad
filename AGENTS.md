@@ -12,6 +12,8 @@ Riffpad 是 AI coding agent 的移动遥控器：本地 daemon 桥接电脑上�
 4. **测试与验证**——改动后运行相关测试并构建。
 5. **协议同步**——事件协议变更必须同步更新 `packages/protocol` 与 `docs/design.md`。
 6. **使用 `gh` CLI**——issue、分支、PR 用 GitHub 工作流管理。
+7. **同步 dev plan**——`docs/dev-plan.md` 是开发进度追踪表：新任务、完成勾选、阻塞说明都更新到这里（遵守文件内“更新规则”）。
+8. **记录人工测试**——`test-notes/`（已 gitignore）存放人工测试记录，命名 `test-note-YYYY-MM-DD.txt`；测试发现的问题记录在此，并在修复时关联 issue 编号。
 
 ## 代码规范
 
