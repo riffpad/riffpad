@@ -85,6 +85,14 @@ func TestToolCallEvents(t *testing.T) {
 	if p.Status != "completed" {
 		t.Fatalf("expected completed, got %s", p.Status)
 	}
+	// The completed tool_call must keep the started identity so the client
+	// can merge it in place instead of showing a duplicate row.
+	if p.Summary == "" {
+		t.Fatalf("expected summary on completed tool call, got %+v", p)
+	}
+	if cmd, ok := p.Args["command"].(string); !ok || cmd != "ls" {
+		t.Fatalf("expected args.command=ls on completed tool call, got %+v", p.Args)
+	}
 }
 
 func TestPermissionRequestAndApproval(t *testing.T) {
@@ -148,4 +156,3 @@ func TestPermissionTimeoutDefaultsReject(t *testing.T) {
 		t.Fatal("expected error for timed-out approval")
 	}
 }
-

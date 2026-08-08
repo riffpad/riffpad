@@ -1174,6 +1174,41 @@ func TestHostAnnouncesDoNotClearOtherHosts(t *testing.T) {
 	waitForSessions(t, ts, token, "a2", "b1")
 }
 
+// Sessions announced without a timestamp must get a live LastSeenAt stamped
+// by the relay; otherwise /api/sessions returns Go's zero time and clients
+// show "739835d ago".
+func TestAnnouncedSessionsGetLiveLastSeenAt(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "lastseen")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+
+	conn := dialHostWS(t, ts, hostID, secret)
+	announceSessions(t, conn, SessionMeta{ID: "s1", Name: "s1", CLI: "claude", Status: "running"})
+	waitForSessions(t, ts, token, "s1")
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Sessions []SessionMeta `json:"sessions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range out.Sessions {
+		if s.ID != "s1" {
+			continue
+		}
+		if s.LastSeenAt.IsZero() || time.Since(s.LastSeenAt) > time.Minute {
+			t.Fatalf("expected live lastSeenAt, got %v", s.LastSeenAt)
+		}
+	}
+}
+
 // A reconnecting host registers its new connection before the old one's
 // deferred removeHost runs; the old cleanup must not wipe the sessions the
 // new connection just announced (#169).

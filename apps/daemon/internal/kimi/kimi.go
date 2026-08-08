@@ -31,6 +31,12 @@ type pendingApproval struct {
 	kinds     map[string]string // optionId -> kind (allow_once / reject_once / ...)
 }
 
+type pendingTool struct {
+	name    string
+	summary string
+	args    map[string]any
+}
+
 // approvalTimeout bounds how long a permission prompt waits for a viewer
 // decision before defaulting to reject, mirroring the attach hook path.
 // A var so tests can shrink it.
@@ -58,6 +64,7 @@ type Kimi struct {
 	initError     error
 	nextRequestID int
 	pending       map[string]pendingApproval
+	pendingTools  map[string]pendingTool
 	msgBuf        strings.Builder
 	msgActive     bool
 }
@@ -80,6 +87,7 @@ func New(req adapter.CreateRequest) *Kimi {
 		readyCh:       make(chan struct{}),
 		nextRequestID: 1,
 		pending:       make(map[string]pendingApproval),
+		pendingTools:  make(map[string]pendingTool),
 	}
 }
 
@@ -405,7 +413,9 @@ func (k *Kimi) handleResponse(id json.RawMessage, result json.RawMessage) {
 	default:
 		// A session/prompt response ends the current turn.
 		k.flushMessage()
-		status := protocol.StatusDone
+		// The turn is over but the session is still alive and waiting for
+		// input; "done" is reserved for real process exit.
+		status := protocol.StatusWaitingInput
 		if res.StopReason == "error" || res.StopReason == "max_turns" {
 			status = protocol.StatusError
 		}
@@ -476,6 +486,15 @@ func (k *Kimi) handleToolCall(raw json.RawMessage, status string) {
 	}
 	args := map[string]any{}
 	_ = json.Unmarshal(tc.RawInput, &args)
+	k.mu.Lock()
+	if tc.ToolCallID != "" {
+		k.pendingTools[tc.ToolCallID] = pendingTool{
+			name:    firstNonEmpty(tc.Title, tc.Kind),
+			summary: summarizeTool(tc.Title, args),
+			args:    args,
+		}
+	}
+	k.mu.Unlock()
 	_ = k.emit(protocol.EventToolCall, protocol.ToolCallPayload{
 		Tool:    firstNonEmpty(tc.Title, tc.Kind),
 		Status:  status,
@@ -501,7 +520,20 @@ func (k *Kimi) handleToolCallUpdate(raw json.RawMessage) {
 	if strings.Contains(tc.Status, "fail") || strings.Contains(tc.Status, "error") {
 		status = "failed"
 	}
-	_ = k.emit(protocol.EventToolCall, protocol.ToolCallPayload{Tool: tc.Title, Status: status})
+	k.mu.Lock()
+	pt, ok := k.pendingTools[tc.ToolCallID]
+	if ok {
+		delete(k.pendingTools, tc.ToolCallID)
+	}
+	k.mu.Unlock()
+	payload := protocol.ToolCallPayload{Tool: firstNonEmpty(tc.Title, pt.name), Status: status}
+	if ok {
+		// Keep the same summary/args as the "started" event so the client's
+		// in-place merge keys match (no duplicate spinner + completed rows).
+		payload.Summary = pt.summary
+		payload.Args = pt.args
+	}
+	_ = k.emit(protocol.EventToolCall, payload)
 }
 
 func (k *Kimi) handlePermissionRequest(id json.RawMessage, params json.RawMessage) {

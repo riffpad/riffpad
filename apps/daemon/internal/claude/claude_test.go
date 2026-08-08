@@ -18,12 +18,12 @@ func TestHandleLineAssistantAndUser(t *testing.T) {
 	c.handleLine([]byte(`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"src"}]}}`))
 
 	var got []protocol.Event
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		select {
 		case ev := <-c.Events():
 			got = append(got, ev)
 		default:
-			t.Fatalf("expected %d events, got %d", 3, len(got))
+			t.Fatalf("expected %d events, got %d", 4, len(got))
 		}
 	}
 	if got[0].Type != protocol.EventAgentMessage {
@@ -41,6 +41,31 @@ func TestHandleLineAssistantAndUser(t *testing.T) {
 	}
 	if got[2].Type != protocol.EventCommand {
 		t.Fatalf("expected command, got %s", got[2].Type)
+	}
+	// The completed tool_call must carry the same summary/args as the
+	// started one so the client can merge it in place.
+	var done protocol.ToolCallPayload
+	if err := got[3].DecodePayload(&done); err != nil {
+		t.Fatal(err)
+	}
+	if done.Tool != "Bash" || done.Status != "completed" || done.Summary != "ls" {
+		t.Fatalf("unexpected completed tool call: %+v", done)
+	}
+}
+
+func TestTurnResultEmitsWaitingInput(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"type":"result","subtype":"success"}`))
+	ev := <-c.Events()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected agent_status, got %s", ev.Type)
+	}
+	var p protocol.AgentStatusPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input after a turn, got %q", p.Status)
 	}
 }
 

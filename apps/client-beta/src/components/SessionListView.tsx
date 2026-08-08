@@ -30,8 +30,11 @@ type TFunc = ReturnType<typeof useI18n>["t"];
 
 function timeAgo(iso: string | undefined, t: TFunc): string {
   if (!iso) return "";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!(ms >= 0)) return "";
+  const ts = new Date(iso).getTime();
+  // Go's zero time ("0001-01-01…") parses fine but is ~740k days ago;
+  // treat any timestamp before 2000 as "missing" instead of a huge delta.
+  if (!(ts >= 0) || ts < Date.UTC(2000, 0, 1)) return "";
+  const ms = Date.now() - ts;
   const m = Math.floor(ms / 60000);
   if (m < 1) return t("time_just_now");
   if (m < 60) return t("time_min_ago", { n: m });

@@ -256,6 +256,9 @@ func (c *Claude) SendPrompt(text string) error {
 	if err := c.ensureStarted(); err != nil {
 		return err
 	}
+	// Mirror codex/kimi: echo the user's message back as an event so the
+	// phone client renders it (the daemon itself never sees the text again).
+	_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
 	msg := map[string]any{
 		"type": "user",
 		"message": map[string]any{
@@ -372,7 +375,9 @@ func (c *Claude) handleLine(line []byte) {
 		}
 		c.handleControlRequest(raw.RequestID, body)
 	case "result":
-		status := protocol.StatusDone
+		// A turn finished, but the session is still alive and waiting for
+		// input; "done" is reserved for real process exit (see readLoop).
+		status := protocol.StatusWaitingInput
 		if raw.Subtype == "error" || raw.Subtype == "error_max_turns" {
 			status = protocol.StatusError
 		}
@@ -468,7 +473,13 @@ func (c *Claude) handleUser(msg json.RawMessage) {
 			}
 			_ = c.emit(protocol.EventFileChange, protocol.FileChangePayload{Path: path, Summary: "updated"})
 		}
-		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{Tool: pt.name, Status: "completed"})
+		// Carry the same summary/args as the "started" event so the client's
+		// in-place merge keys match; otherwise it shows a duplicate row
+		// (spinner + completed) for the same tool call.
+		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+			Tool: pt.name, Status: "completed",
+			Summary: summarize(pt.name, pt.input), Args: pt.input,
+		})
 	}
 }
 
