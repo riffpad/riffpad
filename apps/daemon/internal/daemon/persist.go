@@ -153,8 +153,9 @@ func aesGCM(key []byte) (cipher.AEAD, error) {
 }
 
 // restoredAdapter is a placeholder for sessions recovered after a daemon
-// restart: history is readable, but the underlying agent process is gone until
-// reattachment (M1.4 phase 2).
+// restart: history is readable, but the daemon no longer holds the agent.
+// When the (still alive) agent fires its next hook, attachSession swaps this
+// for a live attachAdapter in place (#170).
 type restoredAdapter struct {
 	id string
 }
@@ -190,8 +191,9 @@ func (r *restoredAdapter) Stop() error { return nil }
 var _ adapter.Session = (*restoredAdapter)(nil)
 
 // restoreSessions loads persisted sessions (not ended) after a daemon restart
-// so history stays available in the client. Agents are not re-attached yet
-// (phase 2 of M1.4); sessions are marked "restored" and read-only.
+// so history stays available in the client. Claude/Kimi sessions are marked
+// "restored" and read-only until their agent's next hook re-attaches them
+// (#170); Codex sessions are reattached to their app-server eagerly below.
 func (s *Server) restoreSessions() {
 	persisted, err := loadPersistedSessions(s.dataDir)
 	if err != nil {
@@ -268,7 +270,7 @@ func (s *Server) persistEvent(sess *session, ev protocol.Event) {
 }
 
 func (s *Server) persistSession(sess *session) {
-	if ci, ok := sess.adapter.(interface {
+	if ci, ok := sess.getAdapter().(interface {
 		CurrentConnect() (socket string, threadID string)
 	}); ok {
 		if sock, tid := ci.CurrentConnect(); sock != "" && tid != "" {

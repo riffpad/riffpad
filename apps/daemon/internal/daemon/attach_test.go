@@ -307,6 +307,125 @@ func TestAttachPermissionTimeoutResolves(t *testing.T) {
 	}
 }
 
+// TestAttachRevivesRestoredSession covers #170: after a daemon restart a live
+// claude session comes back as a read-only restoredAdapter; the agent's next
+// hook must swap it for a live attachAdapter in place.
+func TestAttachRevivesRestoredSession(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate the pre-restart state: a live attach session on disk.
+	ps := &PersistedSession{
+		ID: "claude-restored-1", Name: "proj", CLI: "claude (attach)",
+		Cwd: "/tmp/proj", Status: "restored", CreatedAt: time.Now(),
+	}
+	if err := persistSessionMeta(dir, ps); err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	sess := srv.getSession("claude-restored-1")
+	if sess == nil {
+		t.Fatal("session should be restored")
+	}
+	if _, ok := sess.getAdapter().(*restoredAdapter); !ok {
+		t.Fatalf("expected restoredAdapter, got %T", sess.getAdapter())
+	}
+	if err := sess.getAdapter().SendPrompt("hi"); err == nil || !strings.Contains(err.Error(), "not attached") {
+		t.Fatalf("restored session should reject prompts, got %v", err)
+	}
+
+	// The still-alive agent fires its next hook.
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp := authRequest(t, http.MethodPost, ts.URL+"/hooks/claude/session-start", cfg.LocalToken,
+		strings.NewReader(`{"hook_event_name":"SessionStart","session_id":"claude-restored-1","cwd":"/tmp/proj"}`))
+	resp.Body.Close()
+
+	sess = srv.getSession("claude-restored-1")
+	if _, ok := sess.getAdapter().(*attachAdapter); !ok {
+		t.Fatalf("expected attachAdapter after hook, got %T", sess.getAdapter())
+	}
+	if sess.status != protocol.StatusRunning || sess.ended {
+		t.Fatalf("expected running live session, got status=%s ended=%v", sess.status, sess.ended)
+	}
+	// SendPrompt now reaches the tmux injection path (no claude pane exists in
+	// the test environment) instead of the restored placeholder error.
+	if err := sess.getAdapter().SendPrompt("hi"); err == nil || strings.Contains(err.Error(), "not attached") {
+		t.Fatalf("expected tmux injection error, got %v", err)
+	}
+}
+
+// TestSweepIdleAttachSession covers #170: after `kill -9` on claude the
+// SessionEnd hook never fires, so the sweeper must mark a hook-silent attach
+// session ended — and a later hook must revive it (idle false positive).
+func TestSweepIdleAttachSession(t *testing.T) {
+	old := attachIdleTimeout
+	attachIdleTimeout = time.Minute
+	defer func() { attachIdleTimeout = old }()
+
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	post := func(path, body string) {
+		t.Helper()
+		resp := authRequest(t, http.MethodPost, ts.URL+path, cfg.LocalToken, strings.NewReader(body))
+		resp.Body.Close()
+	}
+
+	post("/hooks/claude/session-start", `{"hook_event_name":"SessionStart","session_id":"claude-idle-1","cwd":"/tmp/proj"}`)
+	sess := srv.getSession("claude-idle-1")
+	if sess == nil || sess.status != protocol.StatusRunning {
+		t.Fatalf("expected running attach session, got %+v", sess)
+	}
+
+	// Simulate kill -9: hooks just stop coming.
+	sess.mu.Lock()
+	sess.lastSeen = time.Now().Add(-2 * time.Minute)
+	sess.mu.Unlock()
+	srv.sweepOnce()
+
+	sess = srv.getSession("claude-idle-1")
+	if sess == nil {
+		t.Fatal("idle attach session should be marked ended, not removed")
+	}
+	if !sess.ended || sess.status != protocol.StatusDone {
+		t.Fatalf("expected ended/done, got status=%s ended=%v", sess.status, sess.ended)
+	}
+	found := false
+	for _, hev := range sess.snapshot() {
+		if hev.Type != protocol.EventSessionEnd {
+			continue
+		}
+		var p protocol.SessionEndPayload
+		if err := hev.DecodePayload(&p); err == nil && p.Reason == "no_activity" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected a session_end(no_activity) event in history")
+	}
+
+	// False-positive path: the agent was merely idle; its next hook revives
+	// the session.
+	post("/hooks/claude/user-prompt-submit", `{"hook_event_name":"UserPromptSubmit","session_id":"claude-idle-1","prompt":"继续"}`)
+	sess = srv.getSession("claude-idle-1")
+	if sess.ended || sess.status != protocol.StatusRunning {
+		t.Fatalf("expected revived session, got status=%s ended=%v", sess.status, sess.ended)
+	}
+}
+
 func TestFindClaudePane(t *testing.T) {
 	out := "%0\tclaude\t/tmp/a\n" +
 		"%1\tnode /usr/local/bin/claude\t/tmp/b\n" +
