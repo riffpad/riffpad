@@ -72,8 +72,31 @@ func TestTurnCompletedStatus(t *testing.T) {
 	if ev.Type != protocol.EventAgentStatus {
 		t.Fatalf("expected agent_status, got %s", ev.Type)
 	}
+	var p protocol.AgentStatusPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input after a turn, got %q", p.Status)
+	}
 	if c.turnActive {
 		t.Fatal("turn should be inactive after completion")
+	}
+}
+
+func TestCommandCompletedCarriesSummary(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"method":"item/completed","params":{"item":{"id":"it1","type":"commandExecution","command":"ls","status":"completed","exitCode":0,"aggregatedOutput":"src"}}}`))
+	ev := nextEvent(t, c)
+	if ev.Type != protocol.EventToolCall {
+		t.Fatalf("expected tool_call, got %s", ev.Type)
+	}
+	var p protocol.ToolCallPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Tool != "Command" || p.Status != "completed" || p.Summary != "ls" {
+		t.Fatalf("expected Command completed with summary ls, got %+v", p)
 	}
 }
 

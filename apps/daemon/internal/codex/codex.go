@@ -739,7 +739,11 @@ func (c *Codex) handleItemCompleted(params json.RawMessage) {
 		if n.Item.Status == "declined" || n.Item.Status == "failed" {
 			status = "failed"
 		}
-		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{Tool: "Command", Status: status})
+		// Same Summary as the "started" event so the client's in-place merge
+		// keys match (no duplicate spinner + completed rows).
+		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+			Tool: "Command", Status: status, Summary: n.Item.Command,
+		})
 		_ = c.emit(protocol.EventCommand, protocol.CommandPayload{
 			Command: n.Item.Command, ExitCode: n.Item.ExitCode, Output: truncate(n.Item.Output, 2000),
 		})
@@ -748,8 +752,11 @@ func (c *Codex) handleItemCompleted(params json.RawMessage) {
 		if n.Item.Status == "declined" || n.Item.Status == "failed" {
 			status = "failed"
 		}
-		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{Tool: "FileChange", Status: status})
-		for _, p := range fileChangePaths(n.Item.Changes) {
+		paths := fileChangePaths(n.Item.Changes)
+		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+			Tool: "FileChange", Status: status, Summary: strings.Join(paths, ", "),
+		})
+		for _, p := range paths {
 			_ = c.emit(protocol.EventFileChange, protocol.FileChangePayload{Path: p, Summary: "updated"})
 		}
 	case "mcpToolCall", "dynamicToolCall":
@@ -860,7 +867,9 @@ func (c *Codex) handleTurnCompleted(params json.RawMessage) {
 	c.turnActive = false
 	c.mu.Unlock()
 	c.flushMessages()
-	status := protocol.StatusDone
+	// The turn is over but the session is still alive and waiting for input;
+	// "done" is reserved for real session end.
+	status := protocol.StatusWaitingInput
 	if n.Turn.Status == "failed" {
 		status = protocol.StatusError
 	}
