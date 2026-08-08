@@ -53,6 +53,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 | `tool_call` | daemon → mobile | 工具名、参数、状态 |
 | `approval_request` | daemon → mobile | 审批请求（含操作摘要） |
 | `approval_response` | mobile → daemon | `approve` / `reject` / 修改后的条件 |
+| `approval_resolved` | daemon → mobile | 审批已定案（任一 viewer 处理或超时默认拒绝）：`requestId` + `decision`（+ 处理者 `deviceId`，超时为空）；进会话历史，所有端据此把卡片置灰，重连回放后保持已处理状态（#171） |
 | `notify` | daemon → mobile | 通知；审批过期回显带 `requestId`（level=error），供 client 纠正卡片状态 |
 | `prompt` | mobile → daemon | 文字新指令 |
 | `file_change` | daemon → mobile | 路径与变更摘要 |
@@ -61,7 +62,7 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 
 **缓冲丢弃策略**（#173）：各跳发送缓冲（256 条）满时——
 
-- 关键事件（`approval_request` / `approval_response` / `session_end`）一律不丢：关闭该连接，强迫 client 重连并回放历史；
+- 关键事件（`approval_request` / `approval_response` / `approval_resolved` / `session_end`）一律不丢：关闭该连接，强迫 client 重连并回放历史；
 - relay 无法解密信封、无法区分事件类型，因此 relay 侧任何缓冲溢出都直接关闭对应连接（host 或 viewer）；
 - 其余非关键事件丢弃时必须打 warn 日志（带 session id 与事件类型）。
 

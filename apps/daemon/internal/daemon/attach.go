@@ -39,6 +39,10 @@ func (a *attachAdapter) SendPrompt(text string) error {
 func (a *attachAdapter) Alive() bool { return true }
 func (a *attachAdapter) Stop() error { return nil }
 
+// approvalHookTimeout bounds how long a PermissionRequest hook waits for a
+// viewer decision before defaulting to deny. A var so tests can shrink it.
+var approvalHookTimeout = 10 * time.Minute
+
 // hookPayload is the common shape of Claude Code hook input JSON.
 type hookPayload struct {
 	HookEventName string         `json:"hook_event_name"`
@@ -373,12 +377,14 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 		s.pumpEvent(sess, ev)
 	}
 	decision := "deny"
+	timedOut := false
 	select {
 	case d := <-ch:
 		if d == "approve" {
 			decision = "allow"
 		}
-	case <-time.After(10 * time.Minute):
+	case <-time.After(approvalHookTimeout):
+		timedOut = true
 	}
 	// Drop the pending entry (on the timeout path it would otherwise leak):
 	// a late approval_response then misses pendingHooks and the viewer gets
@@ -386,6 +392,11 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	delete(s.pendingHooks, reqID)
 	s.mu.Unlock()
+	if timedOut {
+		// A viewer-initiated resolution is broadcast in Server.dispatch; the
+		// timeout path must settle the card on every viewer itself (#171).
+		s.broadcastApprovalResolved(sess, reqID, "reject", "")
+	}
 	s.log.Printf("permission hook resolved session=%s req=%s decision=%s", p.SessionID, reqID, decision)
 	// Claude Code 2.1.220 expects the decision inside hookSpecificOutput,
 	// not the legacy permissionDecision field.

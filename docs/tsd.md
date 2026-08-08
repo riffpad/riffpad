@@ -102,6 +102,7 @@
 | `command` | daemon → mobile | bash 命令与退出码 |
 | `approval_request` | daemon → mobile | 审批请求：操作摘要、选项 |
 | `approval_response` | mobile → daemon | `approve` / `reject` / 修改后条件 |
+| `approval_resolved` | daemon → mobile | 审批定案广播：`requestId`、`decision`、处理者 `deviceId`（超时默认拒绝时为空）；进历史，多端共享已处理状态（#171） |
 | `prompt` | mobile → daemon | 文字新指令 |
 | `control` | 双向 | `pause` / `resume` / `stop` / `ping` / `pong` |
 | `notify` | daemon → relay | 通知事件（等待审批、完成、出错），供推送 |

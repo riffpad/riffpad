@@ -32,10 +32,15 @@ export default function EventItem({
   ev,
   send,
   outcomes,
+  resolved,
 }: {
   ev: RiffpadEvent;
   send(type: string, payload: Record<string, unknown>): Promise<SendResult>;
   outcomes?: Record<string, ApprovalOutcome>;
+  // resolved maps an approval requestId to its final decision once the daemon
+  // broadcast approval_resolved — settled by any viewer or a timeout, so this
+  // tab's card greys out too and stays grey after replays (#171).
+  resolved?: Record<string, string>;
 }) {
   const { t } = useI18n();
   const [sending, setSending] = useState<string | null>(null);
@@ -119,11 +124,18 @@ export default function EventItem({
     case "approval_request": {
       const payload = p as unknown as ApprovalPayload;
       const st = states[payload.requestId];
+      // A daemon-broadcast resolution wins over any local state: even a card
+      // showing 待发送 was never applied once another viewer (or a timeout)
+      // settled the request.
+      const dec = resolved?.[payload.requestId];
+      const eff: ApprovalState | undefined = dec
+        ? { st: "done", decision: dec === "approve" ? "approve" : "reject" }
+        : st;
       // "failed" unlocks the buttons so the user can retry; every other
       // terminal or in-flight state locks the card.
-      const locked = sending !== null || (st !== undefined && st.st !== "failed");
+      const locked = sending !== null || (eff !== undefined && eff.st !== "failed");
       const cardState =
-        st?.st === "done" ? " done" : st?.st === "queued" ? " pending" : st?.st === "expired" ? " expired" : "";
+        eff?.st === "done" ? " done" : eff?.st === "queued" ? " pending" : eff?.st === "expired" ? " expired" : "";
       return (
         <div className={"approval-card" + cardState}>
           <div className="approval-summary">{((payload.action ? payload.action + "：" : "") + (payload.summary || "")).trim()}</div>
@@ -134,19 +146,19 @@ export default function EventItem({
               disabled={locked}
               onClick={() => void approve(payload, "approve")}
             >
-              {sending === "approve" ? t("sending") : st?.st === "done" && st.decision === "approve" ? t("approved") : t("approve")}
+              {sending === "approve" ? t("sending") : eff?.st === "done" && eff.decision === "approve" ? t("approved") : t("approve")}
             </button>
             <button
               className="reject"
               disabled={locked}
               onClick={() => void approve(payload, "reject")}
             >
-              {sending === "reject" ? t("sending") : st?.st === "done" && st.decision === "reject" ? t("rejected") : t("reject")}
+              {sending === "reject" ? t("sending") : eff?.st === "done" && eff.decision === "reject" ? t("rejected") : t("reject")}
             </button>
           </div>
-          {st?.st === "queued" && <div className="approval-note pending">{t("approval_pending")}</div>}
-          {st?.st === "failed" && <div className="approval-note failed">{t("approval_not_delivered")}</div>}
-          {st?.st === "expired" && <div className="approval-note expired">{t("approval_expired")}</div>}
+          {eff?.st === "queued" && <div className="approval-note pending">{t("approval_pending")}</div>}
+          {eff?.st === "failed" && <div className="approval-note failed">{t("approval_not_delivered")}</div>}
+          {eff?.st === "expired" && <div className="approval-note expired">{t("approval_expired")}</div>}
           {err && <div className="err">{err}</div>}
         </div>
       );

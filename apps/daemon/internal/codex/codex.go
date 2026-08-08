@@ -37,6 +37,11 @@ type pendingApproval struct {
 	requested []string // permissions request: requested permission names
 }
 
+// approvalTimeout bounds how long an approval request waits for a viewer
+// decision before defaulting to decline, mirroring the attach hook path.
+// A var so tests can shrink it.
+var approvalTimeout = 10 * time.Minute
+
 // Codex is a Codex session driven through the app-server protocol.
 type Codex struct {
 	id      string
@@ -923,6 +928,22 @@ func (c *Codex) handleServerRequest(method string, id json.RawMessage, params js
 		Summary:   summary,
 		Options:   []string{"approve", "reject"},
 	})
+	// Default to decline when no viewer answers in time, mirroring the attach
+	// hook path; SendApproval deletes the pending entry, so a resolution that
+	// already happened wins the race and the timer turns into a no-op.
+	timeout := approvalTimeout
+	go func() {
+		select {
+		case <-time.After(timeout):
+			if err := c.SendApproval(requestID, "reject"); err == nil {
+				_ = c.emit(protocol.EventApprovalResolved, protocol.ApprovalResolvedPayload{
+					RequestID: requestID,
+					Decision:  "reject",
+				})
+			}
+		case <-c.stopCh:
+		}
+	}()
 }
 
 func (c *Codex) flushMessages() {

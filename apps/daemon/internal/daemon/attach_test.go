@@ -197,6 +197,114 @@ func TestAttachHookFlow(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("permission hook did not resolve")
 	}
+
+	// 5b. The resolution is broadcast to every viewer and lands in the session
+	// history, so other tabs grey out the card and replays keep it settled (#171).
+	ev = readEvent()
+	if ev.Type != protocol.EventApprovalResolved {
+		t.Fatalf("expected approval_resolved, got %s", ev.Type)
+	}
+	var arp protocol.ApprovalResolvedPayload
+	if err := ev.DecodePayload(&arp); err != nil {
+		t.Fatal(err)
+	}
+	if arp.RequestID != ap.RequestID || arp.Decision != "approve" || arp.DeviceID != pair.DeviceID {
+		t.Fatalf("unexpected approval_resolved: %+v", arp)
+	}
+	sess := srv.getSession("claude-sess-1")
+	inHistory := false
+	for _, hev := range sess.snapshot() {
+		if hev.Type == protocol.EventApprovalResolved {
+			inHistory = true
+		}
+	}
+	if !inHistory {
+		t.Fatal("approval_resolved missing from session history")
+	}
+
+	// 5c. A second response for the same requestID loses the race: the daemon
+	// acks only the sender with an "expired" notify, no second resolved event.
+	payload, _ = json.Marshal(protocol.ApprovalResponsePayload{RequestID: ap.RequestID, Decision: "reject"})
+	msg = protocol.Event{ID: protocol.NewID(), SessionID: "claude-sess-1", Timestamp: time.Now().UnixMilli(), Type: protocol.EventApprovalResp, Payload: payload}
+	sendEncrypted(t, conn, "claude-sess-1", key, msg)
+	ev = readEvent()
+	if ev.Type != protocol.EventNotify {
+		t.Fatalf("expected notify, got %s", ev.Type)
+	}
+	var np protocol.NotifyPayload
+	if err := ev.DecodePayload(&np); err != nil {
+		t.Fatal(err)
+	}
+	if np.Level != "error" || np.RequestID != ap.RequestID {
+		t.Fatalf("unexpected notify: %+v", np)
+	}
+}
+
+func TestAttachPermissionTimeoutResolves(t *testing.T) {
+	old := approvalHookTimeout
+	approvalHookTimeout = 50 * time.Millisecond
+	defer func() { approvalHookTimeout = old }()
+
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	post := func(path, body string) *http.Response {
+		t.Helper()
+		return authRequest(t, http.MethodPost, ts.URL+path, cfg.LocalToken, strings.NewReader(body))
+	}
+	resp := post("/hooks/claude/session-start", `{"hook_event_name":"SessionStart","session_id":"claude-sess-2","cwd":"/tmp/proj"}`)
+	resp.Body.Close()
+
+	// Nobody answers the permission prompt: the hook must time out with deny
+	// and settle the card for every viewer via approval_resolved (#171).
+	resp = post("/hooks/claude/permission", `{"hook_event_name":"PermissionRequest","session_id":"claude-sess-2","tool_use_id":"tu9","tool_use":{"name":"Bash","input":{"command":"rm -rf build"}}}`)
+	defer resp.Body.Close()
+	var out struct {
+		HookSpecificOutput struct {
+			Decision struct {
+				Behavior string `json:"behavior"`
+			} `json:"decision"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.HookSpecificOutput.Decision.Behavior != "deny" {
+		t.Fatalf("expected deny after timeout, got %q", out.HookSpecificOutput.Decision.Behavior)
+	}
+
+	sess := srv.getSession("claude-sess-2")
+	var resolved *protocol.ApprovalResolvedPayload
+	for _, hev := range sess.snapshot() {
+		if hev.Type != protocol.EventApprovalResolved {
+			continue
+		}
+		var p protocol.ApprovalResolvedPayload
+		if err := hev.DecodePayload(&p); err != nil {
+			t.Fatal(err)
+		}
+		resolved = &p
+	}
+	if resolved == nil {
+		t.Fatal("approval_resolved missing from session history after timeout")
+	}
+	if resolved.Decision != "reject" || resolved.DeviceID != "" {
+		t.Fatalf("unexpected timeout resolution: %+v", resolved)
+	}
+	srv.mu.Lock()
+	pending := len(srv.pendingHooks)
+	srv.mu.Unlock()
+	if pending != 0 {
+		t.Fatalf("pendingHooks leaked after timeout: %d entries", pending)
+	}
 }
 
 func TestFindClaudePane(t *testing.T) {

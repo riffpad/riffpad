@@ -52,6 +52,7 @@ export const EVENT_LABELS: Record<string, string> = {
   command: "命令",
   approval_request: "审批",
   approval_response: "审批回复",
+  approval_resolved: "审批结果",
   prompt: "指令",
   control: "控制",
   notify: "通知",
