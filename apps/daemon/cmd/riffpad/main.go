@@ -296,9 +296,53 @@ func daemonCmd(args []string, base, dataDir string) error {
 		return daemonStart(base, dataDir)
 	case "stop":
 		return daemonStop(base, dataDir)
+	case "restart":
+		return daemonRestart(base, dataDir)
 	default:
 		return fmt.Errorf("%s", t.T("usage_daemon"))
 	}
+}
+
+// systemdActiveFn reports whether the riffpad systemd user service is active.
+// Indirection lets tests simulate both managed and unmanaged daemons.
+var systemdActiveFn = func() (bool, error) {
+	out, err := exec.Command("systemctl", "--user", "is-active", "riffpad.service").CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) == "active", nil
+}
+
+// systemdRestartFn restarts the riffpad systemd user service.
+var systemdRestartFn = func() error {
+	return exec.Command("systemctl", "--user", "restart", "riffpad.service").Run()
+}
+
+// daemonRestart restarts the daemon. When the systemd user service is active,
+// it goes through systemctl so systemd stays the single source of truth;
+// otherwise it stops and starts the background process. A daemon that is not
+// running is an error.
+func daemonRestart(base, dataDir string) error {
+	if runtime.GOOS == "linux" {
+		if active, err := systemdActiveFn(); err == nil && active {
+			if err := systemdRestartFn(); err != nil {
+				return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
+			}
+			fmt.Println(t.T("daemon_restarted"))
+			return nil
+		}
+	}
+	if !reachable(base) {
+		return fmt.Errorf("%s", t.T("daemon_not_running"))
+	}
+	if err := daemonStop(base, dataDir); err != nil {
+		return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
+	}
+	if err := daemonStart(base, dataDir); err != nil {
+		return fmt.Errorf("%s: %w", t.T("daemon_restart_failed"), err)
+	}
+	fmt.Println(t.T("daemon_restarted"))
+	return nil
 }
 
 func daemonStart(base, dataDir string) error {
@@ -1431,21 +1475,7 @@ func updateCmd(args []string, dataDir string) error {
 	}
 	fmt.Println(t.T("update_done", latest, backup))
 	if !*noRestart && reachable(defaultDaemonBase()) {
-		fmt.Println("daemon 正在运行，自动重启以应用新版本…")
-		if resp, err := daemonDo(nil, http.MethodPost, defaultDaemonBase()+"/api/shutdown", nil); err == nil {
-			_ = resp.Body.Close()
-		}
-		// Wait for the old daemon to exit, then start the new binary via the
-		// same path as `riffpad daemon start` (verified to survive).
-		deadline := time.Now().Add(10 * time.Second)
-		for time.Now().Before(deadline) && reachable(defaultDaemonBase()) {
-			time.Sleep(300 * time.Millisecond)
-		}
-		if err := daemonStart(defaultDaemonBase(), dataDir); err != nil {
-			return fmt.Errorf("重启 daemon 失败: %w", err)
-		}
-		fmt.Println("daemon 已重启，会话已恢复。")
-		return nil
+		return daemonRestart(defaultDaemonBase(), dataDir)
 	}
 	fmt.Println(t.T("update_restart_hint"))
 	return nil

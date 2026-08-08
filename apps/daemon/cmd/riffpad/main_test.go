@@ -453,6 +453,36 @@ func TestPairCmdAllowsLocalWithFlag(t *testing.T) {
 	}
 }
 
+func TestDaemonRestartPrefersSystemd(t *testing.T) {
+	oldActive, oldRestart := systemdActiveFn, systemdRestartFn
+	systemdActiveFn = func() (bool, error) { return true, nil }
+	var calls int
+	systemdRestartFn = func() error { calls++; return nil }
+	t.Cleanup(func() { systemdActiveFn, systemdRestartFn = oldActive, oldRestart })
+
+	if err := daemonRestart("http://127.0.0.1:1", t.TempDir()); err != nil {
+		t.Fatalf("restart failed: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one systemctl restart, got %d", calls)
+	}
+}
+
+func TestDaemonRestartRequiresRunningDaemon(t *testing.T) {
+	oldActive, oldRestart := systemdActiveFn, systemdRestartFn
+	systemdActiveFn = func() (bool, error) { return false, nil }
+	systemdRestartFn = func() error {
+		t.Fatal("must not call systemctl when service is inactive")
+		return nil
+	}
+	t.Cleanup(func() { systemdActiveFn, systemdRestartFn = oldActive, oldRestart })
+
+	err := daemonRestart("http://127.0.0.1:1", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "daemon is not running") {
+		t.Fatalf("expected not-running error, got %v", err)
+	}
+}
+
 // --- daemon stop force-kill safety (issue #174 #9) ---
 
 func TestForceKillDaemonMissingPidFile(t *testing.T) {
