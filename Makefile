@@ -12,10 +12,8 @@ dev-mobile:
 	pnpm --filter mobile dev
 
 build-daemon:
-	cd apps/daemon && mkdir -p bin && go build -o bin/riffpad ./cmd/riffpad && go build -o bin/riffpadd ./cmd/riffpadd
+	cd apps/daemon && mkdir -p bin && go build -o bin/riffpad ./cmd/riffpad
 
-# Build and install riffpad/riffpadd to $(PREFIX) (default ~/.local/bin) so they
-# are available on PATH from any directory. Existing files are overwritten.
 # Build and install the single riffpad binary (CLI + daemon) to $(PREFIX)
 # (default ~/.local/bin) so it is available on PATH from any directory.
 install-daemon: build-daemon
