@@ -380,6 +380,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   }
 
   const running = agentStatus === "running";
+  const ended = agentStatus === "done" || agentStatus === "error";
   const cwdPath = meta.cwd || cwd;
   const dir = cwdPath?.split("/").filter(Boolean).pop();
   const detailTitle = [meta.cli || cli, dir, sid.slice(0, 6)].filter(Boolean).join(" · ") || name || t("session_default");
@@ -469,7 +470,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
         </div>
       )}
       {scroll.can && !scroll.bottom && (
-        <button id="jump-bottom" className="jump-bottom" onClick={scrollToBottom}>↓ {t("jump_bottom")}</button>
+        <button id="jump-bottom" className="jump-bottom" onClick={scrollToBottom} aria-label={t("jump_bottom")}>↓</button>
       )}
       <form
         className="prompt-form"
@@ -483,8 +484,12 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             placeholder={t("prompt_ph")}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            name="message"
+            autoComplete="off"
+            inputMode="text"
+            disabled={ended}
           />
-          {prompt.trim() && !running && (
+          {prompt.trim() && !running && !ended && (
             <button type="submit" id="send-btn" className="send-btn" aria-label={t("send")}>→</button>
           )}
         </div>
