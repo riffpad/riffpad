@@ -21,6 +21,11 @@ const (
 	EventCommand      = "command"
 	EventApprovalReq  = "approval_request"
 	EventApprovalResp = "approval_response"
+	// EventApprovalResolved is broadcast by the daemon to every viewer of a
+	// session once an approval request is settled (by any viewer, or by a
+	// timeout default-deny), so all tabs/devices grey out the same card and
+	// replays keep it settled (#171).
+	EventApprovalResolved = "approval_resolved"
 	EventPrompt       = "prompt"
 	EventControl      = "control"
 	EventNotify       = "notify"
@@ -48,7 +53,7 @@ const (
 // dropping these events, forcing the client to reconnect and replay (#173).
 func IsCriticalEvent(typ string) bool {
 	switch typ {
-	case EventApprovalReq, EventApprovalResp, EventSessionEnd:
+	case EventApprovalReq, EventApprovalResp, EventApprovalResolved, EventSessionEnd:
 		return true
 	}
 	return false
@@ -126,6 +131,14 @@ type ApprovalResponsePayload struct {
 	RequestID string `json:"requestId"`
 	Decision  string `json:"decision"` // approve | reject
 	Condition string `json:"condition,omitempty"`
+}
+
+type ApprovalResolvedPayload struct {
+	RequestID string `json:"requestId"`
+	Decision  string `json:"decision"` // approve | reject
+	// DeviceID identifies the viewer that settled the approval; empty when the
+	// daemon itself resolved it (e.g. an approval timeout defaulting to deny).
+	DeviceID string `json:"deviceId,omitempty"`
 }
 
 type PromptPayload struct {

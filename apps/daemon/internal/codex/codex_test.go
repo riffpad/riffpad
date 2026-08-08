@@ -123,6 +123,43 @@ func TestCommandApproval(t *testing.T) {
 	}
 }
 
+func TestApprovalTimeoutDefaultsDecline(t *testing.T) {
+	old := approvalTimeout
+	approvalTimeout = 50 * time.Millisecond
+	defer func() { approvalTimeout = old }()
+
+	c := New(adapter.CreateRequest{ID: "s1"})
+	fw := &fakeWriteCloser{}
+	c.sendFn = func(d []byte) error {
+		_, err := fw.Write(d)
+		return err
+	}
+	c.handleLine([]byte(`{"id":"req_9","method":"item/commandExecution/requestApproval","params":{"itemId":"it1","threadId":"thr1","turnId":"tu1","command":"rm -rf build","reason":"clean"}}`))
+	ev := nextEvent(t, c)
+	if ev.Type != protocol.EventApprovalReq {
+		t.Fatalf("expected approval_request, got %s", ev.Type)
+	}
+	// No viewer answers: the request must time out into decline and settle the
+	// card on every viewer via approval_resolved (#171).
+	ev = nextEvent(t, c)
+	if ev.Type != protocol.EventApprovalResolved {
+		t.Fatalf("expected approval_resolved, got %s", ev.Type)
+	}
+	var p protocol.ApprovalResolvedPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.RequestID != "req_9" || p.Decision != "reject" {
+		t.Fatalf("unexpected resolution: %+v", p)
+	}
+	if !strings.Contains(fw.String(), `"decision":"decline"`) {
+		t.Fatalf("expected decline answered to app-server, got %s", fw.String())
+	}
+	if err := c.SendApproval("req_9", "approve"); err == nil {
+		t.Fatal("expected error for timed-out approval")
+	}
+}
+
 func TestPermissionsApproval(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	fw := &fakeWriteCloser{}

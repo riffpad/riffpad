@@ -99,6 +99,9 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   // Fate of queued approval_responses, keyed by approval requestId; consumed
   // by EventItem to move a card out of 待发送 (or mark it 已过期).
   const [approvalOutcomes, setApprovalOutcomes] = useState<Record<string, ApprovalOutcome>>({});
+  // Approvals settled by any viewer (or by a daemon timeout), keyed by
+  // requestId; fed by approval_resolved events, both live and replayed (#171).
+  const [resolvedApprovals, setResolvedApprovals] = useState<Record<string, string>>({});
   // outbox event id -> approval requestId, recorded when send() queues.
   const queuedApprovalsRef = useRef(new Map<string, string>());
   const [scroll, setScroll] = useState<{ can: boolean; top: boolean; bottom: boolean }>({ can: false, top: true, bottom: true });
@@ -131,6 +134,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     setAgentStatus("");
     setMeta({ cwd, cli });
     setApprovalOutcomes({});
+    setResolvedApprovals({});
     queuedApprovalsRef.current.clear();
     ensureIdentity()
       .then((dev) => {
@@ -156,6 +160,14 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
               // 已过期. The notify itself still renders as a status line below.
               const rid = String((ev.payload || {}).requestId || "");
               if (rid) setApprovalOutcomes((m) => ({ ...m, [rid]: "expired" }));
+            }
+            if (ev.type === "approval_resolved") {
+              // Settled by any viewer (or a daemon timeout): grey out the card
+              // everywhere. No timeline row — the card shows the outcome (#171).
+              const rp = ev.payload || {};
+              const rid = String(rp.requestId || "");
+              if (rid) setResolvedApprovals((m) => ({ ...m, [rid]: String(rp.decision || "") }));
+              return;
             }
             const tool = toolLineFromEvent(ev, t);
             if (tool) {
@@ -258,6 +270,12 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     const nearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 60 : true;
     const prepend: Row[] = [];
     for (const ev of batch) {
+      if (ev.type === "approval_resolved") {
+        // Replayed resolutions keep already-settled cards grey (#171).
+        const rid = String((ev.payload || {}).requestId || "");
+        if (rid) setResolvedApprovals((m) => ({ ...m, [rid]: String((ev.payload || {}).decision || "") }));
+        continue;
+      }
       const tool = toolLineFromEvent(ev, t);
       if (tool) {
         const cur = toolsRef.current;
@@ -350,6 +368,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
               key={row.id}
               ev={row.ev}
               outcomes={approvalOutcomes}
+              resolved={resolvedApprovals}
               send={async (type, payload) => {
                 if (!sockRef.current) return { status: "failed" as const, id: "" };
                 const res = await sockRef.current.send(type, payload);

@@ -396,20 +396,40 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	msg = protocol.Event{ID: protocol.NewID(), SessionID: sess.ID, Timestamp: time.Now().UnixMilli(), Type: protocol.EventApprovalResp, Payload: payload}
 	sendEncrypted(t, conn, sess.ID, key, msg)
 
-	ev = readEvent()
-	if ev.Type != protocol.EventAgentStatus {
-		t.Fatalf("expected agent_status after approval, got %s", ev.Type)
+	// The resolution broadcast and the adapter's own events race on the wire;
+	// collect everything until session_end and assert on the set (#171).
+	var gotResolved *protocol.ApprovalResolvedPayload
+	gotDone := false
+	gotEnd := false
+	for !gotEnd {
+		ev = readEvent()
+		switch ev.Type {
+		case protocol.EventApprovalResolved:
+			var arp protocol.ApprovalResolvedPayload
+			if err := ev.DecodePayload(&arp); err != nil {
+				t.Fatal(err)
+			}
+			gotResolved = &arp
+		case protocol.EventAgentStatus:
+			var st protocol.AgentStatusPayload
+			if err := ev.DecodePayload(&st); err != nil {
+				t.Fatal(err)
+			}
+			if st.Status == protocol.StatusDone {
+				gotDone = true
+			}
+		case protocol.EventSessionEnd:
+			gotEnd = true
+		}
 	}
-	var st protocol.AgentStatusPayload
-	if err := ev.DecodePayload(&st); err != nil {
-		t.Fatal(err)
+	if gotResolved == nil {
+		t.Fatal("expected approval_resolved broadcast after approval")
 	}
-	if st.Status != protocol.StatusDone {
-		t.Fatalf("expected done, got %s", st.Status)
+	if gotResolved.RequestID != "req-fake-1" || gotResolved.Decision != "approve" || gotResolved.DeviceID != pair.DeviceID {
+		t.Fatalf("unexpected approval_resolved: %+v", gotResolved)
 	}
-	ev = readEvent()
-	if ev.Type != protocol.EventSessionEnd {
-		t.Fatalf("expected session_end, got %s", ev.Type)
+	if !gotDone {
+		t.Fatal("expected agent_status done after approval")
 	}
 	if fake.lastDecision != "approve" {
 		t.Fatalf("unexpected decision %q", fake.lastDecision)

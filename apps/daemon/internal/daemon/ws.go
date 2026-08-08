@@ -291,6 +291,7 @@ func (s *Server) dispatch(c *client, ev protocol.Event) {
 			delete(s.pendingHooks, p.RequestID)
 			s.mu.Unlock()
 			ch <- decision
+			s.broadcastApprovalResolved(sess, p.RequestID, p.Decision, c.deviceID)
 			return
 		}
 		s.mu.Unlock()
@@ -307,7 +308,9 @@ func (s *Server) dispatch(c *client, ev protocol.Event) {
 			if nerr == nil {
 				c.sendEvent(note)
 			}
+			return
 		}
+		s.broadcastApprovalResolved(sess, p.RequestID, p.Decision, c.deviceID)
 	case protocol.EventPrompt:
 		var p protocol.PromptPayload
 		if err := ev.DecodePayload(&p); err != nil {
@@ -327,6 +330,25 @@ func (s *Server) dispatch(c *client, ev protocol.Event) {
 			}
 		}
 	}
+}
+
+// broadcastApprovalResolved records and fans out an approval_resolved event so
+// every viewer (and future history replays) sees the card as settled (#171).
+// deviceID is the viewer that sent the decision, empty for daemon-side
+// resolutions such as approval timeouts.
+func (s *Server) broadcastApprovalResolved(sess *session, requestID, decision, deviceID string) {
+	if decision != "approve" {
+		decision = "reject"
+	}
+	ev, err := protocol.NewEvent(sess.id, protocol.EventApprovalResolved, protocol.ApprovalResolvedPayload{
+		RequestID: requestID,
+		Decision:  decision,
+		DeviceID:  deviceID,
+	})
+	if err != nil {
+		return
+	}
+	s.pumpEvent(sess, ev)
 }
 
 func (s *Server) notifySession(sess *session, level, message string) {

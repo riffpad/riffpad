@@ -114,3 +114,38 @@ func TestPermissionRequestAndApproval(t *testing.T) {
 		t.Fatal("expected error for already-resolved approval")
 	}
 }
+
+func TestPermissionTimeoutDefaultsReject(t *testing.T) {
+	old := approvalTimeout
+	approvalTimeout = 50 * time.Millisecond
+	defer func() { approvalTimeout = old }()
+
+	k := New(adapter.CreateRequest{ID: "s1"})
+	fw := &fakeWriteCloser{}
+	k.stdin = fw
+	k.handleLine([]byte(`{"jsonrpc":"2.0","id":"perm_9","method":"session/request_permission","params":{"sessionId":"s1","toolCall":{"toolCallId":"t1","title":"Write file","kind":"write","rawInput":{"filePath":"/tmp/x"}},"options":[{"optionId":"allow","name":"Allow","kind":"allow_once"},{"optionId":"reject","name":"Reject","kind":"reject_once"}]}}`))
+	ev := nextEvent(t, k)
+	if ev.Type != protocol.EventApprovalReq {
+		t.Fatalf("expected approval_request, got %s", ev.Type)
+	}
+	// No viewer answers: the request must time out into a reject (never an
+	// allow fallback) and settle the card on every viewer (#171).
+	ev = nextEvent(t, k)
+	if ev.Type != protocol.EventApprovalResolved {
+		t.Fatalf("expected approval_resolved, got %s", ev.Type)
+	}
+	var p protocol.ApprovalResolvedPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.RequestID != "perm_9" || p.Decision != "reject" {
+		t.Fatalf("unexpected resolution: %+v", p)
+	}
+	if out := fw.String(); !strings.Contains(out, `"optionId":"reject"`) {
+		t.Fatalf("expected reject option answered to ACP server, got %s", out)
+	}
+	if err := k.SendApproval("perm_9", "approve"); err == nil {
+		t.Fatal("expected error for timed-out approval")
+	}
+}
+

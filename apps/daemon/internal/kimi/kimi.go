@@ -27,7 +27,13 @@ type pendingApproval struct {
 	action    string
 	summary   string
 	options   map[string]string // optionId -> name
+	kinds     map[string]string // optionId -> kind (allow_once / reject_once / ...)
 }
+
+// approvalTimeout bounds how long a permission prompt waits for a viewer
+// decision before defaulting to reject, mirroring the attach hook path.
+// A var so tests can shrink it.
+var approvalTimeout = 10 * time.Minute
 
 // Kimi is a Kimi Code session driven through the ACP stdio server.
 type Kimi struct {
@@ -213,24 +219,25 @@ func (k *Kimi) SendApproval(requestID, decision string) error {
 	if !ok {
 		return fmt.Errorf("no pending approval %s", requestID)
 	}
-	kind := "allow_once"
+	kind := "allow"
 	if decision == "reject" {
-		kind = "reject_once"
+		kind = "reject"
 	}
 	optionID := ""
 	for id, name := range p.options {
-		if decision == "reject" && strings.Contains(name, "Reject") {
+		// Prefer the protocol-level option kind; fall back to the display
+		// name for servers that don't send kinds.
+		ok := strings.HasPrefix(p.kinds[id], kind) ||
+			(p.kinds[id] == "" && decision == "reject" && strings.Contains(name, "Reject")) ||
+			(p.kinds[id] == "" && decision == "approve" && !strings.Contains(name, "Reject"))
+		if ok {
 			optionID = id
 			break
 		}
-		if decision == "approve" && !strings.Contains(name, "Reject") {
-			optionID = id
-			break
-		}
-		_ = kind
 	}
-	if optionID == "" {
-		// Fall back to the first option id.
+	if optionID == "" && decision == "approve" {
+		// Fall back to the first option id. Never do this for reject: a
+		// timeout default-deny must not silently turn into an allow.
 		for id := range p.options {
 			optionID = id
 			break
@@ -523,9 +530,11 @@ func (k *Kimi) handlePermissionRequest(id json.RawMessage, params json.RawMessag
 		requestID = strconv.Itoa(n)
 	}
 	options := map[string]string{}
+	kinds := map[string]string{}
 	optionNames := []string{}
 	for _, o := range req.Options {
 		options[o.OptionID] = o.Name
+		kinds[o.OptionID] = o.Kind
 		optionNames = append(optionNames, o.Name)
 	}
 	args := map[string]any{}
@@ -536,6 +545,7 @@ func (k *Kimi) handlePermissionRequest(id json.RawMessage, params json.RawMessag
 		action:    firstNonEmpty(req.ToolCall.Title, req.ToolCall.Kind),
 		summary:   summarizeTool(req.ToolCall.Title, args),
 		options:   options,
+		kinds:     kinds,
 	}
 	k.mu.Unlock()
 	_ = k.emit(protocol.EventApprovalReq, protocol.ApprovalRequestPayload{
@@ -545,6 +555,22 @@ func (k *Kimi) handlePermissionRequest(id json.RawMessage, params json.RawMessag
 		Options:   optionNames,
 		Args:      args,
 	})
+	// Default to reject when no viewer answers in time, mirroring the attach
+	// hook path; SendApproval deletes the pending entry, so a resolution that
+	// already happened wins the race and the timer turns into a no-op.
+	timeout := approvalTimeout
+	go func() {
+		select {
+		case <-time.After(timeout):
+			if err := k.SendApproval(requestID, "reject"); err == nil {
+				_ = k.emit(protocol.EventApprovalResolved, protocol.ApprovalResolvedPayload{
+					RequestID: requestID,
+					Decision:  "reject",
+				})
+			}
+		case <-k.stopCh:
+		}
+	}()
 }
 
 func (k *Kimi) flushMessage() {

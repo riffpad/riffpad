@@ -57,7 +57,8 @@ type session struct {
 	created  time.Time
 	connect  map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
 	mu       sync.Mutex
-	seq      uint64 // last assigned event sequence number (#173)
+	pumpMu   sync.Mutex // serializes pumpEvent across the pump, hook handlers, and viewer dispatch (#171)
+	seq      uint64     // last assigned event sequence number (#173)
 	history  []protocol.Event
 	clients  map[*client]struct{}
 }
@@ -598,13 +599,16 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			if sess.ended {
 				continue
 			}
+			sess.mu.Lock()
+			lastSeen := sess.lastSeen
+			sess.mu.Unlock()
 			list = append(list, map[string]any{
 				"id":       sess.id,
 				"name":     sess.meta.Name,
 				"cli":      sess.meta.CLI,
 				"cwd":      sess.meta.Cwd,
 				"status":   sess.status,
-				"lastSeen": sess.lastSeen,
+				"lastSeen": lastSeen,
 			})
 		}
 		s.mu.Unlock()
@@ -815,7 +819,11 @@ func (s *Server) pump(sess *session) {
 }
 
 func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
+	sess.pumpMu.Lock()
+	defer sess.pumpMu.Unlock()
+	sess.mu.Lock()
 	sess.lastSeen = time.Now()
+	sess.mu.Unlock()
 	if ev.Type == protocol.EventSessionEnd || ev.Type == protocol.EventAgentStatus {
 		var p protocol.AgentStatusPayload
 		_ = ev.DecodePayload(&p)

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
 	"github.com/riffpad/riffpad/packages/protocol"
@@ -25,6 +26,11 @@ type pendingTool struct {
 	name  string
 	input map[string]any
 }
+
+// approvalTimeout bounds how long a permission prompt waits for a viewer
+// decision before defaulting to deny, mirroring the attach hook path.
+// A var so tests can shrink it.
+var approvalTimeout = 10 * time.Minute
 
 // Claude is a wrapped Claude Code session speaking stream-json on stdio.
 type Claude struct {
@@ -503,10 +509,24 @@ func (c *Claude) handleControlRequest(requestID string, msg json.RawMessage) {
 		Summary:   summarize(cr.ToolUse.Name, cr.ToolUse.Input),
 		Options:   []string{"approve", "reject"},
 	})
+	timeout := approvalTimeout
 	go func() {
 		var decision string
 		select {
 		case decision = <-ch:
+		case <-time.After(timeout):
+			// No viewer answered in time: default to deny, mirroring the
+			// attach hook path. Drop the pending entry so a late
+			// SendApproval fails and the viewer gets an "expired" notify,
+			// and settle the card on every viewer (#171).
+			decision = "deny"
+			c.mu.Lock()
+			delete(c.pendingApprovals, requestID)
+			c.mu.Unlock()
+			_ = c.emit(protocol.EventApprovalResolved, protocol.ApprovalResolvedPayload{
+				RequestID: requestID,
+				Decision:  "reject",
+			})
 		case <-c.stopCh:
 			decision = "deny"
 		}

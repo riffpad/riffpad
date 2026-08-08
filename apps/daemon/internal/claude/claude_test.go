@@ -68,6 +68,40 @@ func TestHandleControlRequest(t *testing.T) {
 	}
 }
 
+func TestApprovalTimeoutDefaultsDeny(t *testing.T) {
+	old := approvalTimeout
+	approvalTimeout = 50 * time.Millisecond
+	defer func() { approvalTimeout = old }()
+
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"type":"control_request","request_id":"r9","message":{"type":"request_permission","tool_use":{"name":"Bash","input":{"command":"rm -rf build"}}}}`))
+	ev := <-c.Events()
+	if ev.Type != protocol.EventApprovalReq {
+		t.Fatalf("expected approval_request, got %s", ev.Type)
+	}
+	// No viewer answers: the wait must time out into deny and settle the card
+	// on every viewer via approval_resolved (#171).
+	select {
+	case ev := <-c.Events():
+		if ev.Type != protocol.EventApprovalResolved {
+			t.Fatalf("expected approval_resolved, got %s", ev.Type)
+		}
+		var p protocol.ApprovalResolvedPayload
+		if err := ev.DecodePayload(&p); err != nil {
+			t.Fatal(err)
+		}
+		if p.RequestID != "r9" || p.Decision != "reject" {
+			t.Fatalf("unexpected resolution: %+v", p)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("approval did not time out into a resolution")
+	}
+	// The pending entry is gone: a late answer fails instead of applying.
+	if err := c.SendApproval("r9", "approve"); err == nil {
+		t.Fatal("expected error for timed-out approval")
+	}
+}
+
 func TestResultEmitsStatusOnly(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	c.handleLine([]byte(`{"type":"result","subtype":"success","result":"done"}`))
