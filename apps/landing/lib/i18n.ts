@@ -197,6 +197,10 @@ const en = {
     title: "Stop babysitting the terminal.",
     description: "Open the app, pair your daemon, and approve from the subway instead of the desk chair.",
     button: "Get Started",
+    betaPrefix: "Riffpad is in beta —",
+    betaWaitlist: "join the waitlist",
+    betaOr: "or",
+    betaDiscord: "say hi on Discord.",
     note: "GitHub sign-in · end-to-end encrypted · zero-knowledge relay",
   },
   footer: {
@@ -411,6 +415,10 @@ const zh: typeof en = {
     title: "别再守在终端前面。",
     description: "打开 App、配对 daemon，从地铁上批准操作。",
     button: "开始使用",
+    betaPrefix: "Riffpad 正在 Beta 阶段 ——",
+    betaWaitlist: "加入 waitlist",
+    betaOr: "或",
+    betaDiscord: "来 Discord 找我们聊聊。",
     note: "GitHub 登录 · 端到端加密 · 零知识中继",
   },
   footer: {
