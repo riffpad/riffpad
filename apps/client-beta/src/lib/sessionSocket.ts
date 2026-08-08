@@ -10,9 +10,22 @@ import { getT } from "./i18n";
 import { isRelay, localTokenStore, relayStore } from "./store";
 import type { Device, RiffpadEvent } from "./types";
 
+// SendStatus tells the UI apart what used to be a single "true": the event
+// was written to the socket ("sent"), parked in the in-memory outbox until
+// the next reconnect ("queued"), or could not be handed to a socket at all
+// ("failed"). Approvals must never show "已批准" for anything but "sent"
+// (or a later successful flush).
+export type SendStatus = "sent" | "queued" | "failed";
+
+export interface SendResult {
+  status: SendStatus;
+  // id of the queued/sent event; correlates with onOutbox callbacks.
+  id: string;
+}
+
 export interface SessionSocket {
   close(): void;
-  send(type: string, payload: Record<string, unknown>): Promise<boolean>;
+  send(type: string, payload: Record<string, unknown>): Promise<SendResult>;
   requestHistory(before: string, limit: number): boolean;
 }
 
@@ -22,6 +35,9 @@ export interface SocketHandlers {
   onError(message: string): void;
   onFatal?(message: string): void;
   onHistory?(events: RiffpadEvent[]): void;
+  // onOutbox reports the fate of a queued event: "flushed" once it was
+  // written after a reconnect, "dropped" when close() discards it.
+  onOutbox?(id: string, status: "flushed" | "dropped"): void;
 }
 
 // Outbox keeps outgoing events that could not be written while the socket was
@@ -161,6 +177,7 @@ export async function openSessionSocket(
       }
       try {
         await writeEvent(ev);
+        handlers.onOutbox?.(ev.id, "flushed");
       } catch {
         outbox.push(ev);
         break;
@@ -246,10 +263,12 @@ export async function openSessionSocket(
     close() {
       closed = true;
       window.clearInterval(watchdog);
-      outbox.clear();
+      // Queued events die with the socket (e.g. the tab is closed): tell the
+      // UI each one was dropped so it can show 未送达 instead of 已批准.
+      for (const ev of outbox.drain()) handlers.onOutbox?.(ev.id, "dropped");
       ws?.close();
     },
-    async send(type: string, payload: Record<string, unknown>): Promise<boolean> {
+    async send(type: string, payload: Record<string, unknown>): Promise<SendResult> {
       const ev = {
         id: String(Date.now()) + Math.random().toString(16).slice(2),
         sessionId: sid,
@@ -259,14 +278,15 @@ export async function openSessionSocket(
       };
       if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) {
         outbox.push(ev);
-        return true;
+        return { status: "queued", id: ev.id };
       }
       try {
         await writeEvent(ev);
+        return { status: "sent", id: ev.id };
       } catch {
         outbox.push(ev);
+        return { status: "queued", id: ev.id };
       }
-      return true;
     },
     requestHistory(before: string, limit: number): boolean {
       if (!ws || ws.readyState !== WebSocket.OPEN) return false;

@@ -1109,6 +1109,15 @@ button.github {
   background: transparent;
 }
 .approval-card.done { border-left-color: var(--success); }
+.approval-card.pending { border-left-color: var(--warning); }
+.approval-card.expired { border-left-color: var(--chat-mute); opacity: 0.75; }
+.approval-note {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.approval-note.pending { color: var(--warning); }
+.approval-note.failed { color: var(--chat-danger); }
+.approval-note.expired { color: var(--chat-mute); }
 .approval-summary {
   font-size: 13px;
   color: var(--chat-fg);

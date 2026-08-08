@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
+import { b64u } from "./crypto";
 import {
   dedupeEvent,
   openSessionSocket,
@@ -147,5 +148,107 @@ describe("silence watchdog", () => {
     }
     expect(ws.closedByUs).toBe(false);
     sock.close();
+  });
+});
+
+// Outbox send-status tests: an approval tapped while the socket is down must
+// come back "queued" (never a fake success), resolve via onOutbox once the
+// reconnect flushes it, and surface as "dropped" when close() discards it.
+// These use real timers because the hello handshake awaits real crypto ops.
+describe("outbox send status", () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // makeDevice builds a paired device plus the server ephemeral key a fake
+  // daemon would use, so tests can drive the hello handshake themselves.
+  async function makeDevice() {
+    const serverIdentity = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" },
+      true,
+      ["deriveBits"],
+    );
+    const serverPub = b64u(await crypto.subtle.exportKey("raw", serverIdentity.publicKey));
+    const devIdentity = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" },
+      true,
+      ["deriveBits"],
+    );
+    const jwk = await crypto.subtle.exportKey("jwk", devIdentity.privateKey);
+    const serverEph = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" },
+      true,
+      ["deriveBits"],
+    );
+    return { dev: { deviceId: "d1", serverPub, jwk } as Device, serverEph };
+  }
+
+  function collectOutbox() {
+    const events: { id: string; status: string }[] = [];
+    const handlers = {
+      onConn: () => {},
+      onEvent: () => {},
+      onError: () => {},
+      onOutbox: (id: string, status: "flushed" | "dropped") => events.push({ id, status }),
+    };
+    return { events, handlers };
+  }
+
+  async function settle() {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+
+  it("returns queued instead of a fake success while the socket is not ready", async () => {
+    const { dev } = await makeDevice();
+    const { events, handlers } = collectOutbox();
+    const sock = await openSessionSocket("s1", dev, handlers);
+    await settle(); // ws open microtask; no hello yet, so no session key
+
+    const res = await sock.send("approval_response", { requestId: "r1", decision: "approve" });
+    expect(res.status).toBe("queued");
+    expect(res.id).toBeTruthy();
+    expect(FakeWebSocket.instances[0].sent).toHaveLength(0);
+    expect(events).toHaveLength(0);
+    sock.close();
+  });
+
+  it("flushes queued events after reconnect hello and reports them", async () => {
+    const { dev, serverEph } = await makeDevice();
+    const { events, handlers } = collectOutbox();
+    const sock = await openSessionSocket("s1", dev, handlers);
+    await settle();
+    const ws = FakeWebSocket.instances[0];
+
+    const res = await sock.send("approval_response", { requestId: "r1", decision: "approve" });
+    expect(res.status).toBe("queued");
+
+    // The daemon answers with hello; the client derives the session key and
+    // flushes the outbox through the now-open socket.
+    const serverEphPub = b64u(await crypto.subtle.exportKey("raw", serverEph.publicKey));
+    ws.emit(JSON.stringify({ kind: "hello", serverEphPub }));
+    await vi.waitFor(() => expect(ws.sent).toHaveLength(1));
+    expect(events).toEqual([{ id: res.id, status: "flushed" }]);
+    const written = JSON.parse(ws.sent[0]);
+    expect(written.kind).toBe("event");
+    sock.close();
+  });
+
+  it("reports queued events as dropped when close() discards the outbox", async () => {
+    const { dev } = await makeDevice();
+    const { events, handlers } = collectOutbox();
+    const sock = await openSessionSocket("s1", dev, handlers);
+    await settle();
+
+    const res = await sock.send("approval_response", { requestId: "r1", decision: "approve" });
+    expect(res.status).toBe("queued");
+
+    sock.close(); // user kills the tab while offline
+    expect(events).toEqual([{ id: res.id, status: "dropped" }]);
   });
 });

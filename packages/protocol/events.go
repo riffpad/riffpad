@@ -107,6 +107,9 @@ type ControlPayload struct {
 type NotifyPayload struct {
 	Level   string `json:"level"` // info | waiting | completed | error
 	Message string `json:"message"`
+	// RequestID is set when the notify refers to a specific approval request,
+	// e.g. the daemon rejecting a late approval_response as expired.
+	RequestID string `json:"requestId,omitempty"`
 }
 
 // NewID returns a random 16-byte hex identifier.
