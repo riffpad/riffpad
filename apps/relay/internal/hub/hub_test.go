@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -348,6 +349,159 @@ func TestPairForeignOwnerReturnsGenericError(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("owner pair status %d", resp.StatusCode)
+	}
+}
+
+// createPairingCode brings the host online over a throwaway WebSocket and
+// creates a pairing code. Pairing itself does not require the host to stay
+// online, so the connection is closed before returning.
+func createPairingCode(t *testing.T, ts *httptest.Server, token, hostID, hostSecret string) string {
+	t.Helper()
+	hostURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/host?hostId=" + hostID + "&token=" + hostSecret
+	hc, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := authPost(ts, "/api/pairings", token, `{"hostId":"`+hostID+`","curve":"p256","publicKey":"AAA"}`)
+	_ = hc.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var pr struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil || pr.Code == "" {
+		t.Fatalf("create pairing failed (status %d): %v", resp.StatusCode, err)
+	}
+	return pr.Code
+}
+
+// TestPairConcurrentSameCode fires simultaneous pair attempts at a single
+// code: exactly one may create a device, the rest must get pairing_code_used.
+func TestPairConcurrentSameCode(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "alice")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+	code := createPairingCode(t, ts, token, hostID, hostSecret)
+
+	const n = 6
+	statuses := make([]int, n)
+	errCodes := make([]string, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			resp, err := authPost(ts, "/api/pair", token, `{"code":"`+code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer resp.Body.Close()
+			var out struct {
+				Code string `json:"code"`
+			}
+			_ = json.NewDecoder(resp.Body).Decode(&out)
+			statuses[i] = resp.StatusCode
+			errCodes[i] = out.Code
+		}(i)
+	}
+	wg.Wait()
+
+	ok, used := 0, 0
+	for i := range statuses {
+		switch {
+		case statuses[i] == http.StatusOK:
+			ok++
+		case statuses[i] == http.StatusConflict && errCodes[i] == "pairing_code_used":
+			used++
+		default:
+			t.Errorf("attempt %d: status %d code %q", i, statuses[i], errCodes[i])
+		}
+	}
+	if ok != 1 || used != n-1 {
+		t.Fatalf("concurrent pair: ok=%d used=%d, want 1 and %d", ok, used, n-1)
+	}
+
+	// Exactly one device was created.
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/devices", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var dl struct {
+		Devices []json.RawMessage `json:"devices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&dl); err != nil {
+		t.Fatal(err)
+	}
+	if len(dl.Devices) != 1 {
+		t.Fatalf("devices after concurrent pair: %d, want 1", len(dl.Devices))
+	}
+}
+
+// TestPairUsedCodeDistinctError: a consumed code gets a distinct 409 +
+// pairing_code_used, while an unknown code keeps the generic 401.
+func TestPairUsedCodeDistinctError(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "alice")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+	code := createPairingCode(t, ts, token, hostID, hostSecret)
+
+	pair := func(code string) (int, string, string) {
+		resp, err := authPost(ts, "/api/pair", token, `{"code":"`+code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			Error string `json:"error"`
+			Code  string `json:"code"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&out)
+		return resp.StatusCode, out.Error, out.Code
+	}
+
+	if st, _, _ := pair(code); st != http.StatusOK {
+		t.Fatalf("first pair status %d", st)
+	}
+	st, _, errCode := pair(code)
+	if st != http.StatusConflict || errCode != "pairing_code_used" {
+		t.Fatalf("reused code: status %d code %q, want 409 pairing_code_used", st, errCode)
+	}
+	st, msg, errCode := pair("ZZZZZZ")
+	if st != http.StatusUnauthorized || errCode != "" || msg != "invalid or expired pairing code" {
+		t.Fatalf("wrong code: status %d error %q code %q, want generic 401", st, msg, errCode)
+	}
+}
+
+// TestPairingSurvivesRestart: pairing codes live in the database, so a relay
+// restart (deploy) does not invalidate in-flight codes.
+func TestPairingSurvivesRestart(t *testing.T) {
+	h, ts := newTestHub(t)
+	token := registerUser(t, ts, "dave")
+	hostID, hostSecret := registerHost(t, ts, token, "laptop")
+	code := createPairingCode(t, ts, token, hostID, hostSecret)
+	ts.Close()
+
+	// "Restart": a new Hub over the same data directory.
+	h2, err := New(log.New(io.Discard, "", 0), h.dataDir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts2 := httptest.NewServer(h2.Handler())
+	defer ts2.Close()
+
+	resp, err := authPost(ts2, "/api/pair", token, `{"code":"`+code+`","name":"phone","curve":"p256","publicKey":"BBB"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("pair after restart: status %d", resp.StatusCode)
 	}
 }
 

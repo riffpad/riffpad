@@ -13,6 +13,11 @@ export async function ensureIdentity(): Promise<Device> {
   return dev;
 }
 
+// PairingCodeUsedError marks the relay's pairing_code_used response so the
+// pair view can show a localized "already used, generate a new code" message
+// instead of the generic invalid-code error.
+export class PairingCodeUsedError extends Error {}
+
 export async function pairDevice(code: string): Promise<Device> {
   const dev = await ensureIdentity();
   const raw = jwkToRaw(dev.jwk);
@@ -21,7 +26,10 @@ export async function pairDevice(code: string): Promise<Device> {
     body: JSON.stringify({ code, name: deviceDisplayName(), curve: "p256", publicKey: b64u(raw) }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "配对失败");
+  if (!res.ok) {
+    if (data?.code === "pairing_code_used") throw new PairingCodeUsedError();
+    throw new Error(data.error || "配对失败");
+  }
   dev.deviceId = data.deviceId;
   dev.serverPub = data.serverPublicKey;
   deviceStore.set(dev);

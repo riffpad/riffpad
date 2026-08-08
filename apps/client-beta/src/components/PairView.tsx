@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { pairDevice } from "../lib/device";
+import { pairDevice, PairingCodeUsedError } from "../lib/device";
 import { useI18n } from "../lib/i18n";
 import DotMatrix from "./DotMatrix";
 import PinInput from "./PinInput";
@@ -87,7 +87,7 @@ export default function PairView({ onPaired }: { onPaired: () => void }) {
       await pairDevice(clean);
       onPaired();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(e instanceof PairingCodeUsedError ? t("pair_code_used") : e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   }, [onPaired]);
