@@ -295,7 +295,7 @@ func (s *Server) dispatch(c *client, ev protocol.Event) {
 			return
 		}
 		s.mu.Unlock()
-		if err := sess.adapter.SendApproval(p.RequestID, decision); err != nil {
+		if err := sess.getAdapter().SendApproval(p.RequestID, decision); err != nil {
 			// The request is unknown to the daemon (hook timed out or already
 			// handled): ack the sending viewer so it can correct its UI instead
 			// of leaving a "已批准" card that never took effect.
@@ -316,7 +316,7 @@ func (s *Server) dispatch(c *client, ev protocol.Event) {
 		if err := ev.DecodePayload(&p); err != nil {
 			return
 		}
-		if err := sess.adapter.SendPrompt(p.Text); err != nil {
+		if err := sess.getAdapter().SendPrompt(p.Text); err != nil {
 			s.notifySession(sess, "error", "指令发送失败："+err.Error())
 		}
 	case protocol.EventControl:
@@ -325,7 +325,7 @@ func (s *Server) dispatch(c *client, ev protocol.Event) {
 			return
 		}
 		if p.Action == "stop" {
-			if err := sess.adapter.Stop(); err != nil {
+			if err := sess.getAdapter().Stop(); err != nil {
 				s.notifySession(sess, "error", "停止失败："+err.Error())
 			}
 		}

@@ -43,6 +43,15 @@ func (a *attachAdapter) Stop() error { return nil }
 // viewer decision before defaulting to deny. A var so tests can shrink it.
 var approvalHookTimeout = 10 * time.Minute
 
+// attachIdleTimeout bounds how long an attach session may go without any hook
+// event before the sweeper marks it ended (#170). Hook activity is the only
+// liveness signal for a claude process running in the user's own tmux; after
+// `kill -9` the SessionEnd hook never fires, so without this the session
+// would stay "running" forever. 30min is long enough that normal thinking
+// pauses never trip it; if it does trip while claude is merely idle, the next
+// hook revives the session in attachSession. A var so tests can shrink it.
+var attachIdleTimeout = 30 * time.Minute
+
 // hookPayload is the common shape of Claude Code hook input JSON.
 type hookPayload struct {
 	HookEventName string         `json:"hook_event_name"`
@@ -121,20 +130,57 @@ func (p *hookPayload) summary() string {
 // lazily on first hook activity.
 func (s *Server) attachSession(claudeSID, cwd string) *session {
 	s.mu.Lock()
-	if sess, ok := s.sessions[claudeSID]; ok {
-		s.mu.Unlock()
+	sess, ok := s.sessions[claudeSID]
+	s.mu.Unlock()
+	if ok {
+		sess.mu.Lock()
+		_, restored := sess.adapter.(*restoredAdapter)
+		ended := sess.ended
+		if restored {
+			// The agent outlived a daemon restart (#170): the real claude
+			// process is still running in the user's terminal and its hooks
+			// keep firing. Swap the read-only restoredAdapter for a live
+			// attachAdapter in place so prompts/approvals work again.
+			sess.adapter = &attachAdapter{server: s, cwd: cwd}
+		}
+		if restored || ended {
+			// Any hook proves the agent is alive: revive sessions previously
+			// marked ended (e.g. by the sweeper's idle timeout while the user
+			// simply left claude open).
+			sess.status = protocol.StatusRunning
+			sess.ended = false
+			sess.lastSeen = time.Now()
+		}
+		sess.mu.Unlock()
+		if restored {
+			s.log.Printf("reattached session %s: restored adapter swapped for live attach adapter", claudeSID)
+		} else if ended {
+			s.log.Printf("session %s revived by hook activity", claudeSID)
+		}
+		if restored || ended {
+			s.persistSession(sess)
+			s.announceSessions()
+		}
 		return sess
 	}
 	name := claudeSID
 	if cwd != "" {
 		name = filepath.Base(cwd)
 	}
-	sess := &session{
-		id:      claudeSID,
-		meta:    protocol.SessionStartPayload{Name: name, CLI: "claude (attach)", Cwd: cwd},
-		adapter: &attachAdapter{server: s, cwd: cwd},
-		status:  protocol.StatusRunning,
-		clients: map[*client]struct{}{},
+	sess = &session{
+		id:       claudeSID,
+		meta:     protocol.SessionStartPayload{Name: name, CLI: "claude (attach)", Cwd: cwd},
+		adapter:  &attachAdapter{server: s, cwd: cwd},
+		status:   protocol.StatusRunning,
+		lastSeen: time.Now(),
+		clients:  map[*client]struct{}{},
+	}
+	s.mu.Lock()
+	if existing, ok := s.sessions[claudeSID]; ok {
+		// Lost a creation race with a concurrent hook: fall back to the
+		// existing session (revive path above handles restored/ended).
+		s.mu.Unlock()
+		return existing
 	}
 	s.sessions[claudeSID] = sess
 	s.mu.Unlock()

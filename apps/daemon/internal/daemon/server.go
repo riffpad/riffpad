@@ -51,9 +51,15 @@ type session struct {
 	events   <-chan protocol.Event
 	status   string
 	ended    bool
+	managed  bool      // daemon spawned the agent process: Shutdown reclaims it (#170)
 	lease    bool      // local TUI attached: session closes when heartbeat lapses
 	lastHB   time.Time // last lease heartbeat from the local CLI
-	lastSeen time.Time // last event activity (for dashboard "recent" display)
+	// leaseMissed records that the previous sweep already saw the lease
+	// expired; the session is closed only when two consecutive sweeps see no
+	// heartbeat, so a post-sleep sweep racing the heartbeat can't kill a live
+	// TUI (#170). Reset by every heartbeat.
+	leaseMissed bool
+	lastSeen    time.Time // last event activity (for dashboard "recent" display)
 	created  time.Time
 	connect  map[string]string // adapter connect info for restart recovery (e.g. codex socket/threadId)
 	mu       sync.Mutex
@@ -61,6 +67,15 @@ type session struct {
 	seq      uint64     // last assigned event sequence number (#173)
 	history  []protocol.Event
 	clients  map[*client]struct{}
+}
+
+// getAdapter returns the session's adapter under sess.mu. The adapter can be
+// swapped in place when a restored session is re-attached by hook activity
+// (#170), so readers must not cache sess.adapter without the lock.
+func (sess *session) getAdapter() adapter.Session {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	return sess.adapter
 }
 
 // Server is the local daemon HTTP/WS server.
@@ -317,6 +332,22 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	case <-s.sweepDone:
 	default:
 		close(s.sweepDone)
+	}
+	// Reclaim agent processes the daemon itself spawned (#170): their Start
+	// ctx is context.Background(), so without this they outlive the daemon as
+	// orphans and pending approvals hang forever. Attach sessions run in the
+	// user's own tmux/terminal — never kill those.
+	s.mu.Lock()
+	sessions := make([]*session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		sessions = append(sessions, sess)
+	}
+	s.mu.Unlock()
+	for _, sess := range sessions {
+		if sess.managed && !sess.ended {
+			s.log.Printf("shutdown: stopping spawned session %s", sess.id)
+			_ = sess.getAdapter().Stop()
+		}
 	}
 	if s.httpSrv == nil {
 		return nil
@@ -668,6 +699,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		events:   sessAdapter.Events(),
 		status:   protocol.StatusRunning,
 		ended:    false,
+		managed:  true, // spawned by the daemon: Shutdown reclaims the process
 		created:  time.Now(),
 		lastSeen: time.Now(),
 		clients:  map[*client]struct{}{},
@@ -745,6 +777,7 @@ func (s *Server) handleSessionHeartbeat(w http.ResponseWriter, id string) {
 	if ok {
 		sess.lease = true
 		sess.lastHB = time.Now()
+		sess.leaseMissed = false
 	}
 	s.mu.Unlock()
 	if !ok {
@@ -768,7 +801,7 @@ func (s *Server) stopSession(id string) {
 	sess.ended = true
 	s.persistSession(sess)
 	s.announceSessions()
-	_ = sess.adapter.Stop()
+	_ = sess.getAdapter().Stop()
 	s.log.Printf("session %s stopped", id)
 }
 
@@ -783,7 +816,7 @@ func (s *Server) handleSessionConnect(w http.ResponseWriter, r *http.Request, id
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
-	ci, ok := sess.adapter.(interface {
+	ci, ok := sess.getAdapter().(interface {
 		ConnectInfo() (socket string, threadID string, err error)
 	})
 	if !ok {
@@ -867,7 +900,19 @@ func (s *Server) sweepOnce() {
 		s.mu.Lock()
 		leaseExpired := sess.lease && time.Since(sess.lastHB) > 20*time.Second
 		alreadyEnded := sess.ended
+		// Grace period (#170): after a system sleep the sweep ticker and the
+		// TUI heartbeat come due at the same time and the sweep can win the
+		// race, killing a session whose TUI is still open. Require the lease
+		// to stay expired across two consecutive sweeps before closing.
+		grace := leaseExpired && !alreadyEnded && !sess.leaseMissed
+		if grace {
+			sess.leaseMissed = true
+		}
 		s.mu.Unlock()
+		if grace {
+			s.log.Printf("session %s lease expired; granting one sweep period before closing", sess.id)
+			continue
+		}
 		if leaseExpired && !alreadyEnded {
 			s.log.Printf("session %s lease expired (no local TUI heartbeat); closing", sess.id)
 			s.stopSession(sess.id)
@@ -876,7 +921,26 @@ func (s *Server) sweepOnce() {
 		if sess.status != protocol.StatusRunning {
 			continue
 		}
-		if !sess.adapter.Alive() {
+		if _, isAttach := sess.getAdapter().(*attachAdapter); isAttach {
+			// attachAdapter.Alive is always true (the process lives in the
+			// user's tmux), so a `kill -9` on claude — where the SessionEnd
+			// hook never fires — would otherwise leave the session "running"
+			// forever. Hook activity is the only liveness signal we have; if
+			// none arrived within attachIdleTimeout, mark the session ended.
+			// False positives (user left claude idle) are harmless: the next
+			// hook revives the session in attachSession (#170).
+			sess.mu.Lock()
+			idleFor := time.Since(sess.lastSeen)
+			sess.mu.Unlock()
+			if idleFor > attachIdleTimeout {
+				ev, _ := protocol.NewEvent(sess.id, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: "no_activity"})
+				s.pumpEvent(sess, ev)
+				s.log.Printf("session %s marked ended (no hook activity for %s)", sess.id, idleFor.Round(time.Second))
+				s.announceSessions()
+			}
+			continue
+		}
+		if !sess.getAdapter().Alive() {
 			ev, _ := protocol.NewEvent(sess.id, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: "process_exit"})
 			s.pumpEvent(sess, ev)
 			s.log.Printf("session %s marked ended (process gone)", sess.id)

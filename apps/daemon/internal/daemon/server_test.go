@@ -482,18 +482,162 @@ func TestLeaseExpiryClosesSession(t *testing.T) {
 	}
 	srv.sessions["lease-1"] = sess
 
+	// First sweep after expiry only marks the lease as missed (#170 grace
+	// period: a post-sleep sweep can race the TUI heartbeat).
 	srv.sweepOnce()
 
 	srv.mu.Lock()
 	_, stillThere := srv.sessions["lease-1"]
 	srv.mu.Unlock()
+	if !stillThere {
+		t.Fatal("first sweep after lease expiry should grant a grace period, not close")
+	}
+	select {
+	case <-fake.stopCalled:
+		t.Fatal("adapter.Stop must not be called on the first expired sweep")
+	default:
+	}
+
+	// A second consecutive sweep without heartbeat closes the session.
+	srv.sweepOnce()
+
+	srv.mu.Lock()
+	_, stillThere = srv.sessions["lease-1"]
+	srv.mu.Unlock()
 	if stillThere {
-		t.Fatal("expired-lease session should have been removed")
+		t.Fatal("expired-lease session should have been removed after two sweeps")
 	}
 	select {
 	case <-fake.stopCalled:
 	default:
 		t.Fatal("expected adapter.Stop to be called")
+	}
+}
+
+// TestLeaseGraceResetByHeartbeat covers the laptop-lid scenario (#170): the
+// machine sleeps, the sweep and the heartbeat both come due, and the sweep
+// runs first. The grace strike must be cleared by the heartbeat so the next
+// sweep starts over instead of closing a live TUI session.
+func TestLeaseGraceResetByHeartbeat(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	fake := &fakeSession{
+		id:         "lease-2",
+		events:     make(chan protocol.Event, 4),
+		approvals:  make(chan string, 1),
+		prompts:    make(chan string, 1),
+		stopCalled: make(chan struct{}, 1),
+	}
+	srv.sessions["lease-2"] = &session{
+		id:      "lease-2",
+		meta:    fake.Meta(),
+		adapter: fake,
+		events:  fake.events,
+		status:  protocol.StatusRunning,
+		lease:   true,
+		lastHB:  time.Now().Add(-30 * time.Second),
+		clients: map[*client]struct{}{},
+	}
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	alive := func() bool {
+		srv.mu.Lock()
+		defer srv.mu.Unlock()
+		_, ok := srv.sessions["lease-2"]
+		return ok
+	}
+	stale := func() {
+		srv.mu.Lock()
+		srv.sessions["lease-2"].lastHB = time.Now().Add(-30 * time.Second)
+		srv.mu.Unlock()
+	}
+
+	// Sweep wins the post-sleep race: strike one, session survives.
+	srv.sweepOnce()
+	if !alive() {
+		t.Fatal("first expired sweep must not close the session")
+	}
+	// The TUI heartbeat arrives right after: the strike must be cleared.
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/sessions/lease-2/heartbeat", cfg.LocalToken, nil)
+	resp.Body.Close()
+	srv.mu.Lock()
+	missed := srv.sessions["lease-2"].leaseMissed
+	srv.mu.Unlock()
+	if missed {
+		t.Fatal("heartbeat should clear the grace strike")
+	}
+	// The machine sleeps again; the next expiry must again need two sweeps.
+	stale()
+	srv.sweepOnce()
+	if !alive() {
+		t.Fatal("after a heartbeat the grace period must start over")
+	}
+	srv.sweepOnce()
+	if alive() {
+		t.Fatal("two consecutive expired sweeps without heartbeat should close the session")
+	}
+}
+
+// TestShutdownStopsManagedSessions covers #170: daemon shutdown must reclaim
+// agent processes it spawned (they run on context.Background()), while attach
+// sessions — claude running in the user's own tmux — are left alone.
+func TestShutdownStopsManagedSessions(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+
+	fake := &fakeSession{
+		id:         "managed-1",
+		events:     make(chan protocol.Event, 4),
+		approvals:  make(chan string, 1),
+		prompts:    make(chan string, 1),
+		stopCalled: make(chan struct{}, 1),
+	}
+	srv.sessions["managed-1"] = &session{
+		id:      "managed-1",
+		meta:    fake.Meta(),
+		adapter: fake,
+		events:  fake.events,
+		status:  protocol.StatusRunning,
+		managed: true,
+		clients: map[*client]struct{}{},
+	}
+	// An attach session and a restored session must not be touched (their
+	// Stop is a no-op anyway; this pins the managed-only selection).
+	srv.sessions["attach-1"] = &session{
+		id:      "attach-1",
+		adapter: &attachAdapter{server: srv},
+		status:  protocol.StatusRunning,
+		clients: map[*client]struct{}{},
+	}
+	srv.sessions["restored-1"] = &session{
+		id:      "restored-1",
+		adapter: &restoredAdapter{id: "restored-1"},
+		status:  "restored",
+		clients: map[*client]struct{}{},
+	}
+
+	if err := srv.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-fake.stopCalled:
+	default:
+		t.Fatal("shutdown should stop daemon-spawned sessions")
 	}
 }
 
