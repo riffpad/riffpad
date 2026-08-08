@@ -33,9 +33,8 @@ import (
 	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
 	"github.com/riffpad/riffpad/apps/daemon/internal/i18n"
 	"github.com/riffpad/riffpad/apps/daemon/internal/logging"
+	"github.com/riffpad/riffpad/apps/daemon/internal/version"
 )
-
-const version = "0.2.0"
 
 const updateRepo = "riffpad/riffpad"
 
@@ -150,7 +149,7 @@ func main() {
 	case "update":
 		err = updateCmd(os.Args[2:], dataDir)
 	case "version":
-		fmt.Println("riffpad", version)
+		fmt.Println("riffpad", version.Version)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -1317,13 +1316,13 @@ func updateCmd(args []string, dataDir string) error {
 	noRestart := fs.Bool("no-restart", false, "do not restart the daemon after updating")
 	_ = fs.Parse(args)
 
-	fmt.Println(t.T("update_current", version))
+	fmt.Println(t.T("update_current", version.Version))
 	latest, err := latestReleaseTag()
 	if err != nil {
 		return err
 	}
 	fmt.Println(t.T("update_latest", latest))
-	if !*force && compareVersions(version, latest) >= 0 {
+	if !*force && compareVersions(version.Version, latest) >= 0 {
 		fmt.Println(t.T("update_up_to_date"))
 		return nil
 	}

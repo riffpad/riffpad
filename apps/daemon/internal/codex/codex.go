@@ -27,6 +27,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
+	"github.com/riffpad/riffpad/apps/daemon/internal/version"
 	"github.com/riffpad/riffpad/packages/protocol"
 )
 
@@ -176,7 +177,7 @@ func (c *Codex) spawn(ctx context.Context) error {
 		return err
 	}
 	_ = c.request("initialize", map[string]any{
-		"clientInfo": map[string]any{"name": "riffpad", "version": "0.1.0"},
+		"clientInfo": map[string]any{"name": "riffpad", "version": version.Version},
 	})
 	return nil
 }

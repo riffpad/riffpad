@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
+	"github.com/riffpad/riffpad/apps/daemon/internal/version"
 	"github.com/riffpad/riffpad/packages/protocol"
 )
 
@@ -161,7 +162,7 @@ func (k *Kimi) spawn(ctx context.Context) error {
 			"fs":       map[string]any{"readTextFile": false, "writeTextFile": false},
 			"terminal": false,
 		},
-		"clientInfo": map[string]any{"name": "riffpad", "version": "0.1.0"},
+		"clientInfo": map[string]any{"name": "riffpad", "version": version.Version},
 	})
 	return nil
 }
