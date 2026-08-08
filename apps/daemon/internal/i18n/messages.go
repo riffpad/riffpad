@@ -12,9 +12,7 @@ Usage:
                                 --local allows a local-only code without login)
   riffpad sessions              list sessions
   riffpad auth                  show the logged-in relay account
-  riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
-  riffpad attach                inject Claude Code hooks so the daemon captures your own CLI session
-  riffpad detach                remove injected hooks
+  riffpad run [codex|claude|kimi] [--name N] [--prompt P] [--cwd D]
   riffpad login [--url wss://…]  log in to Riffpad cloud (GitHub OAuth by default;
                                 --username … for password login)
   riffpad logout                clear the saved login token
@@ -94,7 +92,8 @@ Usage:
 		"unsupported_cli":             "unsupported cli %q",
 		"usage_daemon":                "usage: riffpad daemon start|stop|restart",
 		"usage_login":                 "usage: riffpad login [--url wss://…] | riffpad logout",
-		"usage_run":                   "usage: riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]",
+		"usage_run":                   "usage: riffpad run [codex|claude|kimi] [--name N] [--prompt P] [--cwd D]",
+		"attach_deprecated":           "Attach mode is deprecated and disabled. Use `riffpad run --cli claude` instead.",
 	},
 	"zh": {
 		"usage": `riffpad — AI agent 远程遥控
@@ -107,10 +106,8 @@ Usage:
                                 --local 允许未登录时生成仅本机可用的码）
   riffpad sessions              列出会话
   riffpad auth                  查看当前登录的 relay 账号
-  riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]
+  riffpad run [codex|claude|kimi] [--name N] [--prompt P] [--cwd D]
                                 创建并启动会话
-  riffpad attach                注入 Claude Code hooks，让 daemon 捕获你自己启动的会话
-  riffpad detach                移除注入的 hooks
   riffpad login [--url wss://…]  登录 Riffpad 云服务（默认 GitHub 授权；
                                 --username … 使用密码登录）
   riffpad logout                清除登录 token
@@ -190,6 +187,7 @@ Usage:
 		"unsupported_cli":             "不支持的 CLI %q",
 		"usage_daemon":                "用法：riffpad daemon start|stop|restart",
 		"usage_login":                 "用法：riffpad login [--url wss://…] | riffpad logout",
-		"usage_run":                   "用法：riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude|kimi|codex]",
+		"usage_run":                   "用法：riffpad run [codex|claude|kimi] [--name N] [--prompt P] [--cwd D]",
+		"attach_deprecated":           "附着模式已弃用并关闭。请改用 `riffpad run --cli claude`。",
 	},
 }
