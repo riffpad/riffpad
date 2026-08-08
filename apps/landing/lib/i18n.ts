@@ -8,7 +8,13 @@ const en = {
       "Riffpad bridges Claude Code, Codex and other CLI agents to your phone — watch progress, approve actions and steer sessions without staying chained to the desk.",
     ctaPrimary: "Get Started",
     ctaSecondary: "Read the docs",
-    note: "local daemon · end-to-end encrypted · zero-knowledge relay",
+    betaPrefix: "Riffpad is in beta —",
+    betaWaitlist: "join the waitlist",
+    betaPlaceholder: "you@email.com",
+    betaOr: "or",
+    betaDiscord: "say hi on Discord.",
+    betaSuccess: "You're on the list ✓",
+    betaError: "Couldn't sign you up — try again.",
   },
   install: {
     unix: "macOS / Linux",
@@ -32,7 +38,7 @@ const en = {
     moreClis: "and more…",
   },
   mockup: {
-    hint: "Live demo — send a message from the phone and watch the Mac react.",
+    hint: "Live demo — approve or reject from the phone and watch the Mac react.",
     mac: {
       lines: [
         { text: "Refactor the auth middleware to use the new session store", tone: "user" },
@@ -75,32 +81,6 @@ const en = {
       approved: "Approved",
       rejected: "Rejected",
       input: "Send a message…",
-      presets: [
-        {
-          send: "Approve the deletion",
-          ack: "Approved — continuing the refactor.",
-          term: [
-            { text: "approval granted · rm src/old.ts", tone: "ok" },
-            { text: "refactor auth middleware · 3 files changed", tone: "info" },
-          ],
-        },
-        {
-          send: "Run the tests first",
-          ack: "On it — tests run before any further edits.",
-          term: [
-            { text: "run_tests  go test ./...", tone: "info" },
-            { text: "42 passed · 0 failed · 1.8s", tone: "ok" },
-          ],
-        },
-        {
-          send: "Keep the file for now",
-          ack: "Got it — keeping src/old.ts, nothing deleted.",
-          term: [
-            { text: "new instruction · keep src/old.ts", tone: "info" },
-            { text: "refactor continues · no files deleted", tone: "ok" },
-          ],
-        },
-      ],
     },
     sync: {
       label: "e2ee",
@@ -200,13 +180,11 @@ const en = {
     note: "GitHub sign-in · end-to-end encrypted · zero-knowledge relay",
   },
   footer: {
-    tagline: "The pocket remote for your AI coding agents.",
     github: "GitHub",
     docs: "Docs",
     discord: "Discord",
     contact: "Contact",
     copyright: "© 2026 Riffpad",
-    rights: "local-first · e2ee · zero-knowledge",
   },
   languages: {
     en: "EN",
@@ -222,7 +200,13 @@ const zh: typeof en = {
       "Riffpad 把 Claude Code、Codex 等 CLI agent 桥接到手机：随时看进度、批准操作、远程转向，人不必守在电脑前。",
     ctaPrimary: "开始使用",
     ctaSecondary: "阅读文档",
-    note: "本地 daemon · 端到端加密 · 零知识中继",
+    betaPrefix: "Riffpad 正在 Beta 阶段 ——",
+    betaWaitlist: "加入 waitlist",
+    betaPlaceholder: "你的邮箱",
+    betaOr: "或",
+    betaDiscord: "来 Discord 找我们聊聊。",
+    betaSuccess: "已加入 waitlist ✓",
+    betaError: "提交失败，请重试。",
   },
   install: {
     unix: "macOS / Linux",
@@ -246,7 +230,7 @@ const zh: typeof en = {
     moreClis: "等更多…",
   },
   mockup: {
-    hint: "可交互演示：在手机上发一条消息，看 Mac 终端实时响应。",
+    hint: "可交互演示：在手机上点同意/拒绝，看 Mac 终端实时响应。",
     mac: {
       lines: [
         { text: "把 auth 中间件迁移到新的 session store", tone: "user" },
@@ -289,32 +273,6 @@ const zh: typeof en = {
       approved: "已同意",
       rejected: "已拒绝",
       input: "发送消息…",
-      presets: [
-        {
-          send: "同意删除",
-          ack: "已批准——继续重构。",
-          term: [
-            { text: "批准通过 · rm src/old.ts", tone: "ok" },
-            { text: "重构 auth 中间件 · 改动 3 个文件", tone: "info" },
-          ],
-        },
-        {
-          send: "先跑一遍测试",
-          ack: "收到——先跑测试，再继续改动。",
-          term: [
-            { text: "run_tests  go test ./...", tone: "info" },
-            { text: "42 通过 · 0 失败 · 1.8s", tone: "ok" },
-          ],
-        },
-        {
-          send: "先留着这个文件",
-          ack: "好的——保留 src/old.ts，不删除。",
-          term: [
-            { text: "新指令 · 保留 src/old.ts", tone: "info" },
-            { text: "重构继续 · 未删除文件", tone: "ok" },
-          ],
-        },
-      ],
     },
     sync: {
       label: "端到端加密",
@@ -414,13 +372,11 @@ const zh: typeof en = {
     note: "GitHub 登录 · 端到端加密 · 零知识中继",
   },
   footer: {
-    tagline: "AI 编程 Agent 的口袋遥控器。",
     github: "GitHub",
     docs: "文档",
     discord: "Discord",
     contact: "联系",
     copyright: "© 2026 Riffpad",
-    rights: "本地优先 · 端到端加密 · 零知识",
   },
   languages: {
     en: "EN",

@@ -1,6 +1,6 @@
 "use client";
 
-import { Logo } from "./Logo";
+import { BookIcon, DiscordIcon, GitHubIcon, MailIcon } from "./icons";
 import { useLanguage } from "./LanguageProvider";
 
 export function Footer() {
@@ -9,55 +9,45 @@ export function Footer() {
   return (
     <footer className="border-t border-hairline bg-surface">
       <div className="mx-auto max-w-frame px-4 py-12 sm:px-6">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <a
-              href="#top"
-              className="flex cursor-pointer items-center gap-2 text-sm font-bold text-ink"
-            >
-              <Logo className="h-6 w-6" />
-              riffpad
-            </a>
-            <p className="mt-2 text-sm text-mute">{t.footer.tagline}</p>
-          </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-mute">{t.footer.copyright}</div>
           <nav
-            className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-body"
+            className="flex flex-wrap items-center gap-4 text-body"
             aria-label="Footer"
           >
             <a
               href="https://github.com/riffpad/riffpad"
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-ink"
+              aria-label={t.footer.github}
+              className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:text-ink"
             >
-              {t.footer.github}
+              <GitHubIcon className="h-4 w-4" />
             </a>
             <a
               href="https://www.riffpad.ai/docs/guide/quickstart"
-              className="transition-colors hover:text-ink"
+              aria-label={t.footer.docs}
+              className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:text-ink"
             >
-              {t.footer.docs}
+              <BookIcon className="h-4 w-4" />
             </a>
             <a
               href="https://discord.gg/CDNFTg2QyM"
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-ink"
+              aria-label={t.footer.discord}
+              className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:text-ink"
             >
-              {t.footer.discord}
+              <DiscordIcon className="h-4 w-4" />
             </a>
             <a
               href="mailto:hi@riffpad.ai"
-              className="transition-colors hover:text-ink"
+              aria-label={t.footer.contact}
+              className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:text-ink"
             >
-              {t.footer.contact}
+              <MailIcon className="h-4 w-4" />
             </a>
           </nav>
-        </div>
-
-        <div className="mt-10 flex flex-col gap-2 border-t border-hairline pt-6 text-xs text-mute sm:flex-row sm:items-center sm:justify-between">
-          <span>{t.footer.copyright}</span>
-          <span>{t.footer.rights}</span>
         </div>
       </div>
     </footer>

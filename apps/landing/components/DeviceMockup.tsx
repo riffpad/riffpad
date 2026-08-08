@@ -6,9 +6,7 @@ import { useLanguage } from "./LanguageProvider";
 import type { Messages } from "@/lib/i18n";
 
 type TermLine = { id: number; tone: string; text: string };
-type ChatMsg = { id: number; from: "me" | "agent"; text: string };
 type Approval = "pending" | "approved" | "rejected";
-type Preset = Messages["mockup"]["phone"]["presets"][number];
 
 export function DeviceMockup() {
   const { t, lang } = useLanguage();
@@ -19,11 +17,9 @@ export function DeviceMockup() {
   const [termLines, setTermLines] = useState<TermLine[]>(() =>
     t.mockup.mac.lines.map((l, i) => ({ id: i + 1, tone: l.tone, text: l.text })),
   );
-  const [chat, setChat] = useState<ChatMsg[]>([]);
   const [approval, setApproval] = useState<Approval>("pending");
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [typing, setTyping] = useState(false);
 
   const timers = useRef<number[]>([]);
   const later = (fn: () => void, ms: number) => {
@@ -38,11 +34,9 @@ export function DeviceMockup() {
     setTermLines(
       t.mockup.mac.lines.map((l, i) => ({ id: i + 1, tone: l.tone, text: l.text })),
     );
-    setChat([]);
     setApproval("pending");
     setBusy(false);
     setSyncing(false);
-    setTyping(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
@@ -50,53 +44,7 @@ export function DeviceMockup() {
   useEffect(() => {
     const el = termScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [termLines, typing, approval]);
-
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = chatScrollRef.current;
-    // don't scroll on mount — keep the full feed visible from the top
-    if (el && chat.length > 0) el.scrollTop = el.scrollHeight;
-  }, [chat]);
-
-  const sendPreset = (preset: Preset) => {
-    if (busy) return;
-    setBusy(true);
-    setSyncing(true);
-    setChat((c) => [...c, { id: nid(), from: "me", text: preset.send }]);
-
-    later(() => {
-      setTermLines((ls) => [
-        ...ls,
-        {
-          id: nid(),
-          tone: "cmd",
-          text: `${t.mockup.mac.fromPhone} · ${preset.send}`,
-        },
-      ]);
-      setTyping(true);
-    }, 500);
-
-    preset.term.forEach((line, i) => {
-      later(() => {
-        setTermLines((ls) => [
-          ...ls,
-          { id: nid(), tone: line.tone, text: line.text },
-        ]);
-        setTyping(i < preset.term.length - 1);
-      }, 1200 + i * 700);
-    });
-
-    later(
-      () => {
-        setTyping(false);
-        setChat((c) => [...c, { id: nid(), from: "agent", text: preset.ack }]);
-        setSyncing(false);
-        setBusy(false);
-      },
-      1200 + preset.term.length * 700 + 600,
-    );
-  };
+  }, [termLines, approval]);
 
   const resolveApproval = (verdict: Exclude<Approval, "pending">) => {
     if (busy || approval !== "pending") return;
@@ -129,7 +77,6 @@ export function DeviceMockup() {
           <MacTerminal
             t={t}
             lines={termLines}
-            typing={typing}
             approval={approval}
             scrollRef={termScrollRef}
           />
@@ -141,13 +88,10 @@ export function DeviceMockup() {
         <div className="w-full max-w-[300px]">
           <PhoneApp
             t={t}
-            chat={chat}
             approval={approval}
             busy={busy}
             syncing={syncing}
-            onSend={sendPreset}
             onResolve={resolveApproval}
-            scrollRef={chatScrollRef}
           />
         </div>
       </div>
@@ -223,30 +167,14 @@ function TermLineView({ line }: { line: TermLine }) {
   );
 }
 
-function TypingDots() {
-  return (
-    <span className="inline-flex items-center gap-1" aria-hidden="true">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-1 w-1 animate-bounce rounded-full bg-current"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
-    </span>
-  );
-}
-
 function MacTerminal({
   t,
   lines,
-  typing,
   approval,
   scrollRef,
 }: {
   t: Messages;
   lines: TermLine[];
-  typing: boolean;
   approval: Approval;
   scrollRef: RefObject<HTMLDivElement>;
 }) {
@@ -269,11 +197,6 @@ function MacTerminal({
         {lines.map((line) => (
           <TermLineView key={line.id} line={line} />
         ))}
-        {typing && (
-          <div className="text-term-mute">
-            <TypingDots />
-          </div>
-        )}
         {approval === "pending" && (
           <div className="-mx-4 mt-2 border-t-2 border-term-blue bg-term-elevate px-4 py-3 sm:-mx-5 sm:px-5">
             <div className="font-bold text-term-blue">{m.approvalTitle}</div>
@@ -326,9 +249,76 @@ function SyncConnector({
 }) {
   const dash = syncing ? "flow-dash-line flow-fast" : "flow-dash-line";
   return (
-    <div className="flex flex-col items-center gap-1.5" aria-hidden="true">
+    <div className="flex flex-col items-center" aria-hidden="true">
+      {/* mobile: vertical connector spanning the gap between the two devices */}
       <svg
-        className="h-12 w-6 rotate-90 lg:h-6 lg:w-16 lg:rotate-0"
+        className="h-32 w-8 lg:hidden"
+        viewBox="0 0 24 96"
+      >
+        <path
+          id="sync-ev-v"
+          d="M7 96 L7 0"
+          fill="none"
+          stroke="var(--accent)"
+          strokeOpacity={0.6}
+          strokeWidth={2}
+          strokeDasharray="6 6"
+          className={dash}
+        />
+        <path
+          id="sync-cmd-v"
+          d="M17 96 L17 0"
+          fill="none"
+          stroke="rgb(var(--info))"
+          strokeOpacity={0.6}
+          strokeWidth={2}
+          strokeDasharray="6 6"
+          className={dash}
+        />
+        <rect
+          width={8}
+          height={5}
+          x={-4}
+          y={-2.5}
+          fill="var(--accent)"
+          className="arch-packet"
+        >
+          <animateMotion dur="1.6s" repeatCount="indefinite">
+            <mpath href="#sync-ev-v" />
+          </animateMotion>
+          <animate
+            attributeName="opacity"
+            values="0;1;1;0"
+            keyTimes="0;0.2;0.8;1"
+            dur="1.6s"
+            repeatCount="indefinite"
+          />
+        </rect>
+        <rect
+          width={8}
+          height={5}
+          x={-4}
+          y={-2.5}
+          fill="rgb(var(--info))"
+          className="arch-packet"
+        >
+          <animateMotion dur="1.6s" begin="-0.8s" repeatCount="indefinite">
+            <mpath href="#sync-cmd-v" />
+          </animateMotion>
+          <animate
+            attributeName="opacity"
+            values="0;1;1;0"
+            keyTimes="0;0.2;0.8;1"
+            dur="1.6s"
+            begin="-0.8s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </svg>
+
+      {/* desktop: horizontal connector between the two devices */}
+      <svg
+        className="hidden h-6 w-16 lg:block"
         viewBox="0 0 64 24"
       >
         <path
@@ -428,22 +418,16 @@ function ToolRow({
 
 function PhoneApp({
   t,
-  chat,
   approval,
   busy,
   syncing,
-  onSend,
   onResolve,
-  scrollRef,
 }: {
   t: Messages;
-  chat: ChatMsg[];
   approval: Approval;
   busy: boolean;
   syncing: boolean;
-  onSend: (preset: Preset) => void;
   onResolve: (verdict: Exclude<Approval, "pending">) => void;
-  scrollRef: RefObject<HTMLDivElement>;
 }) {
   return (
     <div className="w-full rounded-[40px] bg-device-frame p-[10px] shadow-device ring-1 ring-black/60">
@@ -504,7 +488,7 @@ function PhoneApp({
         </div>
 
         {/* scrollable event feed */}
-        <div ref={scrollRef} className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
+        <div className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
           {/* session_start badges */}
           <div className="flex flex-wrap gap-1.5">
             {t.mockup.phone.badges.map((badge) => (
@@ -591,39 +575,11 @@ function PhoneApp({
             </div>
           </div>
 
-          {/* chat */}
-          <div className="mt-3 flex flex-col gap-2">
-            {chat.map((msg) => (
-              <div
-                key={msg.id}
-                className={
-                  msg.from === "me"
-                    ? "ml-8 self-end bg-surface-muted px-3 py-2 text-xs leading-[1.6] text-body"
-                    : "mr-8 self-start px-3 py-2 text-xs leading-[1.6] text-body"
-                }
-              >
-                {msg.text}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* composer */}
         <div className="border-t border-hairline px-3 pb-2 pt-2">
-          <div className="flex flex-wrap gap-1.5">
-            {t.mockup.phone.presets.map((preset, i) => (
-              <button
-                key={i}
-                type="button"
-                disabled={busy}
-                onClick={() => onSend(preset)}
-                className="border border-hairline px-2 py-1 text-[11px] text-body transition-colors hover:border-accent hover:text-ink disabled:opacity-40"
-              >
-                {preset.send}
-              </button>
-            ))}
-          </div>
-          <div className="relative mt-2 border border-hairline bg-surface-muted">
+          <div className="relative border border-hairline bg-surface-muted">
             <div className="px-3 py-2 pr-9 text-xs text-mute">{t.mockup.phone.input}</div>
             <span
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-accent"
