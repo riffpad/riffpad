@@ -57,6 +57,14 @@ AI coding agent（Claude Code、Codex、DeepSeek CLI、Kimi CLI 等）会长时�
 | `prompt` | mobile → daemon | 文字新指令 |
 | `file_change` | daemon → mobile | 路径与变更摘要 |
 
+daemon ↔ relay 之间另有一组不加密的路由控制帧（`/ws/host` 连接，kind 字段）：
+
+| 帧 | 方向 | 说明 |
+|---|---|---|
+| `sessions` | daemon → relay | 上报本 host 的会话列表；relay 只替换该 host 的条目，不影响同账号其他 host |
+| `join` / `leave` / `viewer` | relay ↔ daemon | viewer 接入、离开与加密信封转发 |
+| `superseded` | relay → daemon | 同一 host 凭据在别处新连接，本连接被顶替；daemon 收到后停止自动重连并日志提示（防双 daemon 互踢），重启 daemon 可重试 |
+
 ## 4. 安全基线
 
 - 传输全程 E2EE，relay 无解密能力

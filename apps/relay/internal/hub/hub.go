@@ -84,6 +84,10 @@ type hostConn struct {
 	send chan []byte
 	done chan struct{}
 	once sync.Once
+	// writeMu serializes direct writes with writeLoop so a final control
+	// frame (superseded) can be delivered synchronously before the
+	// connection is closed.
+	writeMu sync.Mutex
 }
 
 type viewerConn struct {
@@ -99,6 +103,20 @@ type viewerConn struct {
 
 func (h *hostConn) closeDone() {
 	h.once.Do(func() { close(h.done) })
+}
+
+// writeFrame writes one frame directly on the connection, serialized with
+// writeLoop. Used for the final superseded notice, which must go out before
+// the connection is closed (queueing it on send would race with done).
+func (h *hostConn) writeFrame(fr hostFrame) {
+	data, err := json.Marshal(fr)
+	if err != nil {
+		return
+	}
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
+	_ = h.conn.SetWriteDeadline(wsWriteDeadline())
+	_ = h.conn.WriteMessage(websocket.TextMessage, data)
 }
 
 func (v *viewerConn) closeDone() {
@@ -1054,6 +1072,10 @@ func (h *Hub) handleHostWS(w http.ResponseWriter, r *http.Request) {
 	host := &hostConn{id: hostID, conn: conn, send: make(chan []byte, 256), done: make(chan struct{})}
 	h.mu.Lock()
 	if old, ok := h.hosts[hostID]; ok {
+		// Tell the replaced connection why it is being dropped: two daemons
+		// sharing the same host credentials would otherwise kick each other
+		// in an endless reconnect loop (#169).
+		old.writeFrame(hostFrame{Kind: protocol.RelayFrameSuperseded})
 		old.closeDone()
 		_ = old.conn.Close()
 	}
@@ -1086,12 +1108,22 @@ func (h *Hub) hostReadLoop(host *hostConn) {
 		switch fr.Kind {
 		case "sessions":
 			h.mu.Lock()
-			h.sessions = map[string]SessionMeta{}
-			h.sessionHosts = map[string]string{}
-			for _, s := range fr.Sessions {
-				s.HostID = host.id
-				h.sessions[s.ID] = s
-				h.sessionHosts[s.ID] = host.id
+			if h.hosts[host.id] == host {
+				// Replace only this host's entries: other hosts of the same
+				// account (desktop + laptop) keep their sessions (#169). The
+				// current-connection check also rejects a stale announce from
+				// a superseded connection still draining its read loop.
+				for sid, hid := range h.sessionHosts {
+					if hid == host.id {
+						delete(h.sessionHosts, sid)
+						delete(h.sessions, sid)
+					}
+				}
+				for _, s := range fr.Sessions {
+					s.HostID = host.id
+					h.sessions[s.ID] = s
+					h.sessionHosts[s.ID] = host.id
+				}
 			}
 			h.mu.Unlock()
 			_ = h.store.UpsertSessions(host.id, fr.Sessions)
@@ -1116,13 +1148,18 @@ func (h *Hub) hostReadLoop(host *hostConn) {
 
 func (h *Hub) removeHost(host *hostConn) {
 	h.mu.Lock()
-	if h.hosts[host.id] == host {
+	// Only the connection currently registered under this host id may tear
+	// down its sessions: after a reconnect the old connection's deferred
+	// cleanup runs after the new one has already re-announced, and must not
+	// wipe those fresh entries (#169).
+	current := h.hosts[host.id] == host
+	if current {
 		delete(h.hosts, host.id)
-	}
-	for sid, hid := range h.sessionHosts {
-		if hid == host.id {
-			delete(h.sessionHosts, sid)
-			delete(h.sessions, sid)
+		for sid, hid := range h.sessionHosts {
+			if hid == host.id {
+				delete(h.sessionHosts, sid)
+				delete(h.sessions, sid)
+			}
 		}
 	}
 	for id, v := range h.viewers {
@@ -1133,7 +1170,9 @@ func (h *Hub) removeHost(host *hostConn) {
 		}
 	}
 	h.mu.Unlock()
-	_ = h.store.MarkHostSessionsOffline(host.id)
+	if current {
+		_ = h.store.MarkHostSessionsOffline(host.id)
+	}
 	h.log.Printf("host disconnected id=%s", host.id)
 }
 
@@ -1237,7 +1276,10 @@ func (h *hostConn) writeLoop() {
 		select {
 		case data := <-h.send:
 			_ = h.conn.SetWriteDeadline(wsWriteDeadline())
-			if err := h.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			h.writeMu.Lock()
+			err := h.conn.WriteMessage(websocket.TextMessage, data)
+			h.writeMu.Unlock()
+			if err != nil {
 				return
 			}
 		case <-ticker.C:

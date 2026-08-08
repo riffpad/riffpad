@@ -26,6 +26,16 @@ const (
 	EventNotify       = "notify"
 )
 
+// Relay frame kinds for the daemon ↔ relay control channel on /ws/host
+// (see docs/design.md §3). Unlike the Event types above, these frames are
+// relay routing metadata and travel unencrypted.
+const (
+	// RelayFrameSuperseded is sent by the relay to the old host connection
+	// when a new connection with the same host credentials replaces it.
+	// The daemon must stop auto-reconnecting to avoid a kick loop.
+	RelayFrameSuperseded = "superseded"
+)
+
 // Agent status values.
 const (
 	StatusRunning      = "running"
