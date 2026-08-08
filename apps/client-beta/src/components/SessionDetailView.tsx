@@ -24,7 +24,7 @@ const HISTORY_PAGE_SIZE = 100;
 
 function statusClass(status: string): string {
   if (/未连接|未配对|握手失败|连接失败|失败|断开/.test(status)) return "bad";
-  if (/连接中|重连|等待/.test(status)) return "pending";
+  if (/连接中|重连|等待|离线|offline/i.test(status)) return "pending";
   return "good";
 }
 
@@ -90,6 +90,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
   const [prompt, setPrompt] = useState("");
   const [err, setErr] = useState("");
   const [fatal, setFatal] = useState("");
+  const [offline, setOffline] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
   const [status, setStatus] = useState(t("connecting"));
@@ -126,6 +127,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
     setHistoryLoading(false);
     setStatus(t("connecting"));
     setFatal("");
+    setOffline("");
     setAgentStatus("");
     setMeta({ cwd, cli });
     setApprovalOutcomes({});
@@ -206,6 +208,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
           },
           onError: (message) => setStatus(t("handshake_failed") + message),
           onFatal: (message) => setFatal(message),
+          onOffline: (message) => setOffline(message ?? ""),
           onHistory: (events) => applyHistory(events),
           onOutbox: (id, status) => {
             if (cancelled) return;
@@ -383,6 +386,15 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
           <span>{fatal}</span>
           <div className="fatal-actions">
             <button className="ghost" onClick={onReauth}>{t("device_revoked_action")}</button>
+            <button className="ghost" onClick={onLeave}>{t("back")}</button>
+          </div>
+        </div>
+      )}
+      {offline && !fatal && (
+        <div id="offline-banner" className="fatal-banner">
+          <span>{offline}</span>
+          <div className="fatal-actions">
+            <button className="ghost" onClick={() => sockRef.current?.retry()}>{t("retry_now")}</button>
             <button className="ghost" onClick={onLeave}>{t("back")}</button>
           </div>
         </div>

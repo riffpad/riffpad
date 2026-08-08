@@ -7,7 +7,7 @@ import {
 } from "./crypto";
 import { getDeviceSecret } from "./device";
 import { getT } from "./i18n";
-import { isRelay, localTokenStore, relayStore } from "./store";
+import { api, isRelay, localTokenStore, relayStore } from "./store";
 import type { Device, RiffpadEvent } from "./types";
 
 // SendStatus tells the UI apart what used to be a single "true": the event
@@ -27,6 +27,7 @@ export interface SessionSocket {
   close(): void;
   send(type: string, payload: Record<string, unknown>): Promise<SendResult>;
   requestHistory(before: string, limit: number): boolean;
+  retry(): void;
 }
 
 export interface SocketHandlers {
@@ -34,6 +35,10 @@ export interface SocketHandlers {
   onEvent(ev: RiffpadEvent): void;
   onError(message: string): void;
   onFatal?(message: string): void;
+  // onOffline fires with a message when the device is confirmed online but
+  // unreachable (daemon down / weak network), and with null once the
+  // connection recovers.
+  onOffline?(message: string | null): void;
   onHistory?(events: RiffpadEvent[]): void;
   // onOutbox reports the fate of a queued event: "flushed" once it was
   // written after a reconnect, "dropped" when close() discards it.
@@ -80,6 +85,28 @@ export function dedupeEvent(seen: Set<string>, ev: RiffpadEvent): boolean {
 export const WS_STALE_TIMEOUT_MS = 75_000;
 export const WS_WATCHDOG_INTERVAL_MS = 15_000;
 
+// Reconnect backoff parameters, mutable so tests can shrink the delays.
+export const reconnectBackoff = { baseMs: 1000, maxMs: 30000 };
+
+// probeDeviceRevoked decides whether a device has truly been revoked.
+// Browsers cannot read the HTTP status of a failed WS handshake, so the
+// devices endpoint is probed over HTTP instead. It works in both modes:
+// relay (/api/devices answers even while the daemon is offline) and local
+// (a stopped daemon makes the fetch itself fail). Exported for tests.
+export async function probeDeviceRevoked(dev: Device): Promise<boolean> {
+  try {
+    const res = await api("/api/devices");
+    if (res.status === 401 || res.status === 403) return true;
+    if (!res.ok) return false; // 5xx etc: server trouble, keep reconnecting
+    const data = await res.json();
+    const list = (data.devices || []) as { id?: string }[];
+    return !list.some((d) => d.id === dev.deviceId);
+  } catch {
+    // Network error: daemon stopped or weak network — not a revocation.
+    return false;
+  }
+}
+
 export async function openSessionSocket(
   sid: string,
   dev: Device,
@@ -89,6 +116,7 @@ export async function openSessionSocket(
   let ws: WebSocket | null = null;
   let sessionKey: CryptoKey | null = null;
   let reconnectAttempt = 0;
+  let reconnectTimer: number | null = null;
   let everConnected = false;
   // Watchdog state: browsers cannot observe protocol-level ping/pong, so any
   // incoming message (data or app-level {"kind":"ping"}) counts as activity.
@@ -128,6 +156,7 @@ export async function openSessionSocket(
           await flushOutbox();
           reconnectAttempt = 0;
           everConnected = true;
+          handlers.onOffline?.(null);
           handlers.onConn(t("connected_encrypted"));
           continue;
         }
@@ -203,6 +232,19 @@ export async function openSessionSocket(
     ws.send(JSON.stringify({ v: 1, kind: "event", sessionId: sid, ...boxed }));
   }
 
+  function scheduleReconnect() {
+    const delay = Math.min(
+      reconnectBackoff.baseMs * 2 ** reconnectAttempt,
+      reconnectBackoff.maxMs,
+    );
+    reconnectAttempt++;
+    handlers.onConn(t("reconnect_in", { s: Math.round(delay / 1000) }));
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      if (!closed) void connect();
+    }, delay);
+  }
+
   async function connect() {
     eph = await genPair();
     const ephPub = b64u(await crypto.subtle.exportKey("raw", eph.publicKey));
@@ -229,18 +271,24 @@ export async function openSessionSocket(
         return;
       }
       if (!everConnected && reconnectAttempt >= 3) {
-        handlers.onFatal?.(t("device_revoked"));
-        handlers.onConn(t("device_revoked"));
+        // The WS handshake failure carries no HTTP status in the browser, so
+        // probe the devices endpoint: only a confirmed revocation (401/403 or
+        // device missing) is fatal; anything else means the daemon is simply
+        // offline and we keep reconnecting.
+        void (async () => {
+          const revoked = await probeDeviceRevoked(dev);
+          if (closed) return;
+          if (revoked) {
+            handlers.onFatal?.(t("device_revoked"));
+            handlers.onConn(t("device_revoked"));
+            return;
+          }
+          handlers.onOffline?.(t("daemon_offline"));
+          scheduleReconnect();
+        })();
         return;
       }
-      const delay = everConnected
-        ? Math.min(1000 * 2 ** reconnectAttempt, 30000)
-        : 1000 * 2 ** reconnectAttempt;
-      reconnectAttempt++;
-      handlers.onConn(t("reconnect_in", { s: Math.round(delay / 1000) }));
-      window.setTimeout(() => {
-        if (!closed) void connect();
-      }, delay);
+      scheduleReconnect();
     };
     ws.onmessage = (msg) => {
       lastActivity = Date.now();
@@ -263,10 +311,23 @@ export async function openSessionSocket(
     close() {
       closed = true;
       window.clearInterval(watchdog);
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       // Queued events die with the socket (e.g. the tab is closed): tell the
       // UI each one was dropped so it can show 未送达 instead of 已批准.
       for (const ev of outbox.drain()) handlers.onOutbox?.(ev.id, "dropped");
       ws?.close();
+    },
+    retry() {
+      if (closed) return;
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      reconnectAttempt = 0;
+      void connect();
     },
     async send(type: string, payload: Record<string, unknown>): Promise<SendResult> {
       const ev = {
