@@ -40,6 +40,7 @@
 | daemon 无感化启动 | `run/sessions/pair/attach` 懒启动（文件锁防双实例）；`riffpad setup` systemd 自启 | #57 #58 |
 | Landing page | Next.js 落地页 + Vercel 部署（riffpad.ai / www），GitHub-green 视觉刷新 | #53 #70 |
 | 群发邮件 + 退订管理 | `scripts/email`（Formspree 拉取/去重、SMTP 群发、HMAC 退订链接）+ relay 退订端点 + landing `/unsubscribe`；生产已部署验证 | #218 #219 |
+| 自建 waitlist 表单与存储 | landing 直连 relay `POST /api/waitlist/subscribe`；`waitlist_entries` 表；`scripts/email fetch` 从 relay 拉取；旧 20 邮箱已入库 | #224 #225 |
 | 首跑配对体验 | `riffpad pair` 对 `host offline` 自动重试；daemon 版本号统一（v0.2.4 发布） | #220 #221 |
 
 ---
@@ -206,7 +207,7 @@
 | M3.23 | 弃用 attach 模式：入口关闭（代码保留，`riffpad detach` 仍可用于清理旧 hooks），统一 `riffpad run` 托管模式；`riffpad run` 支持位置参数（`riffpad run codex`） | `[x]` | attachCmd 返回弃用提示；run 位置参数 + 单测已实现 | #214 |
 | M3.24 | 群发邮件 + 退订管理：`scripts/email`（waitlist API 拉取/去重、SMTP 群发、HMAC 退订链接、跳过已退订）；relay `/api/waitlist/unsubscribe` + `/api/waitlist/optouts`（`email_optouts` 表，CORS 仅 riffpad.ai/www）；landing `/unsubscribe` 退订页（中英、深浅色一致） | `[x]` | 2026-08-09 生产验证：真实 token 退订成功、伪 token 拒绝、optouts 列表/清理正常；首次公告已发出（HTML+纯文本，20 人） | #218 #219 #222 #223 |
 | M3.25 | 首跑配对体验：`riffpad pair` 对 `host offline` 自动重试（最长 10s，打印等待提示），daemon 状态/启动日志改用 `internal/version.Version` 清理硬编码 `0.1.0-m0` | `[x]` | 单测覆盖重试成功/非重试错误立即返回/超时；真机冷启动 pair 自动等待出码；随 v0.2.4 发布 | #220 #221 |
-| M3.26 | 自建 waitlist 表单 + REST API + 数据库（替代 Formspree）：landing `WaitlistForm` 直连 relay `POST /api/waitlist/subscribe`（CORS/限流/幂等）；新增 `waitlist_emails` 表；`GET /api/waitlist/emails`（admin key）供 `scripts/email fetch` 拉取；现有 20 邮箱入库 | `[~]` | relay 单测（订阅幂等/校验/限流、列表 admin-only、CORS）；landing 构建通过；生产验证订阅与拉取 | #224 |
+| M3.26 | 自建 waitlist 表单 + REST API + 数据库（替代 Formspree）：landing `WaitlistForm` 直连 relay `POST /api/waitlist/subscribe`（CORS/限流/幂等）；新增 `waitlist_entries` 表；`GET /api/waitlist/emails`（admin key）供 `scripts/email fetch` 拉取；旧 20 邮箱已入库 | `[x]` | relay 单测（订阅幂等/校验/限流、列表 admin-only、CORS）；landing 构建通过；2026-08-09 生产验证：订阅 ok、拉取 20 条、fetch 出 CSV | #224 #225 |
 
 ---
 
