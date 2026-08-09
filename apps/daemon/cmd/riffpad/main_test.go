@@ -119,6 +119,95 @@ func TestEnsureDaemonSkipsWhenReachable(t *testing.T) {
 	}
 }
 
+func TestPairWithRetryRecoversFromHostOffline(t *testing.T) {
+	oldDelay := pairRetryDelay
+	pairRetryDelay = time.Millisecond
+	t.Cleanup(func() { pairRetryDelay = oldDelay })
+
+	var calls int32
+	res, err := pairWithRetry(func() (pairingResult, error) {
+		n := atomic.AddInt32(&calls, 1)
+		if n < 3 {
+			return pairingResult{Error: "host offline"}, nil
+		}
+		return pairingResult{Code: "ABCDEF", URL: "https://app.riffpad.ai/pair?code=ABCDEF"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Code != "ABCDEF" {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if got := atomic.LoadInt32(&calls); got != 3 {
+		t.Fatalf("expected 3 pairing attempts, got %d", got)
+	}
+}
+
+func TestPairWithRetryFailsFastOnNonTransientError(t *testing.T) {
+	oldDelay := pairRetryDelay
+	pairRetryDelay = time.Millisecond
+	t.Cleanup(func() { pairRetryDelay = oldDelay })
+
+	var calls int32
+	_, err := pairWithRetry(func() (pairingResult, error) {
+		atomic.AddInt32(&calls, 1)
+		return pairingResult{Error: "host not found"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("expected 1 attempt for host not found, got %d", got)
+	}
+
+	calls = 0
+	_, _ = pairWithRetry(func() (pairingResult, error) {
+		atomic.AddInt32(&calls, 1)
+		return pairingResult{Error: "登录已过期", ErrorCode: "relay_auth_expired"}, nil
+	})
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("expected 1 attempt for auth expiry, got %d", got)
+	}
+}
+
+func TestPairWithRetryStopsAtDeadline(t *testing.T) {
+	oldDelay, oldWait := pairRetryDelay, pairRetryMaxWait
+	pairRetryDelay = time.Millisecond
+	pairRetryMaxWait = 15 * time.Millisecond
+	t.Cleanup(func() { pairRetryDelay, pairRetryMaxWait = oldDelay, oldWait })
+
+	var calls int32
+	res, err := pairWithRetry(func() (pairingResult, error) {
+		atomic.AddInt32(&calls, 1)
+		return pairingResult{Error: "host offline"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Error != "host offline" {
+		t.Fatalf("expected final host offline error, got %+v", res)
+	}
+	if got := atomic.LoadInt32(&calls); got < 5 {
+		t.Fatalf("expected several retries before deadline, got %d", got)
+	}
+}
+
+func TestRequestPairingDecodesErrorAndStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"error":"host offline"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	res, err := requestPairing(srv.URL + "/api/pairings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != http.StatusBadGateway || res.Error != "host offline" {
+		t.Fatalf("unexpected pairing result: %+v", res)
+	}
+}
+
 func TestEnsureDaemonStartsLazily(t *testing.T) {
 	ready := &atomic.Bool{}
 	srv := fakeDaemon(t, ready)

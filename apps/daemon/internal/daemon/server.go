@@ -20,11 +20,10 @@ import (
 	"github.com/riffpad/riffpad/apps/daemon/internal/codex"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/apps/daemon/internal/kimi"
+	"github.com/riffpad/riffpad/apps/daemon/internal/version"
 	"github.com/riffpad/riffpad/packages/protocol"
 	"github.com/riffpad/riffpad/packages/webui"
 )
-
-const version = "0.1.0-m0"
 
 // Device is a paired client (phone or web UI).
 type Device struct {
@@ -281,7 +280,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) Start() error {
 	addr := fmt.Sprintf("127.0.0.1:%d", s.cfg.Port)
 	s.httpSrv = &http.Server{Addr: addr, Handler: s.Handler()}
-	s.log.Printf("riffpad daemon %s listening on http://%s", version, addr)
+	s.log.Printf("riffpad daemon %s listening on http://%s", version.Version, addr)
 	go s.sweepLoop()
 	if s.rc != nil {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -396,7 +395,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	n := len(s.sessions)
 	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version":   version,
+		"version":   version.Version,
 		"port":      s.cfg.Port,
 		"sessions":  n,
 		"startedAt": s.startedAt.Format(time.RFC3339),
@@ -565,7 +564,7 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 		"serverPublicKey": protocol.EncodeKey(identity.PublicKey),
 		// Local API token so a UI that paired by code (no ?token= link) can make
 		// subsequent authenticated calls.
-		"localToken":      s.token,
+		"localToken": s.token,
 	})
 }
 
