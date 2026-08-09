@@ -1,0 +1,45 @@
+Copyright (c) 2026 Liu Zhening.
+
+Riffpad — Licensing Notice
+==========================
+
+This repository (https://github.com/riffpad/riffpad) ships multiple components
+under different licenses. Unless a subdirectory contains its own LICENSE file
+that overrides this notice, the default license below applies.
+
+
+Default license: Apache License 2.0
+-----------------------------------
+Applies to the entire repository EXCEPT the component listed under "Exception"
+below. Components under Apache-2.0:
+
+  apps/daemon         CLI / host daemon              Apache-2.0
+  apps/client-beta    web & mobile client            Apache-2.0
+  apps/landing        marketing site                 Apache-2.0
+  apps/docs           documentation site             Apache-2.0
+  apps/mobile         mobile shell                   Apache-2.0
+  packages/protocol   shared protocol library        Apache-2.0
+  packages/webui      embedded web UI assets         Apache-2.0
+  scripts/            tooling (installers, email)    Apache-2.0
+  infra/              deployment configuration       Apache-2.0
+
+See ./LICENSE for the full text.
+
+
+Exception: Business Source License 1.1
+---------------------------------------
+  apps/relay          the relay server               BSL 1.1
+
+Source-available. Non-production use and the Additional Use Grant (personal,
+evaluation, and internal business use, including self-hosting) are permitted;
+offering it as a hosted/managed relay service to third parties is not.
+On the Change Date (2030-08-09) it automatically converts to Apache-2.0.
+See apps/relay/LICENSE for full terms.
+
+
+Why the split
+-------------
+The CLI and clients are open source (Apache-2.0) for transparency and
+community contribution. The relay server that powers the hosted service at
+app.riffpad.ai is under BSL to protect that service while remaining
+source-available for review.

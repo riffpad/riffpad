@@ -15,6 +15,7 @@ Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your
 [![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
 [![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/guide/quickstart)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
+[![License](https://img.shields.io/badge/license-Apache--2.0%20%7C%20relay%20BSL-1a7f37)](LICENSE)
 
 [Website](https://riffpad.ai) · [Documentation](https://www.riffpad.ai/docs/guide/quickstart) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
@@ -117,3 +118,17 @@ Questions, ideas, or show-and-tell? Join us:
 - [Discord](https://discord.gg/CDNFTg2QyM) — the community hangout
 - [GitHub Issues](https://github.com/riffpad/riffpad/issues) — bugs and feature requests
 - [Documentation](https://www.riffpad.ai/docs/guide/quickstart) — install, pairing, security model
+
+## License
+
+Riffpad is **Apache-2.0** by default — the CLI (`apps/daemon`), clients
+(`apps/client-beta`, `apps/mobile`), landing/docs, and the shared `packages/`
+libraries all use it. See the [LICENSE](LICENSE) file.
+
+The relay server (`apps/relay`) is under **Business Source License 1.1** —
+source-available, with personal and internal use permitted (including
+self-hosting); it converts to Apache-2.0 on 2030-08-09. See
+[`apps/relay/LICENSE`](apps/relay/LICENSE). A full breakdown lives in
+[`NOTICE`](NOTICE).
+
+Copyright (c) 2026 Liu Zhening.
