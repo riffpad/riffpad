@@ -20,6 +20,7 @@ import (
 	"github.com/riffpad/riffpad/apps/daemon/internal/claude"
 	"github.com/riffpad/riffpad/apps/daemon/internal/codex"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
+	"github.com/riffpad/riffpad/apps/daemon/internal/demo"
 	"github.com/riffpad/riffpad/apps/daemon/internal/kimi"
 	"github.com/riffpad/riffpad/apps/daemon/internal/version"
 	"github.com/riffpad/riffpad/packages/protocol"
@@ -247,6 +248,8 @@ func DefaultFactory() adapter.Factory {
 			return kimi.New(req), nil
 		case "codex":
 			return codex.New(req), nil
+		case "demo":
+			return demo.New(req), nil
 		default:
 			return nil, fmt.Errorf("unsupported cli %q", req.CLI)
 		}
