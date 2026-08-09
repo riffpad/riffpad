@@ -208,6 +208,7 @@
 | M3.24 | 群发邮件 + 退订管理：`scripts/email`（waitlist API 拉取/去重、SMTP 群发、HMAC 退订链接、跳过已退订）；relay `/api/waitlist/unsubscribe` + `/api/waitlist/optouts`（`email_optouts` 表，CORS 仅 riffpad.ai/www）；landing `/unsubscribe` 退订页（中英、深浅色一致） | `[x]` | 2026-08-09 生产验证：真实 token 退订成功、伪 token 拒绝、optouts 列表/清理正常；首次公告已发出（HTML+纯文本，20 人） | #218 #219 #222 #223 |
 | M3.25 | 首跑配对体验：`riffpad pair` 对 `host offline` 自动重试（最长 10s，打印等待提示），daemon 状态/启动日志改用 `internal/version.Version` 清理硬编码 `0.1.0-m0` | `[x]` | 单测覆盖重试成功/非重试错误立即返回/超时；真机冷启动 pair 自动等待出码；随 v0.2.4 发布 | #220 #221 |
 | M3.26 | 自建 waitlist 表单 + REST API + 数据库（替代 Formspree）：landing `WaitlistForm` 直连 relay `POST /api/waitlist/subscribe`（CORS/限流/幂等）；新增 `waitlist_entries` 表；`GET /api/waitlist/emails`（admin key）供 `scripts/email fetch` 拉取；旧 20 邮箱已入库 | `[x]` | relay 单测（订阅幂等/校验/限流、列表 admin-only、CORS）；landing 构建通过；2026-08-09 生产验证：订阅 ok、拉取 20 条、fetch 出 CSV | #224 #225 |
+| M3.27 | demo 会话模式：daemon 内置脚本化 mock 适配器（`riffpad run demo`），按统一 protocol 事件时间线回放思考/工具 spinner→绿/文件变更/审批卡/回复，客户端走真实配对+E2EE+WS 链路，零 API 消耗，用于打磨 client UI 与 Playwright 回归 | `[~]` | demo 适配器单测（时间线顺序、审批决议、prompt 关键词路径）；`riffpad run demo` 后 localhost:8787 / app 可见完整演示会话 | #235 |
 
 ---
 
