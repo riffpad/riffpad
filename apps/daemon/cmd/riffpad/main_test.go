@@ -498,7 +498,7 @@ func TestRunCmdSuccess(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		gotBinary = req.Binary
-		_ = json.NewEncoder(w).Encode(map[string]string{"id": "s1", "url": "http://x/s1", "cli": "kimi"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "s1", "url": "http://x/s1", "cli": "sh"})
 	}))
 	t.Cleanup(srv.Close)
 
@@ -526,11 +526,11 @@ func TestRunCmdAcceptsPositionalCLI(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	if err := runCmd([]string{"kimi"}, srv.URL); err != nil {
+	if err := runCmd([]string{"sh"}, srv.URL); err != nil {
 		t.Fatalf("run failed: %v", err)
 	}
-	if gotCLI != "kimi" {
-		t.Fatalf("expected positional cli kimi, got %q", gotCLI)
+	if gotCLI != "sh" {
+		t.Fatalf("expected positional cli sh, got %q", gotCLI)
 	}
 }
 
