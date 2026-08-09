@@ -16,5 +16,8 @@ apps/client-beta/playwright-report/
 !infra/.env.example
 
 test-notes/
+# Local leftovers from the waitlist email toolchain (now lives in
+# riffpad-marketing): contains SMTP credentials and waitlist PII.
+scripts/email/
 apps/landing/public/install.sh
 apps/landing/public/install.ps1
