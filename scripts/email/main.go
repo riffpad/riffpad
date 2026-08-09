@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -92,14 +93,15 @@ func cmdToken(args []string) {
 func cmdSend(args []string) {
 	fs := flag.NewFlagSet("send", flag.ExitOnError)
 	recipients := fs.String("recipients", "", "recipients CSV (email[,name][,date])")
-	template := fs.String("template", "", "email body template (text/template)")
+	bodyTemplate := fs.String("template", "", "email body template (text/template)")
+	htmlTemplate := fs.String("template-html", "", "optional HTML template (multipart/alternative email)")
 	subject := fs.String("subject", "", "email subject")
 	from := fs.String("from", "", "From address (default SMTP_USER)")
 	dryRun := fs.Bool("dry-run", false, "render only, do not send")
 	interval := fs.Duration("interval", 3*time.Second, "delay between sends")
 	fs.Parse(args)
 
-	if *recipients == "" || *template == "" || *subject == "" {
+	if *recipients == "" || *bodyTemplate == "" || *subject == "" {
 		fatalf("send: -recipients, -template and -subject are required")
 	}
 	if os.Getenv("UNSUBSCRIBE_SECRET") == "" {
@@ -128,18 +130,30 @@ func cmdSend(args []string) {
 		fmt.Fprintln(os.Stderr, "riffpad-email: WAITLIST_ADMIN_KEY not set, skipping opt-out check")
 	}
 
-	bodyTmpl, err := loadTemplate(*template)
+	bodyTmpl, err := loadTemplate(*bodyTemplate)
 	if err != nil {
 		fatalf("send: %v", err)
+	}
+	var htmlTmpl *template.Template
+	if *htmlTemplate != "" {
+		htmlTmpl, err = loadTemplate(*htmlTemplate)
+		if err != nil {
+			fatalf("send: %v", err)
+		}
 	}
 
 	var sender *smtpSender
 	if !*dryRun {
+		fromName := os.Getenv("FROM_NAME")
+		if fromName == "" {
+			fromName = "Riffpad"
+		}
 		sender = newSMTPSender(envOr("SMTP_HOST", "mail.spacemail.com"),
 			envOrInt("SMTP_PORT", 465),
 			envOr("SMTP_USER", "hi@riffpad.ai"),
 			os.Getenv("SMTP_PASS"),
-			*from)
+			*from,
+			fromName)
 		if sender.from == "" {
 			sender.from = sender.user
 		}
@@ -172,12 +186,24 @@ func cmdSend(args []string) {
 			failed++
 			continue
 		}
+		htmlBody := ""
+		if htmlTmpl != nil {
+			htmlBody, err = renderBodyHTML(htmlTmpl, r, u)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  FAIL %s: %v\n", email, err)
+				failed++
+				continue
+			}
+		}
 		if *dryRun {
 			fmt.Printf("==> %s (%d/%d)\n%s\n\n", email, i+1, len(recs), body)
+			if htmlBody != "" {
+				fmt.Printf("--- html ---\n%s\n\n", htmlBody)
+			}
 			sent++
 			continue
 		}
-		if err := sender.send(email, *subject, body); err != nil {
+		if err := sender.send(email, *subject, body, htmlBody); err != nil {
 			fmt.Fprintf(os.Stderr, "  FAIL %s: %v\n", email, err)
 			failed++
 			continue

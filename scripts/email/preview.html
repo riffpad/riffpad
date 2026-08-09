@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Riffpad waitlist announcement — preview</title>
+  <script>
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem("riffpad-email-theme"); } catch (e) {}
+      var dark = saved === "dark" || (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+  </script>
+  <style>
+    :root {
+      --canvas: #e9e8e3;
+      --paper: #ffffff;
+      --ink: #191917;
+      --body: #46463f;
+      --mute: #73736a;
+      --hairline: rgba(25, 25, 23, 0.12);
+      --hairline-strong: rgba(25, 25, 23, 0.35);
+      --accent: #1a7f37;
+      --accent-ink: #ffffff;
+      --code-bg: #f4f3ee;
+      --code-border: rgba(25, 25, 23, 0.14);
+      --zh-bg: #fbfaf7;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.08);
+    }
+    :root[data-theme="dark"] {
+      --canvas: #0b0b0c;
+      --paper: #121214;
+      --ink: #e8e6e3;
+      --body: #a8a8ad;
+      --mute: #7c7c82;
+      --hairline: rgba(255, 255, 255, 0.1);
+      --hairline-strong: rgba(255, 255, 255, 0.22);
+      --accent: #7ee787;
+      --accent-ink: #191917;
+      --code-bg: #1a1a1d;
+      --code-border: #2a2a2e;
+      --zh-bg: #17171a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 48px rgba(0, 0, 0, 0.45);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding: 40px 16px 64px;
+    }
+    .stage { max-width: 680px; margin: 0 auto; }
+
+    .toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--mute); margin-bottom: 14px; font-family: ui-monospace,
+      SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .toolbar .tag { color: var(--accent); font-weight: 700; }
+    .toolbar-right { display: flex; align-items: center; gap: 14px; }
+    .theme-toggle { display: inline-flex; border: 1px solid var(--hairline-strong); }
+    .theme-toggle button {
+      border: 0; background: transparent; cursor: pointer; color: var(--mute);
+      font: inherit; letter-spacing: inherit; text-transform: inherit;
+      padding: 3px 8px;
+    }
+    .theme-toggle button.active { background: var(--accent); color: var(--accent-ink); }
+
+    .email {
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .mail-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 22px 28px; border-bottom: 1px solid var(--hairline);
+    }
+    .mail-head svg { width: 26px; height: 26px; flex: none; }
+    .mail-head svg rect { fill: var(--accent); }
+    .wordmark {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 18px; font-weight: 700; letter-spacing: -0.02em;
+    }
+    .badge {
+      margin-left: auto; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+      border: 1px solid currentColor; padding: 3px 7px;
+    }
+
+    .body { padding: 30px 28px 10px; }
+    .hero h1 { font-size: 24px; line-height: 1.25; letter-spacing: -0.01em; }
+    .hero p { margin-top: 10px; font-size: 14px; line-height: 1.7; color: var(--body); }
+
+    .features { margin-top: 24px; display: grid; gap: 14px; }
+    .feature { display: flex; gap: 12px; }
+    .f-icon {
+      flex: none; width: 18px; margin-top: 2px; color: var(--accent);
+      font-size: 12px; line-height: 1.6;
+    }
+    .feature h3 { font-size: 13px; letter-spacing: 0.02em; }
+    .feature p { margin-top: 3px; font-size: 13px; line-height: 1.6; color: var(--body); }
+
+    .install { margin-top: 26px; border: 1px solid var(--code-border); background: var(--code-bg); }
+    .install-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 12px; border-bottom: 1px solid var(--code-border);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--mute);
+    }
+    .install-head button {
+      border: 0; background: transparent; cursor: pointer; color: var(--accent);
+      font: inherit; letter-spacing: inherit; text-transform: inherit;
+      font-weight: 700; padding: 2px 4px;
+    }
+    .install-head button:hover { text-decoration: underline; }
+    pre {
+      padding: 14px 12px; font-family: ui-monospace, SFMono-Regular, Menlo,
+      Consolas, monospace; font-size: 13px; line-height: 1.65; overflow-x: auto;
+      color: var(--ink); white-space: pre;
+    }
+    pre .c { color: var(--mute); }
+
+    .cta { display: flex; gap: 10px; margin-top: 26px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 11px 18px; font-size: 13px; font-weight: 700; text-decoration: none;
+      border: 1px solid transparent; transition: none;
+    }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); }
+    .btn-ghost { border-color: var(--hairline-strong); color: var(--ink); }
+
+    .divider {
+      margin: 30px 0 24px; border: 0; border-top: 1px dashed var(--hairline-strong);
+    }
+    .zh-head {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--mute); margin-bottom: 16px;
+    }
+
+    .footer {
+      margin-top: 28px; padding: 18px 28px 22px; border-top: 1px solid var(--hairline);
+      font-size: 11px; line-height: 1.8; color: var(--mute);
+    }
+    .footer .links a { color: var(--mute); text-decoration: none; margin-right: 14px; }
+    .footer .links a:hover { color: var(--accent); text-decoration: underline; }
+    .footer .unsub { margin-top: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .footer .unsub a { color: var(--accent); }
+    .footer .copy { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="toolbar">
+      <span><span class="tag">preview</span> · riffpad waitlist announcement · 2026-08-09</span>
+      <span class="toolbar-right">
+        <span>subject: Riffpad is in beta</span>
+        <span class="theme-toggle">
+          <button type="button" data-theme-btn="light">light</button>
+          <button type="button" data-theme-btn="dark">dark</button>
+        </span>
+      </span>
+    </div>
+
+    <article class="email">
+      <header class="mail-head">
+        <svg viewBox="0 0 300 300" fill="none" aria-hidden="true">
+          <g transform="rotate(-90, 150, 150)">
+            <rect x="70" y="70" width="40" height="40" fill="#1a7f37" />
+            <rect x="130" y="70" width="40" height="40" fill="#1a7f37" />
+            <rect x="190" y="70" width="40" height="40" fill="#1a7f37" />
+            <rect x="70" y="130" width="100" height="40" fill="#1a7f37" />
+            <rect x="190" y="130" width="40" height="40" fill="#1a7f37" />
+            <rect x="70" y="190" width="160" height="40" fill="#1a7f37" />
+          </g>
+        </svg>
+        <span class="wordmark">riffpad</span>
+        <span class="badge">beta</span>
+      </header>
+
+      <div class="body">
+        <section class="hero">
+          <h1>Your AI coding agents, in your pocket.</h1>
+          <p>
+            Riffpad is now in beta — a tiny local daemon that bridges Claude
+            Code, Codex and Kimi Code to your phone. Watch long tasks run,
+            approve file changes, and send a new instruction without going
+            back to the desk.
+          </p>
+        </section>
+
+        <section class="features">
+          <div class="feature">
+            <span class="f-icon">■</span>
+            <div>
+              <h3>Watch long tasks run</h3>
+              <p>Session status, tool calls and file changes stream to your phone in real time.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-icon">■</span>
+            <div>
+              <h3>Approve from anywhere</h3>
+              <p>When the agent waits for permission, one tap on your phone keeps it moving.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-icon">■</span>
+            <div>
+              <h3>Local-first, end-to-end encrypted</h3>
+              <p>Code and API keys stay on your computer. The relay forwards ciphertext and keeps none of it.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="install">
+          <div class="install-head">
+            <span>Quick start</span>
+            <button type="button" onclick="copyCmd('cmd')">copy</button>
+          </div>
+          <pre id="cmd">curl -fsSL https://riffpad.ai/install.sh | sh
+riffpad login
+riffpad pair
+riffpad run codex</pre>
+        </section>
+
+        <div class="cta">
+          <a class="btn btn-primary" href="https://app.riffpad.ai">Open the app</a>
+          <a class="btn btn-ghost" href="https://www.riffpad.ai/docs/guide/quickstart">Read the docs</a>
+        </div>
+
+        <hr class="divider" />
+
+        <section class="zh">
+          <div class="zh-head">中文版 · same content</div>
+
+          <div class="hero">
+            <h1>把你的 AI 编程 Agent 装进口袋</h1>
+            <p>
+              Riffpad 现在开放 Beta——一个本地 daemon，把 Claude Code、Codex、
+              Kimi Code 等 CLI agent 桥接到手机。躺在床上也能看长任务跑完、
+              审批文件变更、远程补一句新指令。
+            </p>
+          </div>
+
+          <div class="features">
+            <div class="feature">
+              <span class="f-icon">■</span>
+              <div>
+                <h3>实时查看任务进度</h3>
+                <p>会话状态、工具调用与文件变更实时同步到手机。</p>
+              </div>
+            </div>
+            <div class="feature">
+              <span class="f-icon">■</span>
+              <div>
+                <h3>随时随地一键审批</h3>
+                <p>agent 等待权限时，在手机上点一下就能继续。</p>
+              </div>
+            </div>
+            <div class="feature">
+              <span class="f-icon">■</span>
+              <div>
+                <h3>本地优先，端到端加密</h3>
+                <p>代码和 API key 只留在电脑上，云端只转发密文、不留存。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="install">
+            <div class="install-head">
+              <span>快速开始</span>
+              <button type="button" onclick="copyCmd('cmd-zh')">copy</button>
+            </div>
+            <pre id="cmd-zh">curl -fsSL https://riffpad.ai/install.sh | sh
+riffpad login
+riffpad pair
+riffpad run codex</pre>
+          </div>
+
+          <div class="cta">
+            <a class="btn btn-primary" href="https://app.riffpad.ai">打开 App</a>
+            <a class="btn btn-ghost" href="https://www.riffpad.ai/docs/guide/quickstart">阅读文档</a>
+          </div>
+        </section>
+      </div>
+
+      <footer class="footer">
+        <div class="links">
+          <a href="https://www.riffpad.ai/docs/guide/quickstart">Docs</a>
+          <a href="https://discord.gg/CDNFTg2QyM">Discord</a>
+          <a href="https://app.riffpad.ai">App</a>
+        </div>
+        <p class="unsub">
+          You're receiving this because you joined the Riffpad waitlist.
+          <a href="#">Unsubscribe / 退订</a>
+        </p>
+        <p class="copy">© 2026 Riffpad · riffpad.ai</p>
+      </footer>
+    </article>
+  </div>
+
+  <script>
+    var currentTheme = document.documentElement.dataset.theme;
+    document.querySelectorAll("[data-theme-btn]").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.themeBtn === currentTheme);
+      b.addEventListener("click", function () {
+        var theme = b.dataset.themeBtn;
+        document.documentElement.dataset.theme = theme;
+        try { localStorage.setItem("riffpad-email-theme", theme); } catch (e) {}
+        document.querySelectorAll("[data-theme-btn]").forEach(function (x) {
+          x.classList.toggle("active", x.dataset.themeBtn === theme);
+        });
+      });
+    });
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+      try { if (localStorage.getItem("riffpad-email-theme")) return; } catch (err) {}
+      var theme = e.matches ? "dark" : "light";
+      document.documentElement.dataset.theme = theme;
+      document.querySelectorAll("[data-theme-btn]").forEach(function (x) {
+        x.classList.toggle("active", x.dataset.themeBtn === theme);
+      });
+    });
+    function copyCmd(id) {
+      const el = document.getElementById(id);
+      const btn = el.closest(".install").querySelector(".install-head button");
+      const text = el.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "copied ✓";
+        setTimeout(() => (btn.textContent = "copy"), 1200);
+      });
+    }
+  </script>
+</body>
+</html>
