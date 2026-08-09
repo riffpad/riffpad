@@ -93,7 +93,7 @@ Usage:
 		"usage_daemon":                "usage: riffpad daemon start|stop|restart",
 		"usage_login":                 "usage: riffpad login [--url wss://…] | riffpad logout",
 		"usage_run":                   "usage: riffpad run [codex|claude|kimi] [--name N] [--prompt P] [--cwd D]",
-		"attach_deprecated":           "Attach mode is deprecated and disabled. Use `riffpad run --cli claude` instead.",
+		"attach_deprecated":           "Attach mode is deprecated and disabled. Use `riffpad run claude` instead.",
 	},
 	"zh": {
 		"usage": `riffpad — AI agent 远程遥控
@@ -188,6 +188,6 @@ Usage:
 		"usage_daemon":                "用法：riffpad daemon start|stop|restart",
 		"usage_login":                 "用法：riffpad login [--url wss://…] | riffpad logout",
 		"usage_run":                   "用法：riffpad run [codex|claude|kimi] [--name N] [--prompt P] [--cwd D]",
-		"attach_deprecated":           "附着模式已弃用并关闭。请改用 `riffpad run --cli claude`。",
+		"attach_deprecated":           "附着模式已弃用并关闭。请改用 `riffpad run claude`。",
 	},
 }

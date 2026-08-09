@@ -640,9 +640,13 @@ func statusCmd(base string) error {
 
 func pairCmd(base string, args []string) error {
 	fs := flag.NewFlagSet("pair", flag.ExitOnError)
-	local := fs.Bool("local", false, "allow a local-only pairing code without login")
+	local := fs.Bool("local", false, "mint a local-only code for the embedded UI at 8787, even when connected to a relay")
 	_ = fs.Parse(args)
-	resp, err := daemonDo(nil, http.MethodPost, base+"/api/pairings", nil)
+	pairURL := base + "/api/pairings"
+	if *local {
+		pairURL += "?local=1"
+	}
+	resp, err := daemonDo(nil, http.MethodPost, pairURL, nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
 	}

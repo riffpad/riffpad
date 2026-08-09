@@ -290,7 +290,11 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 	switch name {
 	case "Bash":
 		cmd, _ := input["command"].(string)
-		ev, err := protocol.NewEvent(p.SessionID, protocol.EventCommand, protocol.CommandPayload{Command: cmd})
+		// Attach hooks don't expose the shell exit status; default to 0 so the
+		// row resolves to done instead of spinning forever (the client treats
+		// a missing exit code as "running").
+		exit := 0
+		ev, err := protocol.NewEvent(p.SessionID, protocol.EventCommand, protocol.CommandPayload{Command: cmd, ExitCode: &exit})
 		if err == nil {
 			s.pumpEvent(sess, ev)
 		}

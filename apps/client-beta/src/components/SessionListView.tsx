@@ -194,7 +194,7 @@ export default function SessionListView({ onOpen }: Props) {
         <section className="card empty-card">
           <h3><span className="glyph">//</span>{t("empty_title")}</h3>
           <p className="muted">{t("empty_run_hint")}</p>
-          <code className="empty-cmd">riffpad run --cli codex</code>
+          <code className="empty-cmd">riffpad run codex</code>
         </section>
       )}
 

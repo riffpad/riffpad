@@ -160,6 +160,24 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
           setConnTone("bad");
           return null;
         }
+        // When the agent stops or the session ends, any tool/command row still
+        // spinning never got its completion event (interrupted/aborted). Resolve
+        // it so it doesn't spin forever.
+        const sweepRunning = (to: ToolLine["status"]) => {
+          const cur = toolsRef.current;
+          const next = { ...cur };
+          let changed = false;
+          for (const k of Object.keys(next)) {
+            if (next[k].status === "run") {
+              next[k] = { ...next[k], status: to };
+              changed = true;
+            }
+          }
+          if (changed) {
+            toolsRef.current = next;
+            setTools(next);
+          }
+        };
         return openSessionSocket(sid, dev, {
           onConn: (label, tone) => {
             setStatus(label);
@@ -170,6 +188,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
             if (ev.type === "agent_status") {
               const st = String((ev.payload || {}).status || "");
               if (st) setAgentStatus(st);
+              if (st === "done" || st === "error") sweepRunning("fail");
               return;
             }
             if (ev.type === "session_start") {
@@ -189,6 +208,10 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
               const rid = String(rp.requestId || "");
               if (rid) setResolvedApprovals((m) => ({ ...m, [rid]: String(rp.decision || "") }));
               return;
+            }
+            if (ev.type === "session_end") {
+              // Session over: resolve any tool/command row still spinning.
+              sweepRunning("fail");
             }
             const tool = toolLineFromEvent(ev, tRef.current);
             if (tool) {
@@ -435,7 +458,7 @@ export default function SessionDetailView({ sid, name, cli, cwd, onLeave, onReau
         )}
         {running && (
           <div className="agent-running">
-            <span className="dot" />
+            <DotMatrix />
             {t("agent_running")}
           </div>
         )}

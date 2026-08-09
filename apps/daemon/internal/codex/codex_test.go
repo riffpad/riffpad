@@ -84,19 +84,56 @@ func TestTurnCompletedStatus(t *testing.T) {
 	}
 }
 
-func TestCommandCompletedCarriesSummary(t *testing.T) {
+func TestCommandCompletedCarriesExitCode(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	c.handleLine([]byte(`{"method":"item/completed","params":{"item":{"id":"it1","type":"commandExecution","command":"ls","status":"completed","exitCode":0,"aggregatedOutput":"src"}}}`))
 	ev := nextEvent(t, c)
-	if ev.Type != protocol.EventToolCall {
-		t.Fatalf("expected tool_call, got %s", ev.Type)
+	if ev.Type != protocol.EventCommand {
+		t.Fatalf("expected command, got %s", ev.Type)
 	}
-	var p protocol.ToolCallPayload
+	var p protocol.CommandPayload
 	if err := ev.DecodePayload(&p); err != nil {
 		t.Fatal(err)
 	}
-	if p.Tool != "Command" || p.Status != "completed" || p.Summary != "ls" {
-		t.Fatalf("expected Command completed with summary ls, got %+v", p)
+	if p.Command != "ls" || p.ExitCode == nil || *p.ExitCode != 0 || p.Output != "src" {
+		t.Fatalf("expected command ls exit 0 output src, got %+v", p)
+	}
+}
+
+// A commandExecution emits a started command (no exit code) on item/started so
+// the client shows a spinner, then resolves to green on item/completed.
+func TestCommandStartedEmitted(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"method":"item/started","params":{"item":{"id":"it1","type":"commandExecution","command":"ls"}}}`))
+	ev := nextEvent(t, c)
+	if ev.Type != protocol.EventCommand {
+		t.Fatalf("expected started command, got %s", ev.Type)
+	}
+	var p protocol.CommandPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Command != "ls" || p.ExitCode != nil {
+		t.Fatalf("expected started command ls with no exit code, got %+v", p)
+	}
+}
+
+// A failed/declined commandExecution has no exitCode in the payload; the
+// daemon must still set a non-nil exit so the client resolves the row instead
+// of spinning forever.
+func TestCommandFailedGetsFallbackExitCode(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	c.handleLine([]byte(`{"method":"item/completed","params":{"item":{"id":"it1","type":"commandExecution","command":"bad","status":"failed"}}}`))
+	ev := nextEvent(t, c)
+	if ev.Type != protocol.EventCommand {
+		t.Fatalf("expected command, got %s", ev.Type)
+	}
+	var p protocol.CommandPayload
+	if err := ev.DecodePayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.ExitCode == nil || *p.ExitCode != 1 {
+		t.Fatalf("expected fallback exit code 1 for failed command, got %+v", p)
 	}
 }
 

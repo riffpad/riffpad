@@ -17,39 +17,42 @@ func TestHandleLineAssistantAndUser(t *testing.T) {
 	c.handleLine([]byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]}}`))
 	c.handleLine([]byte(`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"src"}]}}`))
 
+	// Event order for a Bash call:
+	//   agent_message · command(started, no exit code) · command(completed, exit code)
+	// Bash renders as a single row: the started command (no exit code) makes
+	// the client show a spinner; the completed command carries the exit code
+	// and transitions it to green. No tool_call row for Bash (it duplicates).
 	var got []protocol.Event
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 3; i++ {
 		select {
 		case ev := <-c.Events():
 			got = append(got, ev)
 		default:
-			t.Fatalf("expected %d events, got %d", 4, len(got))
+			t.Fatalf("expected %d events, got %d", 3, len(got))
 		}
 	}
 	if got[0].Type != protocol.EventAgentMessage {
 		t.Fatalf("expected agent_message, got %s", got[0].Type)
 	}
-	if got[1].Type != protocol.EventToolCall {
-		t.Fatalf("expected tool_call, got %s", got[1].Type)
+	if got[1].Type != protocol.EventCommand {
+		t.Fatalf("expected started command, got %s", got[1].Type)
 	}
-	var tc protocol.ToolCallPayload
-	if err := got[1].DecodePayload(&tc); err != nil {
+	var cmdStart protocol.CommandPayload
+	if err := got[1].DecodePayload(&cmdStart); err != nil {
 		t.Fatal(err)
 	}
-	if tc.Tool != "Bash" || tc.Summary != "ls" {
-		t.Fatalf("unexpected tool call: %+v", tc)
+	if cmdStart.Command != "ls" || cmdStart.ExitCode != nil {
+		t.Fatalf("unexpected started command (want no exit code): %+v", cmdStart)
 	}
 	if got[2].Type != protocol.EventCommand {
-		t.Fatalf("expected command, got %s", got[2].Type)
+		t.Fatalf("expected completed command, got %s", got[2].Type)
 	}
-	// The completed tool_call must carry the same summary/args as the
-	// started one so the client can merge it in place.
-	var done protocol.ToolCallPayload
-	if err := got[3].DecodePayload(&done); err != nil {
+	var cmdDone protocol.CommandPayload
+	if err := got[2].DecodePayload(&cmdDone); err != nil {
 		t.Fatal(err)
 	}
-	if done.Tool != "Bash" || done.Status != "completed" || done.Summary != "ls" {
-		t.Fatalf("unexpected completed tool call: %+v", done)
+	if cmdDone.Command != "ls" || cmdDone.ExitCode == nil || *cmdDone.ExitCode != 0 {
+		t.Fatalf("unexpected completed command (want exit code 0): %+v", cmdDone)
 	}
 }
 

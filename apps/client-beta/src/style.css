@@ -964,11 +964,8 @@ button.github {
   text-transform: uppercase;
   color: var(--chat-yellow);
 }
-.agent-running .dot {
-  width: 7px;
-  height: 7px;
+.agent-running .dot-matrix span {
   background: var(--chat-yellow);
-  animation: status-blink 1.2s ease-in-out infinite;
 }
 
 /* ---- chat / tool cards ---- */

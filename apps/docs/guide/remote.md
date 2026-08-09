@@ -16,6 +16,6 @@
 
 ```bash
 tmux new -s work
-riffpad run --cli codex
+riffpad run codex
 # Ctrl-b d 脱离；回来后 tmux attach -t work
 ```

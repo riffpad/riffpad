@@ -486,6 +486,27 @@ func TestPairCmdAllowsLocalWithFlag(t *testing.T) {
 	}
 }
 
+// TestPairCmdLocalSendsQuery: `riffpad pair --local` must ask the daemon for a
+// local-only code by passing ?local=1, so a relay-connected daemon mints a code
+// the embedded 8787 UI can claim instead of a cloud code.
+func TestPairCmdLocalSendsQuery(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": "ABC123", "url": "http://127.0.0.1:8787/?pair=ABC123", "local": true,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := pairCmd(srv.URL, []string{"--local"}); err != nil {
+		t.Fatalf("pair --local failed: %v", err)
+	}
+	if !strings.Contains(gotQuery, "local=1") {
+		t.Fatalf("expected local=1 in pairing request query, got %q", gotQuery)
+	}
+}
+
 func TestDaemonRestartPrefersSystemd(t *testing.T) {
 	oldActive, oldRestart := systemdActiveFn, systemdRestartFn
 	systemdActiveFn = func() (bool, error) { return true, nil }

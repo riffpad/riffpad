@@ -686,9 +686,13 @@ func (c *Codex) handleItemStarted(params json.RawMessage) {
 		c.messages[n.Item.ID] = &strings.Builder{}
 		c.mu.Unlock()
 	case "commandExecution":
-		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
-			Tool: "Command", Status: "started", Summary: n.Item.Command,
-		})
+		// A command renders as a single "$ cmd" row: started here (no exit
+		// code) for the spinner, completed in handleItemCompleted (with exit
+		// code) for the green check. No tool_call row — it would duplicate
+		// the command row with no output to expand.
+		if n.Item.Command != "" {
+			_ = c.emit(protocol.EventCommand, protocol.CommandPayload{Command: n.Item.Command})
+		}
 	case "fileChange":
 		paths := fileChangePaths(n.Item.Changes)
 		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
@@ -735,17 +739,20 @@ func (c *Codex) handleItemCompleted(params json.RawMessage) {
 			_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
 		}
 	case "commandExecution":
-		status := "completed"
-		if n.Item.Status == "declined" || n.Item.Status == "failed" {
-			status = "failed"
+		failed := n.Item.Status == "declined" || n.Item.Status == "failed"
+		// Ensure a non-nil exit code so the client resolves the row: codex
+		// omits exitCode on declined/failed items, and a nil exit code would
+		// leave the spinner spinning (the client treats undefined exit as run).
+		exit := n.Item.ExitCode
+		if exit == nil {
+			code := 0
+			if failed {
+				code = 1
+			}
+			exit = &code
 		}
-		// Same Summary as the "started" event so the client's in-place merge
-		// keys match (no duplicate spinner + completed rows).
-		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
-			Tool: "Command", Status: status, Summary: n.Item.Command,
-		})
 		_ = c.emit(protocol.EventCommand, protocol.CommandPayload{
-			Command: n.Item.Command, ExitCode: n.Item.ExitCode, Output: truncate(n.Item.Output, 2000),
+			Command: n.Item.Command, ExitCode: exit, Output: truncate(n.Item.Output, 2000),
 		})
 	case "fileChange":
 		status := "completed"

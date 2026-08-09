@@ -78,7 +78,7 @@ GitHub account, and enter the code (or scan the QR).
 ### 4. Start and control a session
 
 ```bash
-riffpad run --cli codex
+riffpad run codex
 ```
 
 The session appears in the app immediately — watch progress, approve actions,
