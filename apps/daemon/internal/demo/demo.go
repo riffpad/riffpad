@@ -98,27 +98,57 @@ func (d *Demo) welcome() {
 	if !d.sleep() {
 		return
 	}
-	d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "Hi! I'm the **Riffpad demo agent** — a scripted timeline, no real model, no API quota.\n\nTry sending me:\n- `tool` — watch a command spinner turn green\n- `approval` — trigger a phone approval card\n- `markdown` — rich formatting (code, lists, tables)"})
+	// A realistic interleaved workflow: message → tool → message → tool →
+	// message → tool (with approval) → final summary.
+	d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "I'll refactor the auth middleware to use the new session store."})
 	if !d.sleep() {
 		return
 	}
-	if !d.emitTool("npm test") {
+	d.emit(protocol.EventNotify, protocol.NotifyPayload{Level: "info", Message: "Reading src/auth/middleware.ts…"})
+	if !d.sleep() {
+		return
+	}
+	if !d.emitTool("ReadFile", "src/auth/middleware.ts", "") {
 		return
 	}
 	if !d.sleep() {
+		return
+	}
+	d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "The middleware is a 120-line monolith — extracting session handling into its own module."})
+	if !d.sleep() {
+		return
+	}
+	if !d.emitTool("Edit", "src/auth/middleware.ts", "") {
 		return
 	}
 	d.emit(protocol.EventFileChange, protocol.FileChangePayload{
-		Path: "src/auth/middleware.ts", Summary: "updated",
+		Path: "src/auth/session.ts", Summary: "new file",
 	})
 	if !d.sleep() {
+		return
+	}
+	d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "Middleware updated. Running the test suite…"})
+	if !d.sleep() {
+		return
+	}
+	if !d.emitTool("Bash", "npm test", "42 passed · 0 failed · 1.8s") {
+		return
+	}
+	if !d.sleep() {
+		return
+	}
+	d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "All green. One leftover: `src/old.ts` is unused — removing it."})
+	if !d.sleep() {
+		return
+	}
+	if !d.emitTool("Bash", "rm src/old.ts", "") {
 		return
 	}
 	decided, ok := d.requestApproval("Bash", "rm src/old.ts", "删除不再使用的文件")
 	if !ok {
 		return
 	}
-	text := "Approved — `src/old.ts` removed, tests still green."
+	text := "Done — middleware refactored, 42 tests green, dead file removed."
 	if decided != "approve" {
 		text = "Rejected — the agent paused and will try another approach."
 	}
@@ -131,27 +161,29 @@ func (d *Demo) welcome() {
 	d.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusWaitingInput})
 }
 
-// emitTool plays a Bash tool spinner → command output → completed row.
-func (d *Demo) emitTool(command string) bool {
+// emitTool plays a tool spinner → (optional) command output → completed row.
+func (d *Demo) emitTool(tool, summary, output string) bool {
 	if !d.emit(protocol.EventToolCall, protocol.ToolCallPayload{
-		Tool: "Bash", Status: "started", Summary: command,
+		Tool: tool, Status: "started", Summary: summary,
 	}) {
 		return false
 	}
 	if !d.sleep() {
 		return false
 	}
-	exit := 0
-	if !d.emit(protocol.EventCommand, protocol.CommandPayload{
-		Command: command, ExitCode: &exit, Output: "42 passed · 0 failed · 1.8s",
-	}) {
-		return false
-	}
-	if !d.sleep() {
-		return false
+	if tool == "Bash" {
+		exit := 0
+		if !d.emit(protocol.EventCommand, protocol.CommandPayload{
+			Command: summary, ExitCode: &exit, Output: output,
+		}) {
+			return false
+		}
+		if !d.sleep() {
+			return false
+		}
 	}
 	return d.emit(protocol.EventToolCall, protocol.ToolCallPayload{
-		Tool: "Bash", Status: "completed", Summary: command,
+		Tool: tool, Status: "completed", Summary: summary,
 	})
 }
 
@@ -229,18 +261,54 @@ func (d *Demo) reply(text string) {
 		}
 		d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: msg})
 	case strings.Contains(strings.ToLower(text), "tool"):
-		if !d.emitTool("pnpm test") {
+		if !d.emitTool("Bash", "pnpm test", "42 passed · 0 failed · 1.8s") {
 			return
 		}
 		if !d.sleep() {
 			return
 		}
 		d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "All checks passed ✅"})
+	case strings.Contains(strings.ToLower(text), "error"):
+		if !d.emitTool("Bash", "pnpm deploy", "") {
+			return
+		}
+		fail := 1
+		if !d.emit(protocol.EventCommand, protocol.CommandPayload{
+			Command: "pnpm deploy", ExitCode: &fail,
+			Output: "ERROR ENOENT: deploy target not found",
+		}) {
+			return
+		}
+		if !d.sleep() {
+			return
+		}
+		if !d.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+			Tool: "Bash", Status: "failed", Summary: "pnpm deploy",
+		}) {
+			return
+		}
+		d.emit(protocol.EventNotify, protocol.NotifyPayload{Level: "error", Message: "deploy failed: ENOENT"})
+		if !d.sleep() {
+			return
+		}
+		d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "Deploy failed — falling back to the previous build."})
+	case strings.Contains(strings.ToLower(text), "long"):
+		for i := 1; i <= 24; i++ {
+			if !d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{
+				Text: fmt.Sprintf("Chunk %02d — this is a long history item to exercise scrolling, pagination and layout. `x=%d`", i, i*7),
+			}) {
+				return
+			}
+			if Delay > 0 {
+				time.Sleep(15 * time.Millisecond)
+			}
+		}
+		d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "That was 24 messages — long history done."})
 	case strings.Contains(strings.ToLower(text), "markdown") || strings.Contains(strings.ToLower(text), "code"):
 		d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: "Here's a **markdown** demo:\n\n1. First item\n2. Second item\n\n```ts\nconst ok = (x: number) => x * 2;\nconsole.log(ok(21)); // 42\n```\n\n| cli | status |\n|---|---|\n| codex | foreground |\n| claude | foreground |\n| kimi | foreground |"})
 	default:
 		d.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{
-			Text: "You said: " + text + "\n\nThis is a scripted demo reply — send `tool`, `approval` or `markdown` to explore more UI states.",
+			Text: "You said: " + text + "\n\nThis is a scripted demo reply — send `tool`, `approval`, `markdown`, `error` or `long` to explore more UI states.",
 		})
 	}
 	if !d.sleep() {

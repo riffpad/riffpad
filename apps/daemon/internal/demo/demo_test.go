@@ -52,24 +52,28 @@ func TestDemoWelcomeTimelineAndApproval(t *testing.T) {
 	for _, ev := range evs {
 		types = append(types, ev.Type)
 	}
-	// Scripted order: running → agent msg → tool started → command →
-	// tool completed → file change → approval.
-	want := []string{
-		protocol.EventAgentStatus,
-		protocol.EventAgentMessage,
-		protocol.EventToolCall,
-		protocol.EventCommand,
+	if types[0] != protocol.EventAgentStatus {
+		t.Fatalf("timeline must start with running status, got %v", types)
+	}
+	// Interleaved workflow markers must appear in order: tool activity →
+	// file change → command → the approval-gated removal.
+	if !containsSubseq(types, []string{
 		protocol.EventToolCall,
 		protocol.EventFileChange,
+		protocol.EventCommand,
+		protocol.EventToolCall,
 		protocol.EventApprovalReq,
+	}) {
+		t.Fatalf("timeline missing interleaved workflow markers: %v", types)
 	}
-	if len(types) != len(want) {
-		t.Fatalf("unexpected event count: %v", types)
-	}
-	for i := range want {
-		if types[i] != want[i] {
-			t.Fatalf("event %d: want %s, got %s (%v)", i, want[i], types[i], types)
+	msgCount := 0
+	for _, typ := range types {
+		if typ == protocol.EventAgentMessage {
+			msgCount++
 		}
+	}
+	if msgCount < 3 {
+		t.Fatalf("expected several interleaved agent messages, got %d (%v)", msgCount, types)
 	}
 
 	if err := d.SendApproval(approvalRequestID(t, evs[len(evs)-1]), "approve"); err != nil {
@@ -84,6 +88,16 @@ func TestDemoWelcomeTimelineAndApproval(t *testing.T) {
 	if st.Status != protocol.StatusWaitingInput {
 		t.Fatalf("expected waiting_input after approval, got %s", st.Status)
 	}
+}
+
+func containsSubseq(haystack, needle []string) bool {
+	i := 0
+	for _, h := range haystack {
+		if i < len(needle) && h == needle[i] {
+			i++
+		}
+	}
+	return i == len(needle)
 }
 
 func TestDemoReplyApprovalPath(t *testing.T) {
