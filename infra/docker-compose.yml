@@ -16,6 +16,9 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       RIFFPAD_API_HOSTS: ${RIFFPAD_API_HOSTS:-}
       RIFFPAD_APP_URL: ${RIFFPAD_APP_URL:-https://app.riffpad.ai}
+      UNSUBSCRIBE_SECRET: ${UNSUBSCRIBE_SECRET:-}
+      WAITLIST_ADMIN_KEY: ${WAITLIST_ADMIN_KEY:-}
+      RIFFPAD_WEB_ORIGINS: ${RIFFPAD_WEB_ORIGINS:-https://riffpad.ai,https://www.riffpad.ai}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,16 @@
+Hi{{if .Name}} {{.Name}}{{end}},
+
+Riffpad is now in beta. Install the CLI and pair your phone to watch,
+approve and steer Claude Code / Codex sessions from anywhere:
+
+  https://riffpad.ai
+
+We'd love your feedback on the waitlist Discord:
+  https://discord.gg/riffpad
+
+Talk soon,
+The Riffpad team
+
+---
+You're receiving this because you joined the Riffpad waitlist.
+Unsubscribe: {{.UnsubscribeURL}}

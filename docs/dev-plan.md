@@ -1,6 +1,6 @@
 # Riffpad 开发计划（Dev Plan）
 
-> 最后更新：2026-08-08（按实际开发进度整理）
+> 最后更新：2026-08-09（按实际开发进度整理）
 > 关联文档：[PRD](prd.md)（产品需求）、[TSD](tsd.md)（技术规格）、[无 tmux 注入调研](agent-injection-research.md)
 > 用途：追踪 M0 → M3 的开发进度；每个里程碑完成时更新状态。
 
@@ -202,6 +202,7 @@
 | M3.21 | macOS daemon 管理：`riffpad setup` 支持 launchd LaunchAgent（登录自启 + 崩溃重启）；`riffpad daemon restart` 与 `riffpad update` 自动重启在 macOS 优先走 `launchctl kickstart -k`，保持 launchd 为唯一进程账本 | `[ ]` | setup 安装/移除 LaunchAgent；restart/update 检测 launchd 托管并走 launchctl；真机验证 | — |
 | M3.22 | Windows daemon 管理：`riffpad daemon restart` 与 `riffpad update` 自动重启检测 `RiffpadDaemon` 计划任务，停止旧进程后 `schtasks /Run` 由任务管理器拉起，保持任务账本一致 | `[x]` | daemonRestart 任务分支 + 单测（运行中停旧启新 / 未运行直接拉起）已实现 | #208 |
 | M3.23 | 弃用 attach 模式：入口关闭（代码保留，`riffpad detach` 仍可用于清理旧 hooks），统一 `riffpad run` 托管模式；`riffpad run` 支持位置参数（`riffpad run codex`） | `[x]` | attachCmd 返回弃用提示；run 位置参数 + 单测已实现 | #214 |
+| M3.24 | 群发邮件 + 退订管理：`scripts/email`（Formspree 拉取/去重、SMTP 群发、HMAC 退订链接、跳过已退订）；relay `/api/waitlist/unsubscribe` + `/api/waitlist/optouts`（`email_optouts` 表，CORS 仅 riffpad.ai/www）；landing `/unsubscribe` 退订页（中英、深浅色一致） | `[~]` | 首次公告可发出；退订幂等；后续发送自动跳过；生产 env 配 `UNSUBSCRIBE_SECRET`/`WAITLIST_ADMIN_KEY` | #218 |
 
 ---
 
