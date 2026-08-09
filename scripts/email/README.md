@@ -7,10 +7,8 @@ binary build).
 ## Commands
 
 ```sh
-# 1. Pull and dedupe waitlist emails from Formspree (Professional/Business
-#    plan API; on the free plan export the CSV from the dashboard instead)
-FORMSPREE_API_KEY=xxx FORMSPREE_FORM_ID=xjgqddar \
-  go run . fetch -out waitlist.csv
+# 1. Pull waitlist emails from the relay API (waitlist_emails table)
+WAITLIST_ADMIN_KEY=xxx go run . fetch -out waitlist.csv
 
 # 2. Preview the rendered emails without sending
 SMTP_PASS=xxx UNSUBSCRIBE_SECRET=yyy \
@@ -41,9 +39,12 @@ UNSUBSCRIBE_SECRET=yyy go run . token -email you@example.com
 | `UNSUBSCRIBE_BASE_URL` | `https://riffpad.ai/unsubscribe` | unsubscribe page |
 | `RIFFPAD_API_URL` | `https://api.riffpad.ai` | relay base URL |
 | `WAITLIST_ADMIN_KEY` | — | relay admin key for fetching opt-outs |
-| `FORMSPREE_API_KEY` / `FORMSPREE_FORM_ID` | — | Formspree credentials for `fetch` |
 
-## How unsubscribe works
+## How it works
+
+The landing page posts signups to `POST /api/waitlist/subscribe` on the
+relay, which stores them in the `waitlist_emails` table. `fetch` reads that
+table back through `GET /api/waitlist/emails` (admin key protected).
 
 Each email gets `https://riffpad.ai/unsubscribe?email=...&token=...` where
 the token is `HMAC-SHA256(UNSUBSCRIBE_SECRET, email)`. The landing page

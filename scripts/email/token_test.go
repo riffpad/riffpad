@@ -98,6 +98,27 @@ func TestFetchOptOuts(t *testing.T) {
 	}
 }
 
+func TestFetchWaitlistEmails(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/waitlist/emails" {
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+		if r.Header.Get("X-Admin-Key") != "k" {
+			t.Errorf("missing admin key")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"entries":[{"email":"a@b.c","createdAt":"2026-07-12T12:13:00Z"},{"email":"bad","createdAt":"2026-07-12T12:14:00Z"}]}`))
+	}))
+	t.Setenv("RIFFPAD_API_URL", ts.URL)
+	recs, err := fetchWaitlist("k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recs) != 1 || recs[0].Email != "a@b.c" || recs[0].Date != "2026-07-12T12:13:00Z" {
+		t.Fatalf("unexpected waitlist: %v", recs)
+	}
+}
+
 func TestNormalizeEmail(t *testing.T) {
 	if got := normalizeEmail("  Foo@Bar.COM "); got != "foo@bar.com" {
 		t.Fatalf("normalize: %q", got)

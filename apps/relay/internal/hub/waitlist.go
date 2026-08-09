@@ -13,11 +13,12 @@ import (
 	"time"
 )
 
-// Waitlist unsubscribe endpoints. The announcement tool signs every email
+// Waitlist endpoints. The landing form posts email addresses to /subscribe
+// (stored in waitlist_emails); the announcement tool signs every recipient
 // with UNSUBSCRIBE_SECRET (HMAC-SHA256 of the normalized address); the
-// landing page presents that link to the relay, which verifies the signature
-// and stores the opt-out in email_optouts. The tool then fetches the list
-// with WAITLIST_ADMIN_KEY so future sends skip opted-out addresses.
+// unsubscribe page presents that link to the relay, which verifies the
+// signature and stores the opt-out in email_optouts. The tool fetches both
+// lists with WAITLIST_ADMIN_KEY so sends skip opted-out addresses.
 
 func normalizeWaitlistEmail(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
@@ -127,4 +128,62 @@ func (h *Hub) handleWaitlistOptouts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"emails": emails})
+}
+
+// handleWaitlistSubscribe records a waitlist signup from the landing page.
+// Public and idempotent; rate-limited per IP.
+func (h *Hub) handleWaitlistSubscribe(w http.ResponseWriter, r *http.Request) {
+	h.setCORSHeaders(w, r)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if !h.allowRate("waitlist-subscribe", clientIP(r), 10, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	email := normalizeWaitlistEmail(req.Email)
+	if !validWaitlistEmail(email) {
+		writeError(w, http.StatusBadRequest, "invalid email")
+		return
+	}
+	if err := h.store.AddWaitlistEmail(email); err != nil {
+		h.log.Printf("waitlist subscribe failed email=%s: %v", email, err)
+		writeError(w, http.StatusInternalServerError, "failed to save email")
+		return
+	}
+	h.log.Printf("waitlist subscribe email=%s", email)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "email": email})
+}
+
+// handleWaitlistEmails returns the collected waitlist entries for the
+// announcement tool. Protected by WAITLIST_ADMIN_KEY; not meant for browsers.
+func (h *Hub) handleWaitlistEmails(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	if h.adminKey == "" || subtle.ConstantTimeCompare(
+		[]byte(r.Header.Get("X-Admin-Key")), []byte(h.adminKey)) != 1 {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	entries, err := h.store.WaitlistEmails()
+	if err != nil {
+		h.log.Printf("waitlist emails read failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to read waitlist")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
 }
