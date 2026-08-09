@@ -36,6 +36,7 @@ UNSUBSCRIBE_SECRET=yyy go run . token -email you@example.com
 | `SMTP_USER` | `hi@riffpad.ai` | SMTP login |
 | `SMTP_PASS` | — | SMTP password (required unless `--dry-run`) |
 | `FROM` | `SMTP_USER` | From address |
+| `FROM_NAME` | `Riffpad` | From display name shown in mail clients |
 | `UNSUBSCRIBE_SECRET` | — | HMAC secret shared with the relay (required) |
 | `UNSUBSCRIBE_BASE_URL` | `https://riffpad.ai/unsubscribe` | unsubscribe page |
 | `RIFFPAD_API_URL` | `https://api.riffpad.ai` | relay base URL |
