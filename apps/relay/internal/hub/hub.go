@@ -135,6 +135,9 @@ type Hub struct {
 	githubUserURL  string
 	appURL         string
 	apiHosts       []string
+	unsubSecret    string
+	adminKey       string
+	webOrigins     []string
 }
 
 type ipCounter struct {
@@ -164,6 +167,9 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		githubUserURL:  "https://api.github.com/user",
 		appURL:         envOr("RIFFPAD_APP_URL", "https://app.riffpad.ai"),
 		apiHosts:       splitCSV(os.Getenv("RIFFPAD_API_HOSTS")),
+		unsubSecret:    os.Getenv("UNSUBSCRIBE_SECRET"),
+		adminKey:       os.Getenv("WAITLIST_ADMIN_KEY"),
+		webOrigins:     splitCSV(envOr("RIFFPAD_WEB_ORIGINS", "https://riffpad.ai,https://www.riffpad.ai")),
 	}, nil
 }
 
@@ -215,6 +221,8 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/", h.handleDeviceDelete)
 	mux.HandleFunc("/api/hosts/", h.handleHostKillswitch)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
+	mux.HandleFunc("/api/waitlist/unsubscribe", h.handleWaitlistUnsubscribe)
+	mux.HandleFunc("/api/waitlist/optouts", h.handleWaitlistOptouts)
 	mux.HandleFunc("/ws/host", h.handleHostWS)
 	mux.HandleFunc("/ws", h.handleViewerWS)
 	return mux

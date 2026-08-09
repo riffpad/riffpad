@@ -190,6 +190,19 @@ const en = {
     en: "EN",
     zh: "中",
   },
+  unsubscribe: {
+    label: "riffpad // unsubscribe",
+    title: "Unsubscribe from Riffpad announcements",
+    desc: "Stop receiving product updates. You can always rejoin the waitlist from riffpad.ai.",
+    emailLabel: "Email",
+    confirm: "Unsubscribe",
+    successTitle: "You're unsubscribed ✓",
+    successDesc: "You won't receive future announcement emails from Riffpad.",
+    invalidTitle: "Invalid link",
+    invalidDesc: "This unsubscribe link isn't valid. Use the link from the email you received.",
+    error: "Something went wrong — please try again.",
+    back: "← riffpad.ai",
+  },
 };
 
 const zh: typeof en = {
@@ -381,6 +394,19 @@ const zh: typeof en = {
   languages: {
     en: "EN",
     zh: "中",
+  },
+  unsubscribe: {
+    label: "riffpad // 退订",
+    title: "退订 Riffpad 公告邮件",
+    desc: "停止接收产品更新邮件。想重新订阅，随时可以回到 riffpad.ai。",
+    emailLabel: "邮箱",
+    confirm: "确认退订",
+    successTitle: "已退订 ✓",
+    successDesc: "以后不会再收到 Riffpad 的公告邮件。",
+    invalidTitle: "链接无效",
+    invalidDesc: "这个退订链接无效，请使用邮件中收到的链接。",
+    error: "出错了，请重试。",
+    back: "← riffpad.ai",
   },
 };
 

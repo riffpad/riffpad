@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // User is a relay account. Hosts, devices and sessions are owned by a user.
@@ -88,6 +89,14 @@ type SessionMeta struct {
 	LastSeenAt time.Time `json:"lastSeenAt"`
 }
 
+// EmailOptout is a waitlist address that asked to stop receiving
+// announcement emails. The address is normalized (lower-cased) and stored as
+// the primary key so unsubscribe is idempotent.
+type EmailOptout struct {
+	Email     string    `gorm:"primaryKey" json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type Store struct {
 	db *gorm.DB
 }
@@ -110,10 +119,38 @@ func OpenStore(dataDir, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}, &EmailOptout{}); err != nil {
 		return nil, err
 	}
 	return &Store{db: db}, nil
+}
+
+// AddEmailOptout records an opt-out. Repeated unsubscribes are a no-op.
+func (s *Store) AddEmailOptout(email string) error {
+	o := &EmailOptout{Email: email, CreatedAt: time.Now()}
+	return s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(o).Error
+}
+
+// EmailOptedOut reports whether an address has unsubscribed.
+func (s *Store) EmailOptedOut(email string) (bool, error) {
+	var n int64
+	if err := s.db.Model(&EmailOptout{}).Where("email = ?", email).Count(&n).Error; err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// EmailOptouts returns all opted-out addresses, oldest first.
+func (s *Store) EmailOptouts() ([]string, error) {
+	var rows []EmailOptout
+	if err := s.db.Order("created_at ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.Email)
+	}
+	return out, nil
 }
 
 func (s *Store) CreateUser(username, password string) (*User, error) {
