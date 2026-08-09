@@ -39,7 +39,7 @@
 | CLI 多语种 | i18n：`--lang` > 环境变量 > 英文兜底；zh/en 语言包 | #67 #68 |
 | daemon 无感化启动 | `run/sessions/pair/attach` 懒启动（文件锁防双实例）；`riffpad setup` systemd 自启 | #57 #58 |
 | Landing page | Next.js 落地页 + Vercel 部署（riffpad.ai / www），GitHub-green 视觉刷新 | #53 #70 |
-| 群发邮件 + 退订管理 | `scripts/email`（Formspree 拉取/去重、SMTP 群发、HMAC 退订链接）+ relay 退订端点 + landing `/unsubscribe`；生产已部署验证 | #218 #219 |
+| 群发邮件 + 退订管理 | `scripts/email`（waitlist API 拉取/去重、SMTP 群发、HMAC 退订链接）+ relay 退订端点 + landing `/unsubscribe`；生产已部署验证 | #218 #219 #222 #223 |
 | 自建 waitlist 表单与存储 | landing 直连 relay `POST /api/waitlist/subscribe`；`waitlist_entries` 表；`scripts/email fetch` 从 relay 拉取；旧 20 邮箱已入库 | #224 #225 |
 | 首跑配对体验 | `riffpad pair` 对 `host offline` 自动重试；daemon 版本号统一（v0.2.4 发布） | #220 #221 |
 
