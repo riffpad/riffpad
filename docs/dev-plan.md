@@ -50,7 +50,7 @@
 | 里程碑 | 目标 | 状态 |
 |---|---|---|
 | M0 | 验证核心闭环：Claude Code 等待审批 → 手机批准 → agent 继续 | `[x]` 完成 |
-| M1 | MVP：daemon 多适配器 + relay + Web 客户端，E2EE，可对外使用 | `[~]` 进行中（relay/Web 已完成，缺推送/恢复/质量项） |
+| M1 | MVP：daemon 多适配器 + relay + Web 客户端，E2EE，可对外使用 | `[x]` 完成（M1.13 推送由原生替代、M1.14 原生壳暂缓、M1.16 种子招募跳过） |
 | M2 | 国内落地：安卓原生壳 + 厂商推送 + 国内中继，国产 CLI | `[ ]` 未开始 |
 | M3 | 分享、兜底、自部署、团队版等后续能力 | `[~]` 部分完成（6 项已完成） |
 
@@ -99,7 +99,7 @@
 ## 4. M1：MVP（进行中）
 
 **目标**：可对外使用的 MVP——多适配器 daemon + 云端中继 + Web/移动端，E2EE 全链路。
-**验收**：跨网络（手机蜂窝网）可用；Web MVP 完整闭环；10 个种子用户持续使用（推送由原生 app 通道在 M2.2 提供）。
+**验收**：跨网络（手机蜂窝网）可用；Web MVP 完整闭环；种子用户可自助安装（M1.16 跳过，靠 waitlist 公告与 Discord 自然转化；推送由原生 app 通道在 M2.2 提供）。
 
 ### 4.1 daemon
 
@@ -140,9 +140,9 @@
 | M1.19 | client-beta UI v2：按 design-system 重做视觉（Console-Mobile：Geist Mono / GitHub green / hairline 卡片）+ 入场/状态动画 + Web 多语种（zh/en，自动检测 + 手动切换） | `[x]` | app.riffpad.ai 与本地 8787 同一产物；深/浅色跟随系统；动画尊重 reduced-motion；中英切换即时生效；2026-08-07 经 CD 自动部署上线 | #106 #107 |
 | M1.20 | 会话历史懒加载 + 分页：连接只推最近 N 条，上滑按页拉取更早历史，杜绝超长会话全量重放 | `[x]` | 连接只回放最近 100 条；WS history_query 分页读取 events.enc（limit 200）；上滑自动加载 + 滚动锚点；event.id 去重合并；加载中提示 | #125 |
 | M1.21 | 静态文档站（VitePress → riffpad.ai/docs）：Quickstart / CLI 参考 / 架构 / 安全 / FAQ，随 landing 一起部署 | `[x]` | /docs 可访问（cleanUrls，Vercel 静态导出）；内容与 PRD/TSD/CLI 一致；中文版已上线 2026-08-08 | #132 #134 #135 |
-| M1.16 | 种子用户招募与反馈收集 | `[ ]` | ≥ 10 个用户；留存数据可看 | — |
+| M1.16 | 种子用户招募与反馈收集 | `[!]` | **跳过**：不做主动招募，改为 waitlist 公告 + Discord 自然转化（2026-08-10 决策） | — |
 
-**M1 出口条件**：M1.1–M1.21 全部完成（M1.13 由原生推送替代、M1.14 暂缓，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
+**M1 出口条件**：M1.1–M1.21 全部完成（M1.13 由原生推送替代、M1.14 暂缓、M1.16 跳过，见上）；种子用户可自助安装 daemon（`curl -fsSL https://riffpad.ai/install.sh | sh`）并完成 Web 全流程。
 
 ### M1 验证记录（2026-08-05/06，relay 地基 + 适配器）
 
@@ -226,4 +226,4 @@
 | Claude host 模式审批受限 | 审批继续走附着模式 hooks 或预设 permission-mode；持续跟踪官方控制协议 |
 | 官方移动端竞争 | 聚焦跨 CLI + 本地桥接 + 国内体验 |
 | E2EE 实现错误 | 独立安全 review + 已知答案测试向量 |
-| 种子用户不足 | M1 出口前开始招募，优先已有 AI CLI 用户群 |
+| 种子用户不足 | M1.16 已跳过；靠 waitlist 公告/Discord 自然转化，后续按留存数据重新评估 |
