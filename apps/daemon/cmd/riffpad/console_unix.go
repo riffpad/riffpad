@@ -22,8 +22,8 @@ import (
 // window resizes are propagated, and Ctrl-C reaches the vendor TUI. When the
 // vendor process exits (or the console disconnects) the daemon session is
 // closed, matching the no-silent-hosting convention.
-func attachConsoleTUI(base, sessionID string) error {
-	fmt.Println("正在启动 Claude TUI（会话已托管到 daemon）…")
+func attachConsoleTUI(base, sessionID, cliName string) error {
+	fmt.Printf("正在启动 %s TUI（会话已托管到 daemon）…\n", cliName)
 	wsURL := strings.Replace(base, "http://", "ws://", 1) +
 		"/api/sessions/" + sessionID + "/pty"
 	if tok := localToken(); tok != "" {
@@ -136,6 +136,6 @@ func attachConsoleTUI(base, sessionID string) error {
 	if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); err == nil {
 		_ = resp.Body.Close()
 	}
-	fmt.Printf("Claude TUI 已退出，会话 %s 已关闭。\n", sessionID)
+	fmt.Printf("%s TUI 已退出，会话 %s 已关闭。\n", cliName, sessionID)
 	return nil
 }

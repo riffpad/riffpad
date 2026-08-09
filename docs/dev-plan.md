@@ -195,7 +195,7 @@
 | M3.11 | CLI 命令完善：`login/logout` + `update` 自更新 | `[x]` | 旧命令保留别名；update 校验/备份/原子替换 | #64 #65 |
 | M3.12 | CLI 多语种（i18n） | `[x]` | zh/en 语言包；`--lang` > 环境变量 > 英文兜底 | #67 |
 | M3.13 | 第三方登录：Google / Email（OAuth + 邮箱验证码） | `[ ]` | GitHub OAuth 已完成（M1.18 #105）；Google（国内可用性低）、Email（需 SMTP）暂缓 | — |
-| M3.14 | 托管模式无感化：`riffpad run` 后电脑终端照常显示/操作 CLI TUI，手机同步遥控 | `[~]` | Codex：`--remote` 共享 app-server 已完成（#74 #79）；Claude：daemon PTY 桥 + per-session hooks 已实现（前台 TUI、事件/审批、`/api/sessions/{id}/pty`），真机验证通过待合并（#230）；Kimi：前台方案待确认（无官方 attach 通道）；Ctrl-C 退出即退出，持久会话由用户 tmux（docs 强烈推荐） | #74 #79 #230 |
+| M3.14 | 托管模式无感化：`riffpad run` 后电脑终端照常显示/操作 CLI TUI，手机同步遥控 | `[x]` | Codex：`--remote` 共享 app-server（#74 #79）；Claude：daemon PTY 桥 + per-session hooks（#230 #231）；Kimi：`KIMI_CODE_HOME` 每会话 home + 原生 `[[hooks]]`（PreToolUse 审批闸门/Bash 门控，真机验证 0.34.0）（#232）；Ctrl-C 退出即退出，持久会话由用户 tmux（docs 强烈推荐） | #74 #79 #230 #232 |
 | M3.15 | 容器化部署：relay + Postgres 容器化 | `[x]` | 已随 M1.18 完成：relay 仅监听 127.0.0.1:9090、Postgres 17、healthcheck/restart、nginx/certbot 留宿主；生产运行中 | — |
 | M3.16 | 元数据存储 SQLite → Postgres 迁移 | `[x]` | 已随 M1.18 完成：`apps/relay/cmd/migrate-sqlite` 逐表迁移 + 行数校验，生产已切换 Postgres | — |
 | M3.17 | CI/CD：main push → 自动部署 relay（GitHub Actions + SSH 受限部署密钥） | `[x]` | CI 三 job 通过后自动执行 `/usr/local/bin/riffpad-deploy.sh`（git pull --ff-only + compose up -d --build + 健康检查）；部署密钥仅能执行固定脚本；2026-08-07 已端到端验证 | #108 #112 #113 |
