@@ -13,6 +13,9 @@ import (
 )
 
 func main() {
+	if err := loadEnvFile(".env"); err != nil {
+		fmt.Fprintf(os.Stderr, "riffpad-email: warning: cannot load .env: %v\n", err)
+	}
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
