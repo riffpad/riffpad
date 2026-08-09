@@ -15,7 +15,7 @@ description: |
 
 ## 1. Concept
 
-Riffpad is the pocket remote for AI coding agents. The design language says
+Riffpad lets you watch, approve, and steer AI coding agents from your phone. The design language says
 that in one sentence: **a terminal console and a phone, fused**.
 
 - The page keeps a quiet terminal tone: `//` comment labels, status dots,

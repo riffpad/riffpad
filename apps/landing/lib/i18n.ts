@@ -3,7 +3,7 @@ export type Language = "en" | "zh";
 const en = {
   hero: {
     title1: "Your AI coding agents,",
-    title2: "in your pocket.",
+    title2: "synced to your phone.",
     description:
       "Riffpad bridges Claude Code, Codex and other CLI agents to your phone — watch progress, approve actions and steer sessions without staying chained to the desk.",
     ctaPrimary: "Get Started",
@@ -208,7 +208,7 @@ const en = {
 const zh: typeof en = {
   hero: {
     title1: "你的 AI 编程 Agent，",
-    title2: "装进你的口袋。",
+    title2: "同步到手机。",
     description:
       "Riffpad 把 Claude Code、Codex 等 CLI agent 桥接到手机：随时看进度、批准操作、远程转向，人不必守在电脑前。",
     ctaPrimary: "开始使用",

@@ -7,7 +7,7 @@
 
 # Riffpad
 
-**AI coding agent 的口袋遥控器。**
+**AI coding agent 的手机遥控器。**
 
 在手机上查看、批准、遥控 Claude Code、Codex 等 AI coding CLI，不用再守在电脑前。
 
