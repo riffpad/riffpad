@@ -27,6 +27,13 @@ type pendingTool struct {
 	input map[string]any
 }
 
+// ptyTerm is one console attached to the interactive TUI. The type is
+// platform-neutral; the PTY-backed methods live in tui_unix.go.
+type ptyTerm struct {
+	c  *Claude
+	ch chan []byte
+}
+
 // approvalTimeout bounds how long a permission prompt waits for a viewer
 // decision before defaulting to deny, mirroring the attach hook path.
 // A var so tests can shrink it.
@@ -46,16 +53,19 @@ type Claude struct {
 
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
+	pty    *os.File
 	events chan protocol.Event
 	stopCh chan struct{}
 	doneCh chan struct{}
 
 	mu               sync.Mutex
+	interactive      bool
 	ctx              context.Context
 	launched         bool
 	exited           bool
 	pendingTools     map[string]pendingTool
 	pendingApprovals map[string]chan string
+	ptySubs          map[*ptyTerm]struct{}
 }
 
 // New creates a Claude Code session adapter.
@@ -78,6 +88,8 @@ func New(req adapter.CreateRequest) *Claude {
 		doneCh:           make(chan struct{}),
 		pendingTools:     make(map[string]pendingTool),
 		pendingApprovals: make(map[string]chan string),
+		interactive:      true,
+		ptySubs:          make(map[*ptyTerm]struct{}),
 	}
 }
 
@@ -94,6 +106,11 @@ func (c *Claude) Start(ctx context.Context) error {
 	c.mu.Lock()
 	c.ctx = ctx
 	c.mu.Unlock()
+	if c.interactive {
+		// Interactive TUI must spawn immediately even without an initial
+		// prompt (unlike headless `claude -p`, which exits on empty input).
+		return c.ensureStarted()
+	}
 	if c.prompt == "" {
 		return nil
 	}
@@ -121,6 +138,13 @@ func (c *Claude) ensureStarted() error {
 }
 
 func (c *Claude) spawn(ctx context.Context) error {
+	if c.interactive {
+		if err := c.spawnInteractive(ctx); err == nil {
+			return nil
+		} else {
+			log.Printf("claude[%s] interactive spawn failed (%v); falling back to headless", c.id, err)
+		}
+	}
 	if err := c.writeSettings(); err != nil {
 		return fmt.Errorf("write settings: %w", err)
 	}
@@ -217,6 +241,9 @@ func (c *Claude) Stop() error {
 	if c.cmd != nil && c.cmd.Process != nil {
 		_ = c.cmd.Process.Kill()
 	}
+	if c.pty != nil {
+		_ = c.pty.Close()
+	}
 	<-c.doneCh
 	return nil
 }
@@ -259,6 +286,12 @@ func (c *Claude) SendPrompt(text string) error {
 	// Mirror codex/kimi: echo the user's message back as an event so the
 	// phone client renders it (the daemon itself never sees the text again).
 	_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
+	if c.interactive && c.pty != nil {
+		if _, err := fmt.Fprintf(c.pty, "%s\r", text); err != nil {
+			return err
+		}
+		return nil
+	}
 	msg := map[string]any{
 		"type": "user",
 		"message": map[string]any{
@@ -294,21 +327,23 @@ func (c *Claude) writeSettings() error {
 	settings := map[string]any{"hooks": map[string]any{}}
 	hooks := map[string]any{}
 	if c.hookBase != "" {
-		hookURL := c.hookBase + "/hooks/claude/notification?session=" + c.id
-		if c.hookToken != "" {
-			hookURL += "&token=" + url.QueryEscape(c.hookToken)
-		}
-		hooks["Notification"] = []any{
-			map[string]any{
-				"matcher": "",
-				"hooks": []any{
-					map[string]any{
-						"type":    "http",
-						"url":     hookURL,
-						"timeout": 10,
+		for event, spec := range c.hookSpecs() {
+			hookURL := c.hookBase + "/hooks/claude/" + spec.path + "?session=" + c.id
+			if c.hookToken != "" {
+				hookURL += "&token=" + url.QueryEscape(c.hookToken)
+			}
+			hooks[event] = []any{
+				map[string]any{
+					"matcher": "",
+					"hooks": []any{
+						map[string]any{
+							"type":    "http",
+							"url":     hookURL,
+							"timeout": spec.timeout,
+						},
 					},
 				},
-			},
+			}
 		}
 	}
 	if len(hooks) > 0 {
@@ -319,6 +354,31 @@ func (c *Claude) writeSettings() error {
 		return err
 	}
 	return os.WriteFile(c.settingsPath, data, 0o600)
+}
+
+type hookSpec struct {
+	path    string // daemon route suffix (kebab-case)
+	timeout int    // seconds
+}
+
+// hookSpecs returns the Claude hooks to register, keyed by the event name
+// Claude expects in settings.json. The interactive TUI needs the full set
+// (structured events + permissions flow through hooks); headless
+// stream-json mode only needs Notification.
+func (c *Claude) hookSpecs() map[string]hookSpec {
+	if !c.interactive {
+		return map[string]hookSpec{"Notification": {path: "notification", timeout: 10}}
+	}
+	return map[string]hookSpec{
+		"SessionStart":      {path: "session-start", timeout: 10},
+		"SessionEnd":        {path: "session-end", timeout: 10},
+		"UserPromptSubmit":  {path: "user-prompt-submit", timeout: 30},
+		"MessageDisplay":    {path: "message-display", timeout: 10},
+		"PreToolUse":        {path: "pre-tool-use", timeout: 10},
+		"PostToolUse":       {path: "post-tool-use", timeout: 10},
+		"PermissionRequest": {path: "permission", timeout: 600},
+		"Notification":      {path: "notification", timeout: 10},
+	}
 }
 
 func (c *Claude) readLoop(r io.Reader) {

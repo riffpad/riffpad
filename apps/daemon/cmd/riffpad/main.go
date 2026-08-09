@@ -817,6 +817,13 @@ func runCmd(args []string, base string) error {
 	if data.CLI == "codex" {
 		return attachCodexTUI(base, data.ID)
 	}
+	if data.CLI == "claude" {
+		if runtime.GOOS == "windows" {
+			fmt.Println(t.T("session_url", data.ID, data.URL))
+			return nil
+		}
+		return attachConsoleTUI(base, data.ID)
+	}
 	fmt.Println(t.T("session_url", data.ID, data.URL))
 	return nil
 }

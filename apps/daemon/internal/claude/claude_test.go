@@ -191,6 +191,62 @@ func TestWriteSettingsHookShape(t *testing.T) {
 	}
 }
 
+func TestWriteSettingsInteractiveRegistersAllHooks(t *testing.T) {
+	c := New(adapter.CreateRequest{
+		ID:        "s1",
+		DataDir:   t.TempDir(),
+		HookBase:  "http://127.0.0.1:8787",
+		HookToken: "tok",
+	})
+	if !c.interactive {
+		t.Fatal("expected interactive mode by default")
+	}
+	if err := c.writeSettings(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(c.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s struct {
+		Hooks map[string][]struct {
+			Matcher string           `json:"matcher"`
+			Hooks   []map[string]any `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatalf("settings not valid JSON: %v\n%s", err, data)
+	}
+	want := []string{
+		"SessionStart", "SessionEnd", "UserPromptSubmit", "MessageDisplay",
+		"PreToolUse", "PostToolUse", "PermissionRequest", "Notification",
+	}
+	if len(s.Hooks) != len(want) {
+		t.Fatalf("expected %d hook events, got %d (%v)", len(want), len(s.Hooks), keysOf(s.Hooks))
+	}
+	for _, name := range want {
+		entries := s.Hooks[name]
+		if len(entries) != 1 || len(entries[0].Hooks) != 1 {
+			t.Fatalf("hook %s: expected 1 matcher with 1 hook, got %+v", name, entries)
+		}
+		u, _ := entries[0].Hooks[0]["url"].(string)
+		if !strings.Contains(u, "?session=s1") || !strings.Contains(u, "token=tok") {
+			t.Fatalf("hook %s url missing session/token: %q", name, u)
+		}
+	}
+}
+
+func keysOf(m map[string][]struct {
+	Matcher string           `json:"matcher"`
+	Hooks   []map[string]any `json:"hooks"`
+}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
+
 func TestHookCallbackAutoAllowed(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1"})
 	c.handleLine([]byte(`{"type":"control_request","request_id":"r2","request":{"subtype":"hook_callback","callback_id":"hook_user_prompt","input":{"hook_event_name":"UserPromptSubmit"}}}`))

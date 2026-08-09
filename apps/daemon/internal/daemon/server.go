@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
 	"github.com/riffpad/riffpad/apps/daemon/internal/claude"
 	"github.com/riffpad/riffpad/apps/daemon/internal/codex"
@@ -97,6 +98,7 @@ type Server struct {
 	sessions     map[string]*session
 	pendingHooks map[string]chan string
 	messageBuf   map[string]string
+	ptys         map[string]*websocket.Conn
 }
 
 // New creates a daemon server.
@@ -120,6 +122,7 @@ func New(cfg *config.Config, keys *config.Keys, dataDir string, logger *log.Logg
 		sessions:     map[string]*session{},
 		pendingHooks: map[string]chan string{},
 		messageBuf:   map[string]string{},
+		ptys:         map[string]*websocket.Conn{},
 	}
 	s.loadDevices()
 	s.cleanupCodexProcesses()
@@ -785,6 +788,10 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.HasSuffix(id, "/heartbeat") {
 		s.handleSessionHeartbeat(w, strings.TrimSuffix(id, "/heartbeat"))
+		return
+	}
+	if strings.HasSuffix(id, "/pty") {
+		s.handleSessionPTY(w, r, strings.TrimSuffix(id, "/pty"))
 		return
 	}
 	if !strings.HasSuffix(id, "/stop") {
