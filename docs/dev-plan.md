@@ -204,6 +204,7 @@
 | M3.22 | Windows daemon 管理：`riffpad daemon restart` 与 `riffpad update` 自动重启检测 `RiffpadDaemon` 计划任务，停止旧进程后 `schtasks /Run` 由任务管理器拉起，保持任务账本一致 | `[x]` | daemonRestart 任务分支 + 单测（运行中停旧启新 / 未运行直接拉起）已实现 | #208 |
 | M3.23 | 弃用 attach 模式：入口关闭（代码保留，`riffpad detach` 仍可用于清理旧 hooks），统一 `riffpad run` 托管模式；`riffpad run` 支持位置参数（`riffpad run codex`） | `[x]` | attachCmd 返回弃用提示；run 位置参数 + 单测已实现 | #214 |
 | M3.24 | 群发邮件 + 退订管理：`scripts/email`（Formspree 拉取/去重、SMTP 群发、HMAC 退订链接、跳过已退订）；relay `/api/waitlist/unsubscribe` + `/api/waitlist/optouts`（`email_optouts` 表，CORS 仅 riffpad.ai/www）；landing `/unsubscribe` 退订页（中英、深浅色一致） | `[x]` | 2026-08-09 生产验证：真实 token 退订成功、伪 token 拒绝、optouts 列表/清理正常；首次公告文案待用户提供后发出 | #218 #219 |
+| M3.25 | 首跑配对体验：`riffpad pair` 对 `host offline` 自动重试（最长 10s，打印等待提示），daemon 状态/启动日志改用 `internal/version.Version` 清理硬编码 `0.1.0-m0` | `[~]` | 单测覆盖重试成功/非重试错误立即返回/超时；停 daemon 后立刻 pair 不再报错 | #220 |
 
 ---
 
