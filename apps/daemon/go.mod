@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/creack/pty v1.1.24 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )

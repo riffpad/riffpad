@@ -27,6 +27,7 @@ func (a *attachAdapter) Events() <-chan protocol.Event { return nil }
 func (a *attachAdapter) Meta() protocol.SessionStartPayload {
 	return protocol.SessionStartPayload{}
 }
+
 // SendApproval on an attachAdapter is only reached when the request is not in
 // the server's pendingHooks map (see Server.dispatch), i.e. the hook already
 // timed out or was resolved — so it always reports the approval as expired.
@@ -81,6 +82,17 @@ func decodeHook(r *http.Request) (hookPayload, bool) {
 		return p, false
 	}
 	return p, true
+}
+
+// hookSessionID prefers the daemon session id passed in the hook URL
+// (?session=<id>) — hosted interactive Claude registers its per-session
+// hooks with that param — and falls back to Claude's own session id for
+// classic attach sessions.
+func hookSessionID(r *http.Request, p hookPayload) string {
+	if sid := r.URL.Query().Get("session"); sid != "" {
+		return sid
+	}
+	return p.SessionID
 }
 
 func (p *hookPayload) toolName() string {
@@ -237,7 +249,8 @@ func (s *Server) handleHookSessionStart(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	s.attachSession(p.SessionID, p.CWD)
+	sid := hookSessionID(r, p)
+	s.attachSession(sid, p.CWD)
 	writeJSON(w, http.StatusOK, map[string]any{})
 }
 
@@ -247,10 +260,11 @@ func (s *Server) handleHookSessionEnd(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	sess := s.getSession(p.SessionID)
+	sid := hookSessionID(r, p)
+	sess := s.getSession(sid)
 	if sess != nil {
 		sess.status = protocol.StatusDone
-		ev, err := protocol.NewEvent(p.SessionID, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: p.Reason})
+		ev, err := protocol.NewEvent(sid, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: p.Reason})
 		if err == nil {
 			s.pumpEvent(sess, ev)
 		}
@@ -265,8 +279,9 @@ func (s *Server) handleHookPreToolUse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	sess := s.attachSession(p.SessionID, p.CWD)
-	ev, err := protocol.NewEvent(p.SessionID, protocol.EventToolCall, protocol.ToolCallPayload{
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
+	ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{
 		Tool:    p.toolName(),
 		Status:  "started",
 		Summary: p.summary(),
@@ -284,7 +299,8 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	sess := s.attachSession(p.SessionID, p.CWD)
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
 	name := p.toolName()
 	input := p.toolInput()
 	switch name {
@@ -294,7 +310,7 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 		// row resolves to done instead of spinning forever (the client treats
 		// a missing exit code as "running").
 		exit := 0
-		ev, err := protocol.NewEvent(p.SessionID, protocol.EventCommand, protocol.CommandPayload{Command: cmd, ExitCode: &exit})
+		ev, err := protocol.NewEvent(sid, protocol.EventCommand, protocol.CommandPayload{Command: cmd, ExitCode: &exit})
 		if err == nil {
 			s.pumpEvent(sess, ev)
 		}
@@ -303,12 +319,12 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 		if path == "" {
 			path, _ = input["path"].(string)
 		}
-		ev, err := protocol.NewEvent(p.SessionID, protocol.EventFileChange, protocol.FileChangePayload{Path: path, Summary: "updated"})
+		ev, err := protocol.NewEvent(sid, protocol.EventFileChange, protocol.FileChangePayload{Path: path, Summary: "updated"})
 		if err == nil {
 			s.pumpEvent(sess, ev)
 		}
 	}
-	ev, err := protocol.NewEvent(p.SessionID, protocol.EventToolCall, protocol.ToolCallPayload{Tool: name, Status: "completed"})
+	ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{Tool: name, Status: "completed"})
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}
@@ -325,8 +341,9 @@ func (s *Server) handleHookUserPromptSubmit(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusOK, map[string]any{})
 		return
 	}
-	sess := s.attachSession(p.SessionID, p.CWD)
-	ev, err := protocol.NewEvent(p.SessionID, protocol.EventUserMessage, protocol.PromptPayload{Text: p.Prompt})
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
+	ev, err := protocol.NewEvent(sid, protocol.EventUserMessage, protocol.PromptPayload{Text: p.Prompt})
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}
@@ -339,7 +356,8 @@ func (s *Server) handleHookMessageDisplay(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	sess := s.attachSession(p.SessionID, p.CWD)
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
 	// Accumulate per message_id; emit once when the final batch arrives so the
 	// timeline shows whole assistant messages instead of many partial cards.
 	if p.MessageID != "" && !p.Final {
@@ -360,7 +378,7 @@ func (s *Server) handleHookMessageDisplay(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusOK, map[string]any{})
 		return
 	}
-	ev, err := protocol.NewEvent(p.SessionID, protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: text})
+	ev, err := protocol.NewEvent(sid, protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: text})
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}
@@ -394,9 +412,10 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusOK, map[string]any{})
 		return
 	}
-	s.log.Printf("notification hook session=%s type=%s msg=%q", p.SessionID, notifType, p.Message)
-	sess := s.attachSession(p.SessionID, p.CWD)
-	ev, err := protocol.NewEvent(p.SessionID, protocol.EventNotify, protocol.NotifyPayload{Level: level, Message: p.Message})
+	sid := hookSessionID(r, p)
+	s.log.Printf("notification hook session=%s type=%s msg=%q", sid, notifType, p.Message)
+	sess := s.attachSession(sid, p.CWD)
+	ev, err := protocol.NewEvent(sid, protocol.EventNotify, protocol.NotifyPayload{Level: level, Message: p.Message})
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}
@@ -409,14 +428,15 @@ func (s *Server) handleHookPermission(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	sess := s.attachSession(p.SessionID, p.CWD)
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
 	reqID := "hook-" + protocol.NewID()
 	ch := make(chan string, 1)
 	s.mu.Lock()
 	s.pendingHooks[reqID] = ch
 	s.mu.Unlock()
-	s.log.Printf("permission hook request session=%s tool=%s req=%s", p.SessionID, p.toolName(), reqID)
-	ev, err := protocol.NewEvent(p.SessionID, protocol.EventApprovalReq, protocol.ApprovalRequestPayload{
+	s.log.Printf("permission hook request session=%s tool=%s req=%s", sid, p.toolName(), reqID)
+	ev, err := protocol.NewEvent(sid, protocol.EventApprovalReq, protocol.ApprovalRequestPayload{
 		RequestID: reqID,
 		Action:    p.toolName(),
 		Summary:   p.summary(),

@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"io"
 
 	"github.com/riffpad/riffpad/packages/protocol"
 )
@@ -16,6 +17,21 @@ type Session interface {
 	SendPrompt(text string) error
 	Alive() bool
 	Stop() error
+}
+
+// TerminalSession is implemented by adapters that expose an interactive PTY
+// (e.g. Claude foreground mode). The daemon uses it to bridge the vendor TUI
+// to a local CLI console over WebSocket.
+type TerminalSession interface {
+	AttachPTY() (Terminal, error)
+}
+
+// Terminal is one console attached to a session PTY. Read blocks until the
+// vendor process writes output; Write sends input; Resize propagates the
+// local window size; Close detaches this console (the process keeps running).
+type Terminal interface {
+	io.ReadWriteCloser
+	Resize(cols, rows uint16) error
 }
 
 // CreateRequest describes a session to start.
