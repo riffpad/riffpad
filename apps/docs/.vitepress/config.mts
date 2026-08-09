@@ -59,7 +59,7 @@ const enSidebar = [
 
 export default defineConfig({
   title: "Riffpad",
-  description: "AI coding agent 的口袋遥控器 / The pocket remote for AI coding agents",
+  description: "AI coding agent 的手机遥控器 / Watch, approve, and steer AI coding agents from your phone",
   base: "/docs/",
   cleanUrls: true,
   ignoreDeadLinks: true,

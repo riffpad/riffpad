@@ -7,7 +7,7 @@
 
 # Riffpad
 
-**The pocket remote for your AI coding agents.**
+**Watch, approve, and steer AI coding agents from your phone.**
 
 Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your phone — without staying chained to the desk.
 
