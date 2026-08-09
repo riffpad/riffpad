@@ -97,6 +97,14 @@ type EmailOptout struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// WaitlistEntry is an email collected by the landing-page form. Stored in
+// the relay database so announcement tooling can pull the list directly
+// instead of depending on a third-party form backend.
+type WaitlistEntry struct {
+	Email     string    `gorm:"primaryKey" json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type Store struct {
 	db *gorm.DB
 }
@@ -119,10 +127,26 @@ func OpenStore(dataDir, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}, &EmailOptout{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}, &EmailOptout{}, &WaitlistEntry{}); err != nil {
 		return nil, err
 	}
 	return &Store{db: db}, nil
+}
+
+// AddWaitlistEmail records a waitlist signup. Duplicate subscriptions are a
+// no-op so re-submitting the form does not create duplicate rows.
+func (s *Store) AddWaitlistEmail(email string) error {
+	e := &WaitlistEntry{Email: email, CreatedAt: time.Now()}
+	return s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(e).Error
+}
+
+// WaitlistEmails returns all waitlist entries, oldest first.
+func (s *Store) WaitlistEmails() ([]WaitlistEntry, error) {
+	var rows []WaitlistEntry
+	if err := s.db.Order("created_at ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 // AddEmailOptout records an opt-out. Repeated unsubscribes are a no-op.

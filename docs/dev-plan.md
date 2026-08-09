@@ -204,8 +204,9 @@
 | M3.21 | macOS daemon 管理：`riffpad setup` 支持 launchd LaunchAgent（登录自启 + 崩溃重启）；`riffpad daemon restart` 与 `riffpad update` 自动重启在 macOS 优先走 `launchctl kickstart -k`，保持 launchd 为唯一进程账本 | `[ ]` | setup 安装/移除 LaunchAgent；restart/update 检测 launchd 托管并走 launchctl；真机验证 | — |
 | M3.22 | Windows daemon 管理：`riffpad daemon restart` 与 `riffpad update` 自动重启检测 `RiffpadDaemon` 计划任务，停止旧进程后 `schtasks /Run` 由任务管理器拉起，保持任务账本一致 | `[x]` | daemonRestart 任务分支 + 单测（运行中停旧启新 / 未运行直接拉起）已实现 | #208 |
 | M3.23 | 弃用 attach 模式：入口关闭（代码保留，`riffpad detach` 仍可用于清理旧 hooks），统一 `riffpad run` 托管模式；`riffpad run` 支持位置参数（`riffpad run codex`） | `[x]` | attachCmd 返回弃用提示；run 位置参数 + 单测已实现 | #214 |
-| M3.24 | 群发邮件 + 退订管理：`scripts/email`（Formspree 拉取/去重、SMTP 群发、HMAC 退订链接、跳过已退订）；relay `/api/waitlist/unsubscribe` + `/api/waitlist/optouts`（`email_optouts` 表，CORS 仅 riffpad.ai/www）；landing `/unsubscribe` 退订页（中英、深浅色一致） | `[x]` | 2026-08-09 生产验证：真实 token 退订成功、伪 token 拒绝、optouts 列表/清理正常；首次公告文案待用户提供后发出 | #218 #219 |
+| M3.24 | 群发邮件 + 退订管理：`scripts/email`（waitlist API 拉取/去重、SMTP 群发、HMAC 退订链接、跳过已退订）；relay `/api/waitlist/unsubscribe` + `/api/waitlist/optouts`（`email_optouts` 表，CORS 仅 riffpad.ai/www）；landing `/unsubscribe` 退订页（中英、深浅色一致） | `[x]` | 2026-08-09 生产验证：真实 token 退订成功、伪 token 拒绝、optouts 列表/清理正常；首次公告已发出（HTML+纯文本，20 人） | #218 #219 #222 #223 |
 | M3.25 | 首跑配对体验：`riffpad pair` 对 `host offline` 自动重试（最长 10s，打印等待提示），daemon 状态/启动日志改用 `internal/version.Version` 清理硬编码 `0.1.0-m0` | `[x]` | 单测覆盖重试成功/非重试错误立即返回/超时；真机冷启动 pair 自动等待出码；随 v0.2.4 发布 | #220 #221 |
+| M3.26 | 自建 waitlist 表单 + REST API + 数据库（替代 Formspree）：landing `WaitlistForm` 直连 relay `POST /api/waitlist/subscribe`（CORS/限流/幂等）；新增 `waitlist_emails` 表；`GET /api/waitlist/emails`（admin key）供 `scripts/email fetch` 拉取；现有 20 邮箱入库 | `[~]` | relay 单测（订阅幂等/校验/限流、列表 admin-only、CORS）；landing 构建通过；生产验证订阅与拉取 | #224 |
 
 ---
 

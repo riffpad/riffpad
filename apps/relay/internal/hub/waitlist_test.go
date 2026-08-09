@@ -153,6 +153,84 @@ func TestWaitlistOptoutsAdminOnly(t *testing.T) {
 	}
 }
 
+func TestWaitlistSubscribeAndEmails(t *testing.T) {
+	_, ts := newWaitlistTestHub(t)
+
+	subscribe := func(email string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, ts.URL+"/api/waitlist/subscribe",
+			strings.NewReader(`{"email":"`+email+`"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", "https://riffpad.ai")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { resp.Body.Close() })
+		return resp
+	}
+
+	if resp := subscribe("New@Example.com"); resp.StatusCode != http.StatusOK {
+		t.Fatalf("subscribe status %d", resp.StatusCode)
+	} else if resp.Header.Get("Access-Control-Allow-Origin") != "https://riffpad.ai" {
+		t.Fatal("missing CORS header on subscribe")
+	}
+	// Duplicate signup is idempotent.
+	if resp := subscribe("new@example.com"); resp.StatusCode != http.StatusOK {
+		t.Fatalf("duplicate subscribe status %d", resp.StatusCode)
+	}
+	// Invalid email is rejected.
+	if resp := subscribe("nope"); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid subscribe status %d", resp.StatusCode)
+	}
+
+	// Preflight from an allowed origin.
+	req, _ := http.NewRequest(http.MethodOptions, ts.URL+"/api/waitlist/subscribe", nil)
+	req.Header.Set("Origin", "https://www.riffpad.ai")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	pre, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pre.Body.Close()
+	if pre.StatusCode != http.StatusNoContent || pre.Header.Get("Access-Control-Allow-Origin") != "https://www.riffpad.ai" {
+		t.Fatalf("preflight failed: %d %q", pre.StatusCode, pre.Header.Get("Access-Control-Allow-Origin"))
+	}
+
+	// Admin-only listing.
+	unauth, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/waitlist/emails", nil)
+	bad, err := http.DefaultClient.Do(unauth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad.Body.Close()
+	if bad.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("emails without key status %d", bad.StatusCode)
+	}
+	okReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/waitlist/emails", nil)
+	okReq.Header.Set("X-Admin-Key", "admin-key")
+	ok, err := http.DefaultClient.Do(okReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ok.Body.Close()
+	if ok.StatusCode != http.StatusOK {
+		t.Fatalf("emails with key status %d", ok.StatusCode)
+	}
+	var out struct {
+		Entries []WaitlistEntry `json:"entries"`
+	}
+	if err := json.NewDecoder(ok.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Entries) != 1 || out.Entries[0].Email != "new@example.com" {
+		t.Fatalf("unexpected waitlist entries: %+v", out.Entries)
+	}
+}
+
 func mustToken(t *testing.T, email string) string {
 	t.Helper()
 	tok, err := waitlistSign(email)

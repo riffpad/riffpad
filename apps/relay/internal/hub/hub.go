@@ -221,6 +221,8 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/", h.handleDeviceDelete)
 	mux.HandleFunc("/api/hosts/", h.handleHostKillswitch)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
+	mux.HandleFunc("/api/waitlist/subscribe", h.handleWaitlistSubscribe)
+	mux.HandleFunc("/api/waitlist/emails", h.handleWaitlistEmails)
 	mux.HandleFunc("/api/waitlist/unsubscribe", h.handleWaitlistUnsubscribe)
 	mux.HandleFunc("/api/waitlist/optouts", h.handleWaitlistOptouts)
 	mux.HandleFunc("/ws/host", h.handleHostWS)

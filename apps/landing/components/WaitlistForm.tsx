@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-const WAITLIST_ENDPOINT = "https://formspree.io/f/xjgqddar";
+const API_URL =
+  process.env.NEXT_PUBLIC_RIFFPAD_API_URL ?? "https://api.riffpad.ai";
+const WAITLIST_ENDPOINT = `${API_URL}/api/waitlist/subscribe`;
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -21,10 +23,10 @@ export function WaitlistForm() {
     try {
       const res = await fetch(WAITLIST_ENDPOINT, {
         method: "POST",
-        body: new FormData(form),
-        headers: { Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email }),
       });
-      if (!res.ok) throw new Error(`formspree ${res.status}`);
+      if (!res.ok) throw new Error(`waitlist ${res.status}`);
       form.reset();
       setStatus("success");
     } catch {

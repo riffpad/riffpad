@@ -41,14 +41,13 @@ func usage() {
 	fmt.Fprint(os.Stderr, `riffpad-email - Riffpad waitlist announcement toolchain
 
 Commands:
-  fetch    pull Formspree submissions into a recipients CSV (deduped)
+  fetch    pull waitlist emails from the relay into a recipients CSV
   send     send a template email to every recipient with a signed
            unsubscribe link, skipping emails already opted out
   token    print the unsubscribe URL for one email (testing)
 
 Examples:
-  FORMSPREE_API_KEY=xxx FORMSPREE_FORM_ID=xjgqddar \
-    riffpad-email fetch -out waitlist.csv
+  WAITLIST_ADMIN_KEY=xxx riffpad-email fetch -out waitlist.csv
 
   SMTP_PASS=xxx UNSUBSCRIBE_SECRET=yyy \
     riffpad-email send -recipients waitlist.csv -template announcement.txt \
@@ -64,8 +63,6 @@ Environment:
   UNSUBSCRIBE_BASE_URL   unsubscribe page (default https://riffpad.ai/unsubscribe)
   RIFFPAD_API_URL        relay API (default https://api.riffpad.ai)
   WAITLIST_ADMIN_KEY     relay admin key used to fetch opt-outs
-  FORMSPREE_API_KEY      Formspree API key (Professional/Business plans)
-  FORMSPREE_FORM_ID      Formspree form hashid
 `)
 }
 
@@ -223,21 +220,14 @@ func cmdSend(args []string) {
 
 func cmdFetch(args []string) {
 	fs := flag.NewFlagSet("fetch", flag.ExitOnError)
-	formID := fs.String("form-id", "", "Formspree form hashid (or FORMSPREE_FORM_ID)")
-	apiKey := fs.String("api-key", "", "Formspree API key (or FORMSPREE_API_KEY)")
 	out := fs.String("out", "-", "output CSV path (default stdout)")
 	fs.Parse(args)
 
-	if *formID == "" {
-		*formID = os.Getenv("FORMSPREE_FORM_ID")
+	adminKey := os.Getenv("WAITLIST_ADMIN_KEY")
+	if adminKey == "" {
+		fatalf("fetch: WAITLIST_ADMIN_KEY is required")
 	}
-	if *apiKey == "" {
-		*apiKey = os.Getenv("FORMSPREE_API_KEY")
-	}
-	if *formID == "" || *apiKey == "" {
-		fatalf("fetch: -form-id and -api-key are required (or FORMSPREE_FORM_ID / FORMSPREE_API_KEY)")
-	}
-	subs, err := fetchFormspree(*formID, *apiKey)
+	subs, err := fetchWaitlist(adminKey)
 	if err != nil {
 		fatalf("fetch: %v", err)
 	}
