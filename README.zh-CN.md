@@ -15,6 +15,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
 [![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/guide/quickstart)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
+[![License](https://img.shields.io/badge/license-Apache--2.0%20%7C%20relay%20BSL-1a7f37)](LICENSE)
 
 [官网](https://riffpad.ai) · [文档](https://www.riffpad.ai/docs/guide/quickstart) · [Discord 社区](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
@@ -107,3 +108,16 @@ CLI 支持中英文，自动跟随系统语言，可用 `riffpad --lang zh` / `r
 - [Discord](https://discord.gg/CDNFTg2QyM) — 社区讨论
 - [GitHub Issues](https://github.com/riffpad/riffpad/issues) — 反馈 bug 和功能建议
 - [文档](https://www.riffpad.ai/docs/guide/quickstart) — 安装、配对、安全模型
+
+## 开源协议
+
+Riffpad 默认采用 **Apache-2.0**——CLI（`apps/daemon`）、各客户端
+（`apps/client-beta`、`apps/mobile`）、官网/文档站以及共享的 `packages/`
+库都是。详见 [LICENSE](LICENSE)。
+
+relay 服务（`apps/relay`）采用 **Business Source License 1.1**——
+源码公开，允许个人和内部使用（含自部署）；2030-08-09 起自动转为
+Apache-2.0。详见 [`apps/relay/LICENSE`](apps/relay/LICENSE)。完整的协议
+划分见 [`NOTICE`](NOTICE)。
+
+Copyright (c) 2026 Liu Zhening.
