@@ -1,6 +1,6 @@
 # Riffpad 开发计划（Dev Plan）
 
-> 最后更新：2026-08-09（按实际开发进度整理）
+> 最后更新：2026-08-10（按实际开发进度整理）
 > 关联文档：[PRD](prd.md)（产品需求）、[TSD](tsd.md)（技术规格）、[无 tmux 注入调研](agent-injection-research.md)
 > 用途：追踪 M0 → M3 的开发进度；每个里程碑完成时更新状态。
 
@@ -209,6 +209,7 @@
 | M3.25 | 首跑配对体验：`riffpad pair` 对 `host offline` 自动重试（最长 10s，打印等待提示），daemon 状态/启动日志改用 `internal/version.Version` 清理硬编码 `0.1.0-m0` | `[x]` | 单测覆盖重试成功/非重试错误立即返回/超时；真机冷启动 pair 自动等待出码；随 v0.2.4 发布 | #220 #221 |
 | M3.26 | 自建 waitlist 表单 + REST API + 数据库（替代 Formspree）：landing `WaitlistForm` 直连 relay `POST /api/waitlist/subscribe`（CORS/限流/幂等）；新增 `waitlist_entries` 表；`GET /api/waitlist/emails`（admin key）供 `scripts/email fetch` 拉取；旧 20 邮箱已入库 | `[x]` | relay 单测（订阅幂等/校验/限流、列表 admin-only、CORS）；landing 构建通过；2026-08-09 生产验证：订阅 ok、拉取 20 条、fetch 出 CSV | #224 #225 |
 | M3.27 | demo 会话模式：daemon 内置脚本化 mock 适配器（`riffpad run demo`），按统一 protocol 事件时间线回放思考/工具 spinner→绿/文件变更/审批卡/回复，客户端走真实配对+E2EE+WS 链路，零 API 消耗，用于打磨 client UI 与 Playwright 回归 | `[~]` | demo 适配器单测（时间线顺序、审批决议、prompt 关键词路径）；`riffpad run demo` 后 localhost:8787 / app 可见完整演示会话 | #235 |
+| M3.28 | LLM 可发现性：`scripts/generate-llms.mjs` 生成 `llms.txt`（llmstxt.org 精选索引：landing + 中英文 docs）+ `llms-full.txt`（全部 docs Markdown 拼接），随 landing build 自动更新，部署到 riffpad.ai/llms.txt 与 /llms-full.txt | `[x]` | 文件符合 llmstxt.org 格式；中英文 docs 全覆盖；CI 通过并合并 | #239 |
 
 ---
 

@@ -5,8 +5,8 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev": "sh ../../scripts/sync-installers.sh && next dev",
-    "build": "sh ../../scripts/sync-installers.sh && pnpm --filter docs build && next build",
+    "dev": "sh ../../scripts/sync-installers.sh && node ../../scripts/generate-llms.mjs && next dev",
+    "build": "sh ../../scripts/sync-installers.sh && node ../../scripts/generate-llms.mjs && pnpm --filter docs build && next build",
     "start": "next start",
     "lint": "next lint"
   },
