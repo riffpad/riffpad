@@ -24,6 +24,13 @@ export const localTokenStore = {
       return "";
     }
   },
+  set(token: string) {
+    try {
+      localStorage.setItem(localTokenKey, token);
+    } catch {
+      // ignore storage failures (private mode etc.)
+    }
+  },
 };
 
 export const relayStore = {

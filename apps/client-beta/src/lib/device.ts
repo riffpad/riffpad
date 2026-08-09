@@ -1,5 +1,5 @@
 import { genPair, jwkToRaw, b64u, deviceSecret } from "./crypto";
-import { api, deviceStore } from "./store";
+import { api, deviceStore, localTokenStore } from "./store";
 import type { Device } from "./types";
 
 export async function ensureIdentity(): Promise<Device> {
@@ -33,6 +33,9 @@ export async function pairDevice(code: string): Promise<Device> {
   dev.deviceId = data.deviceId;
   dev.serverPub = data.serverPublicKey;
   deviceStore.set(dev);
+  // In local mode the daemon returns its local API token so the UI can make
+  // subsequent calls (sessions, ws) without having received it via a ?token= link.
+  if (data.localToken) localTokenStore.set(data.localToken);
   return dev;
 }
 

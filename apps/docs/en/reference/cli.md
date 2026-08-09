@@ -6,7 +6,7 @@
 | `riffpad logout` | Sign out and revoke the relay token |
 | `riffpad auth` | Show the current account (live validation) |
 | `riffpad pair` | Print a 6-char pairing code and QR |
-| `riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude\|codex\|kimi]` | Create a hosted session; the terminal stays visible and interactive |
+| `riffpad run [claude\|codex\|kimi] [--name N] [--prompt P] [--cwd D]` | Create a hosted session; the terminal stays visible and interactive |
 | `riffpad attach` / `detach` | Inject/remove Claude hooks to capture your own session |
 | `riffpad sessions` | List sessions |
 | `riffpad status` | Daemon status |

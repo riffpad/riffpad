@@ -87,7 +87,7 @@
 - 会话状态与历史已加密持久化；daemon 重启后 Codex 会话自动重连（TUI 无感），Kimi/Claude 恢复为只读（历史可回看，agent 需手动重连）
 - 控制只有 stop；pause/resume 未实现
 - 审批只支持同意/拒绝，条件编辑字段预留未用
-- Claude **host 托管模式**（`riffpad run --cli claude`）注入与事件已通，但工具权限审批仍被 CLI 自动拒绝（`--permission-prompt-tool` 已移除）——审批继续走附着模式 hooks 或预设 `--permission-mode`
+- Claude **host 托管模式**（`riffpad run claude`）注入与事件已通，但工具权限审批仍被 CLI 自动拒绝（`--permission-prompt-tool` 已移除）——审批继续走附着模式 hooks 或预设 `--permission-mode`
 - 附着模式指令注入依赖 tmux send-keys；终端画面兜底仍留 M3
 - Kimi/Codex 托管模式审批完整（协议内 request_permission / requestApproval）
 
@@ -185,7 +185,7 @@
 | M3.4 | 局域网直连 / WebRTC（relay 退化信令） | `[ ]` | 局域网内无中继可用 | — |
 | M3.5 | Windows daemon | `[x]` | 交叉编译通过（codex Kill、daemon Flock、Setsid 拆 build tag）；CI 增加 windows/darwin 编译守卫；scripts/install.ps1 + schtasks 开机自启；release 矩阵含 windows amd64/arm64（随下个 release 发布） | #147 |
 | M3.6 | 团队版（多人共享设备/会话） | `[ ]` | 权限模型可用 | — |
-| M3.7 | 无 tmux 注入：Kimi ACP / Codex app-server / Claude host 控制协议 | `[x]` | 三适配器实现并真机实测；`riffpad run --cli kimi/codex/claude` | #55 #52 |
+| M3.7 | 无 tmux 注入：Kimi ACP / Codex app-server / Claude host 控制协议 | `[x]` | 三适配器实现并真机实测；`riffpad run kimi/codex/claude` | #55 #52 |
 | M3.8 | daemon 无感化启动：CLI 懒启动 + Linux systemd 自启 | `[x]` | 自动拉起（文件锁防双实例）；`riffpad setup` 安装/卸载 | #57 |
 | M3.9 | Web 客户端 React 重写 + app.riffpad.ai 上线 | `[x]` | Vite+React+TS；daemon/relay 内嵌同一产物；HTTPS 已部署 | #59 |
 | M3.10 | 单二进制 + 一键安装 + GitHub Releases | `[x]` | `riffpad _daemon` 内嵌；install.sh + SHA256；tag v* 交叉编译 4 平台 | #62 |

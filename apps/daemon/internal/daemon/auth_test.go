@@ -55,7 +55,8 @@ func TestLocalAuthRejectsMissingToken(t *testing.T) {
 	paths := []string{
 		"/api/status",
 		"/api/pairings",
-		"/api/pair",
+		// /api/pair is intentionally exempt — the pairing code is the credential;
+		// see TestPairEndpointExemptFromLocalToken.
 		"/api/devices",
 		"/api/killswitch",
 		"/api/sessions",

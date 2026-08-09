@@ -49,13 +49,13 @@ The terminal prints a 6-character code and a QR code. Open <https://app.riffpad.
 ## 4. Start and watch a session
 
 ```bash
-riffpad run --cli codex
+riffpad run codex
 ```
 
 Or with a specific agent and prompt:
 
 ```bash
-riffpad run --cli claude --prompt "Refactor the auth middleware"
+riffpad run claude --prompt "Refactor the auth middleware"
 ```
 
 Sessions appear in the app's Sessions page; open one to watch progress, approve actions, and send instructions.
@@ -67,7 +67,7 @@ Sessions appear in the app's Sessions page; open one to watch progress, approve 
 | `riffpad login` / `logout` | GitHub device sign-in / sign-out |
 | `riffpad auth` | Show the current account |
 | `riffpad pair` | Print pairing code + QR |
-| `riffpad run --cli <claude\|codex\|kimi>` | Create and run a session |
+| `riffpad run <claude\|codex\|kimi>` | Create and run a session |
 | `riffpad sessions` | List sessions |
 | `riffpad update` | Self-update the binary |
 | `riffpad kill` | Kill switch: stop sessions + revoke devices |

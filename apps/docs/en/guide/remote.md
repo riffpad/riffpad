@@ -16,6 +16,6 @@ If you want a session to survive closing the terminal, pair it with tmux:
 
 ```bash
 tmux new -s work
-riffpad run --cli codex
+riffpad run codex
 # Ctrl-b d to detach; reattach later with: tmux attach -t work
 ```

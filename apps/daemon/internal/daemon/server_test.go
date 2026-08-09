@@ -806,6 +806,75 @@ func TestRemotePairingExpiredTokenHint(t *testing.T) {
 	}
 }
 
+// TestLocalPairingQueryForcesLocalCode: a relay-connected daemon normally
+// mints cloud codes (createRemotePairing), which the embedded 8787 UI cannot
+// claim (handlePair only looks up local pending codes). ?local=1 must bypass
+// the relay and mint a local code the 8787 UI can claim.
+func TestLocalPairingQueryForcesLocalCode(t *testing.T) {
+	dir := t.TempDir()
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("daemon hit relay for a local-forced pairing: %s", r.URL.Path)
+	}))
+	defer relay.Close()
+
+	cfg := config.Default()
+	cfg.LocalToken = config.NewLocalToken()
+	cfg.RelayURL = relay.URL
+	cfg.RelayToken = "token"
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp := authRequest(t, http.MethodPost, ts.URL+"/api/pairings?local=1", cfg.LocalToken, nil)
+	defer resp.Body.Close()
+	var pr struct {
+		Code  string `json:"code"`
+		URL   string `json:"url"`
+		Local bool   `json:"local"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		t.Fatal(err)
+	}
+	if pr.Code == "" || !pr.Local {
+		t.Fatalf("expected a local code, got %+v", pr)
+	}
+	if !strings.Contains(pr.URL, "127.0.0.1") {
+		t.Fatalf("expected a 127.0.0.1 URL, got %q", pr.URL)
+	}
+}
+
+// TestPairEndpointExemptFromLocalToken: /api/pair must be reachable without
+// the local API token — the pairing code is the credential. A tokenless
+// request must pass localAuth and reach handlePair (which rejects the bogus
+// code), not be blocked by localAuth's "missing...local token" 401.
+func TestPairEndpointExemptFromLocalToken(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := New(cfg, keys, dir, log.New(io.Discard, "", 0), nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	// No Authorization header, no ?token=. localAuth must let it through.
+	resp, err := http.Post(ts.URL+"/api/pair", "application/json", strings.NewReader(`{"code":"BOGUS"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(body), "local token") {
+		t.Fatalf("localAuth blocked tokenless /api/pair: %d %s", resp.StatusCode, body)
+	}
+}
+
 // TestLoadDevicesHealsCorrupted: a truncated devices.json is backed up to
 // devices.json.bak and the daemon starts with an empty device list instead of
 // silently ignoring the file (#172).

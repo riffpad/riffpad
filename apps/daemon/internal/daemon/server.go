@@ -408,7 +408,11 @@ func (s *Server) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if s.rc != nil {
+	// ?local=1 forces a local-only code (for the embedded UI at 8787) even
+	// when the daemon is connected to a relay. Without it, a relay-connected
+	// daemon only mints cloud codes, which the local UI cannot claim because
+	// handlePair only looks up the daemon's in-memory pending codes.
+	if r.URL.Query().Get("local") != "1" && s.rc != nil {
 		s.createRemotePairing(w)
 		return
 	}
@@ -559,6 +563,9 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"deviceId":        dev.ID,
 		"serverPublicKey": protocol.EncodeKey(identity.PublicKey),
+		// Local API token so a UI that paired by code (no ?token= link) can make
+		// subsequent authenticated calls.
+		"localToken":      s.token,
 	})
 }
 

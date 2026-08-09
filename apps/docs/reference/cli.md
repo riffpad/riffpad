@@ -6,7 +6,7 @@
 | `riffpad logout` | 退出并撤销 relay token |
 | `riffpad auth` | 查看当前登录账号（实时校验） |
 | `riffpad pair` | 打印 6 位配对码与二维码 |
-| `riffpad run [--name N] [--prompt P] [--cwd D] [--cli claude\|codex\|kimi]` | 创建并托管会话，终端保持可见可操作 |
+| `riffpad run [claude\|codex\|kimi] [--name N] [--prompt P] [--cwd D]` | 创建并托管会话，终端保持可见可操作 |
 | `riffpad attach` / `detach` | 注入/移除 Claude hooks，捕获你自己启动的会话 |
 | `riffpad sessions` | 列出会话 |
 | `riffpad status` | daemon 状态 |

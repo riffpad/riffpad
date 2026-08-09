@@ -424,10 +424,17 @@ func (c *Claude) handleAssistant(msg json.RawMessage) {
 				_ = c.emit(protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: block.Text})
 			}
 		case "tool_use":
-			summary := summarize(block.Name, block.Input)
-			_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
-				Tool: block.Name, Status: "started", Summary: summary, Args: block.Input,
-			})
+			if block.Name == "Bash" {
+				// Bash renders as a single "$ cmd" row (started here, completed
+				// in handleUser); skip the tool_call row to avoid a duplicate.
+				if cmd, _ := block.Input["command"].(string); cmd != "" {
+					_ = c.emit(protocol.EventCommand, protocol.CommandPayload{Command: cmd})
+				}
+			} else {
+				_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+					Tool: block.Name, Status: "started", Summary: summarize(block.Name, block.Input), Args: block.Input,
+				})
+			}
 			c.mu.Lock()
 			c.pendingTools[block.ID] = pendingTool{name: block.Name, input: block.Input}
 			c.mu.Unlock()
@@ -440,6 +447,7 @@ func (c *Claude) handleUser(msg json.RawMessage) {
 		Content []struct {
 			Type      string          `json:"type"`
 			ToolUseID string          `json:"tool_use_id"`
+			IsError   bool            `json:"is_error"`
 			Content   json.RawMessage `json:"content"`
 		} `json:"content"`
 	}
@@ -463,8 +471,12 @@ func (c *Claude) handleUser(msg json.RawMessage) {
 		switch pt.name {
 		case "Bash":
 			cmd, _ := pt.input["command"].(string)
+			exit := 0
+			if block.IsError {
+				exit = 1
+			}
 			_ = c.emit(protocol.EventCommand, protocol.CommandPayload{
-				Command: cmd, Output: truncate(output, 2000),
+				Command: cmd, ExitCode: &exit, Output: truncate(output, 2000),
 			})
 		case "Write", "Edit", "MultiEdit", "NotepadEdit":
 			path, _ := pt.input["file_path"].(string)
@@ -473,13 +485,15 @@ func (c *Claude) handleUser(msg json.RawMessage) {
 			}
 			_ = c.emit(protocol.EventFileChange, protocol.FileChangePayload{Path: path, Summary: "updated"})
 		}
-		// Carry the same summary/args as the "started" event so the client's
-		// in-place merge keys match; otherwise it shows a duplicate row
-		// (spinner + completed) for the same tool call.
-		_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
-			Tool: pt.name, Status: "completed",
-			Summary: summarize(pt.name, pt.input), Args: pt.input,
-		})
+		// Completed tool_call for non-Bash tools. Bash is represented by the
+		// command event above (started in handleAssistant), so emitting a
+		// tool_call here would duplicate the row.
+		if pt.name != "Bash" {
+			_ = c.emit(protocol.EventToolCall, protocol.ToolCallPayload{
+				Tool: pt.name, Status: "completed",
+				Summary: summarize(pt.name, pt.input), Args: pt.input,
+			})
+		}
 	}
 }
 

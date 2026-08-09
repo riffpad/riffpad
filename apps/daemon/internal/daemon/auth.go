@@ -36,7 +36,12 @@ func (s *Server) localAuth(next http.Handler) http.Handler {
 			writeError(w, http.StatusForbidden, "forbidden origin")
 			return
 		}
-		if !s.validToken(r) {
+		// /api/pair is the trust-establishing entry point: the one-shot pairing
+		// code is the credential, so it is exempt from the local-token check
+		// (loopback host/origin still apply). This lets the embedded UI pair by
+		// entering just the code, without a ?token= link; the daemon returns the
+		// local token in the pair response for subsequent calls.
+		if r.URL.Path != "/api/pair" && !s.validToken(r) {
 			writeError(w, http.StatusUnauthorized, "missing or invalid local token")
 			return
 		}

@@ -73,7 +73,7 @@ riffpad pair
 ### 4. 开始并遥控会话
 
 ```bash
-riffpad run --cli codex
+riffpad run codex
 ```
 
 会话会立即出现在 App 里——随时随地看进度、批准操作、发指令。
