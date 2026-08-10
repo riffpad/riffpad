@@ -396,12 +396,17 @@ func TestPairCreateSessionAndApprovalLoop(t *testing.T) {
 	msg = protocol.Event{ID: protocol.NewID(), SessionID: sess.ID, Timestamp: time.Now().UnixMilli(), Type: protocol.EventApprovalResp, Payload: payload}
 	sendEncrypted(t, conn, sess.ID, key, msg)
 
-	// The resolution broadcast and the adapter's own events race on the wire;
-	// collect everything until session_end and assert on the set (#171).
+	// The resolution broadcast and the adapter's own events race on the wire
+	// (approval_resolved can land after session_end), so collect until BOTH
+	// have arrived and assert on the set (#171).
 	var gotResolved *protocol.ApprovalResolvedPayload
 	gotDone := false
 	gotEnd := false
-	for !gotEnd {
+	deadline := time.Now().Add(10 * time.Second)
+	for gotResolved == nil || !gotEnd {
+		if time.Now().After(deadline) {
+			t.Fatalf("timeout waiting for approval_resolved and session_end (resolved=%v end=%v)", gotResolved != nil, gotEnd)
+		}
 		ev = readEvent()
 		switch ev.Type {
 		case protocol.EventApprovalResolved:
