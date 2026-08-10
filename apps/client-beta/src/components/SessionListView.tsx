@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, isRelay } from "../lib/store";
+import { applySessionMeta, updateSessionMeta } from "../lib/sessionMeta";
 import { useI18n } from "../lib/i18n";
 import type { SessionInfo } from "../lib/types";
 
@@ -86,6 +87,16 @@ function PlusIcon() {
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </svg>
+  );
+}
+
 export default function SessionListView({ onOpen }: Props) {
   const { t } = useI18n();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -103,12 +114,18 @@ export default function SessionListView({ onOpen }: Props) {
   // (#174). Local mode never sets this: a 200 there means the daemon is up.
   const [hostOffline, setHostOffline] = useState(false);
   const timer = useRef<number | null>(null);
+  // Session management: menu / rename / delete bottom sheets. These are
+  // client-view operations — the host agent keeps running untouched (#251).
+  const [action, setAction] = useState<{ session: SessionInfo; mode: "menu" | "rename" | "delete" } | null>(null);
+  const [renameText, setRenameText] = useState("");
+  const [metaBusy, setMetaBusy] = useState(false);
+  const [metaErr, setMetaErr] = useState("");
 
   const refresh = useCallback(async () => {
     try {
       const res = await api("/api/sessions");
       const data = await res.json();
-      setSessions(sortSessions(data.sessions || []));
+      setSessions(sortSessions(applySessionMeta(data.sessions || [])));
       setOffline(!res.ok);
       if (res.ok) setHostOffline(isRelay && data.hostOnline === false);
     } catch {
@@ -157,6 +174,38 @@ export default function SessionListView({ onOpen }: Props) {
     }
   }
 
+  async function saveRename() {
+    if (!action || action.mode !== "rename") return;
+    setMetaBusy(true);
+    setMetaErr("");
+    try {
+      await updateSessionMeta(action.session, { displayName: renameText.trim() });
+      setAction(null);
+      await refresh();
+    } catch (e) {
+      setMetaErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setMetaBusy(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!action || action.mode !== "delete") return;
+    setMetaBusy(true);
+    setMetaErr("");
+    try {
+      await updateSessionMeta(action.session, { hidden: true });
+      setAction(null);
+      await refresh();
+    } catch (e) {
+      setMetaErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setMetaBusy(false);
+    }
+  }
+
+  const visibleSessions = sessions.filter((s) => !s.hidden);
+
   return (
     <>
       <p className="section-label"><span className="glyph">//</span>{t("sessions_label")}</p>
@@ -175,13 +224,13 @@ export default function SessionListView({ onOpen }: Props) {
         </div>
       ) : (
         <ul id="session-list">
-          {sessions.map((s) => {
+          {visibleSessions.map((s) => {
             const dir = s.cwd?.split("/").filter(Boolean).pop();
-            const title = s.name || dir || "session-" + s.id.slice(0, 8);
+            const title = s.displayName || s.name || dir || "session-" + s.id.slice(0, 8);
             const meta = [s.cli, s.id.slice(0, 8), timeAgo(s.lastSeenAt, t)].filter(Boolean).join(" · ");
             const tone = statusTone(s.status);
             return (
-              <li key={s.id} className="session" onClick={() => onOpen(s.id, s.name || "", s.cli, s.cwd)}>
+              <li key={s.id} className="session" onClick={() => onOpen(s.id, s.displayName || s.name || "", s.cli, s.cwd)}>
                 <div className="session-main">
                   <span className="session-name truncate">
                     {title}
@@ -189,21 +238,33 @@ export default function SessionListView({ onOpen }: Props) {
                   <span className="session-meta truncate" title={`${s.cwd || ""} ${s.id}`}>{meta}</span>
                 </div>
                 <span className={"session-light " + tone}><span className="dot" />{statusLabel(s.status)}</span>
+                <button
+                  className="session-menu-btn"
+                  aria-label={t("session_actions")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRenameText(s.displayName || s.name || "");
+                    setMetaErr("");
+                    setAction({ session: s, mode: "menu" });
+                  }}
+                >
+                  <MenuIcon />
+                </button>
               </li>
             );
           })}
-          {sessions.length === 0 && <li className="empty muted">{t(hostOffline ? "offline_title" : "no_sessions")}</li>}
+          {visibleSessions.length === 0 && <li className="empty muted">{t(hostOffline ? "offline_title" : "no_sessions")}</li>}
         </ul>
       )}
 
-      {!loading && sessions.length === 0 && hostOffline && (
+      {!loading && visibleSessions.length === 0 && hostOffline && (
         <section className="card empty-card">
           <h3><span className="glyph">//</span>{t("offline_title")}</h3>
           <p className="muted">{t("offline_hint")}</p>
         </section>
       )}
 
-      {!loading && sessions.length === 0 && !hostOffline && (
+      {!loading && visibleSessions.length === 0 && !hostOffline && (
         <section className="card empty-card">
           <h3><span className="glyph">//</span>{t("empty_title")}</h3>
           <p className="muted">{t("empty_run_hint")}</p>
@@ -247,6 +308,66 @@ export default function SessionListView({ onOpen }: Props) {
             <button className="primary sheet-start" disabled={busy} onClick={() => void create()}>
               {busy ? t("starting_session") : t("start_session")}
             </button>
+          </div>
+        </>
+      )}
+
+      {action?.mode === "menu" && (
+        <>
+          <div className="sheet-backdrop" onClick={() => setAction(null)} />
+          <div className="bottom-sheet">
+            <div className="sheet-handle" />
+            <h2>{action.session.displayName || action.session.name || action.session.cwd?.split("/").filter(Boolean).pop() || t("session_default")}</h2>
+            <div className="sheet-actions">
+              <button className="ghost" onClick={() => setAction({ session: action.session, mode: "rename" })}>
+                {t("session_rename")}
+              </button>
+              <button className="ghost-danger" onClick={() => setAction({ session: action.session, mode: "delete" })}>
+                {t("session_delete")}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {action?.mode === "rename" && (
+        <>
+          <div className="sheet-backdrop" onClick={() => setAction(null)} />
+          <div className="bottom-sheet">
+            <div className="sheet-handle" />
+            <h2>{t("rename_title")}</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveRename();
+              }}
+            >
+              <input
+                value={renameText}
+                onChange={(e) => setRenameText(e.target.value)}
+                placeholder={t("rename_ph")}
+                autoFocus
+              />
+              <button className="primary sheet-start" disabled={metaBusy} type="submit">
+                {metaBusy ? t("saving") : t("rename_save")}
+              </button>
+            </form>
+            {metaErr && <div className="err">{metaErr}</div>}
+          </div>
+        </>
+      )}
+
+      {action?.mode === "delete" && (
+        <>
+          <div className="sheet-backdrop" onClick={() => setAction(null)} />
+          <div className="bottom-sheet">
+            <div className="sheet-handle" />
+            <h2>{t("delete_title")}</h2>
+            <p className="muted">{t("delete_hint")}</p>
+            <button className="danger sheet-start" disabled={metaBusy} onClick={() => void confirmDelete()}>
+              {metaBusy ? t("deleting") : t("session_delete")}
+            </button>
+            {metaErr && <div className="err">{metaErr}</div>}
           </div>
         </>
       )}
