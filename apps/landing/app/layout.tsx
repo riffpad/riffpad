@@ -116,15 +116,6 @@ export default function RootLayout({
         <ThemeProvider>
           <LanguageProvider>{children}</LanguageProvider>
         </ThemeProvider>
-        {/* DevHunt launch banner — must be a plain deferred <script>, NOT
-            next/script: the widget hooks window.onload, and lazyOnload loads
-            it after onload has already fired, so the banner never rendered.
-            Remove this block after the launch window. */}
-        <script
-          defer
-          data-url="https://devhunt.org/tool/riffpad"
-          src="https://cdn.jsdelivr.net/gh/sidiDev/devhunt-banner/indexV0.js"
-        />
       </body>
     </html>
   );
