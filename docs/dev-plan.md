@@ -45,6 +45,7 @@
 | Claude 回复结束状态修复 | 注册 Stop hook 让回复一结束就翻回 `waiting_input`（不再等 idle_prompt 的 ~60s 计时）；Notification hook 兼容官方 `notification_type` 字段 | #257 |
 | Claude hook 工具行重复渲染修复 | Bash 改为单行 `command`（spinner→原地变绿），非 Bash 工具 completed 事件携带与 started 相同的 summary/args，client 按 key 原地合并 | #259 |
 | Claude 失败工具状态修复 | 注册并处理 `PostToolUseFailure`（Claude 失败时不发 PostToolUse）：Bash 发 exit 1 的 command 事件、其他工具发 `tool_call(failed)` 且保持 started 身份；client 失败图标改为红色方块 | #261 |
+| Vercel 部署失败修复 | `ignoreCommand` 先 `cat-file -e` 校验 `VERCEL_GIT_PREVIOUS_SHA`（浅克隆缺对象时不再 exit 128），缺失时正常触发构建；命令压缩到 256 字符内 | #263 |
 
 ---
 
