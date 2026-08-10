@@ -135,8 +135,28 @@ func TestAttachHookFlow(t *testing.T) {
 	}
 
 	// 3b. User prompt and assistant message hooks flow into the timeline.
+	// A submitted prompt flips a waiting session back to running so the
+	// client shows the activity indicator (#253).
+	srv.mu.Lock()
+	attached := srv.sessions["claude-sess-1"]
+	srv.mu.Unlock()
+	attached.mu.Lock()
+	attached.status = protocol.StatusWaitingInput
+	attached.mu.Unlock()
+
 	resp = post("/hooks/claude/user-prompt-submit", `{"hook_event_name":"UserPromptSubmit","session_id":"claude-sess-1","prompt":"你好"}`)
 	resp.Body.Close()
+	ev = readEvent()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected running agent_status after prompt, got %s", ev.Type)
+	}
+	var st protocol.AgentStatusPayload
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusRunning {
+		t.Fatalf("expected running, got %q", st.Status)
+	}
 	ev = readEvent()
 	if ev.Type != protocol.EventUserMessage {
 		t.Fatalf("expected user_message, got %s", ev.Type)
@@ -149,11 +169,46 @@ func TestAttachHookFlow(t *testing.T) {
 		t.Fatalf("unexpected prompt %q", up.Text)
 	}
 
+	// Simulate a finished turn (waiting for input): the next MessageDisplay
+	// must flip the session back to running so the client shows the activity
+	// indicator (#253).
+	attached.mu.Lock()
+	attached.status = protocol.StatusWaitingInput
+	attached.mu.Unlock()
+
 	resp = post("/hooks/claude/message-display", `{"hook_event_name":"MessageDisplay","session_id":"claude-sess-1","message_id":"m1","delta":"你好！","final":true}`)
 	resp.Body.Close()
 	ev = readEvent()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected running agent_status before agent_message, got %s", ev.Type)
+	}
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusRunning {
+		t.Fatalf("expected running, got %q", st.Status)
+	}
+	ev = readEvent()
 	if ev.Type != protocol.EventAgentMessage {
 		t.Fatalf("expected agent_message, got %s", ev.Type)
+	}
+
+	// idle_prompt notification flips the session back to waiting_input.
+	resp = post("/hooks/claude/notification", `{"hook_event_name":"Notification","session_id":"claude-sess-1","notification":{"type":"idle_prompt","message":"Claude is waiting for your input"}}`)
+	resp.Body.Close()
+	ev = readEvent()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected waiting_input agent_status, got %s", ev.Type)
+	}
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input, got %q", st.Status)
+	}
+	ev = readEvent()
+	if ev.Type != protocol.EventNotify {
+		t.Fatalf("expected notify, got %s", ev.Type)
 	}
 
 	// 4. PermissionRequest hook blocks until the phone approves.

@@ -63,6 +63,7 @@ type Claude struct {
 	ctx              context.Context
 	launched         bool
 	exited           bool
+	agentActive      bool // true between the first assistant output and the turn result
 	pendingTools     map[string]pendingTool
 	pendingApprovals map[string]chan string
 	ptySubs          map[*ptyTerm]struct{}
@@ -292,6 +293,15 @@ func (c *Claude) SendPrompt(text string) error {
 	if c.promptEcho() {
 		_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
 	}
+	// Flip to running immediately so the client shows the activity indicator
+	// from the moment the prompt is sent, before the first assistant chunk.
+	c.mu.Lock()
+	first := !c.agentActive
+	c.agentActive = true
+	c.mu.Unlock()
+	if first {
+		_ = c.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusRunning})
+	}
 	msg := map[string]any{
 		"type": "user",
 		"message": map[string]any{
@@ -446,6 +456,9 @@ func (c *Claude) handleLine(line []byte) {
 	case "result":
 		// A turn finished, but the session is still alive and waiting for
 		// input; "done" is reserved for real process exit (see readLoop).
+		c.mu.Lock()
+		c.agentActive = false
+		c.mu.Unlock()
 		status := protocol.StatusWaitingInput
 		if raw.Subtype == "error" || raw.Subtype == "error_max_turns" {
 			status = protocol.StatusError
@@ -485,6 +498,30 @@ func (c *Claude) handleAssistant(msg json.RawMessage) {
 	}
 	if err := json.Unmarshal(msg, &m); err != nil {
 		return
+	}
+	// The first output of a turn flips the session to running so clients
+	// show the "agent is running" indicator. Turn end (result) flips it back
+	// to waiting_input. Only emit on the transition: stream-json delivers
+	// many assistant chunks per turn.
+	hasOutput := false
+	for _, block := range m.Content {
+		if block.Type == "text" && strings.TrimSpace(block.Text) != "" {
+			hasOutput = true
+			break
+		}
+		if block.Type == "tool_use" {
+			hasOutput = true
+			break
+		}
+	}
+	if hasOutput {
+		c.mu.Lock()
+		first := !c.agentActive
+		c.agentActive = true
+		c.mu.Unlock()
+		if first {
+			_ = c.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusRunning})
+		}
 	}
 	for _, block := range m.Content {
 		switch block.Type {
