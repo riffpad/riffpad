@@ -31,7 +31,7 @@ export default function ToolLog({ line }: { line: ToolLine }) {
           ) : line.status === "done" ? (
             <span className="tool-check" />
           ) : (
-            "✗"
+            <span className="tool-check fail" />
           )}
         </span>
         <span className="tool-text truncate">{line.glyph}</span>

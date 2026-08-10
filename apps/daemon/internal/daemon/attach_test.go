@@ -414,6 +414,100 @@ func TestAttachToolCompletionKeepsInPlaceIdentity(t *testing.T) {
 	}
 }
 
+// TestAttachPostToolUseFailure covers #261: Claude Code fires
+// PostToolUseFailure (not PostToolUse) when a tool fails. A failed Bash
+// command must resolve the running row with exit 1, and a failed non-Bash
+// tool must emit tool_call(failed) with the same identity so the client
+// merges in place instead of keeping the spinner.
+func TestAttachPostToolUseFailure(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	post := func(path, body string) {
+		t.Helper()
+		resp := authRequest(t, http.MethodPost, ts.URL+path, cfg.LocalToken, strings.NewReader(body))
+		resp.Body.Close()
+	}
+
+	// Failed Bash command: started row resolves with exit code 1.
+	post("/hooks/claude/session-start", `{"hook_event_name":"SessionStart","session_id":"claude-sess-4","cwd":"/tmp/proj"}`)
+	post("/hooks/claude/pre-tool-use", `{"hook_event_name":"PreToolUse","session_id":"claude-sess-4","tool_use_id":"tu4","tool_use":{"name":"Bash","input":{"command":"false"}}}`)
+	post("/hooks/claude/post-tool-use-failure", `{"hook_event_name":"PostToolUseFailure","session_id":"claude-sess-4","tool_use_id":"tu4","tool_use":{"name":"Bash","input":{"command":"false"}},"error":"Command failed: exit status 1"}`)
+
+	sess := srv.getSession("claude-sess-4")
+	var commands []protocol.CommandPayload
+	for _, hev := range sess.snapshot() {
+		if hev.Type != protocol.EventCommand {
+			continue
+		}
+		var p protocol.CommandPayload
+		if err := hev.DecodePayload(&p); err != nil {
+			t.Fatal(err)
+		}
+		commands = append(commands, p)
+	}
+	if len(commands) != 2 {
+		t.Fatalf("expected started + failed command events, got %d (%+v)", len(commands), commands)
+	}
+	if commands[0].Command != "false" || commands[0].ExitCode != nil {
+		t.Fatalf("expected running command, got %+v", commands[0])
+	}
+	if commands[1].Command != "false" || commands[1].ExitCode == nil || *commands[1].ExitCode != 1 {
+		t.Fatalf("expected failed command with exit 1, got %+v", commands[1])
+	}
+	if !strings.Contains(commands[1].Output, "exit status 1") {
+		t.Fatalf("expected error output, got %q", commands[1].Output)
+	}
+
+	// Failed non-Bash tool: tool_call(failed) keeps the started identity.
+	post("/hooks/claude/session-start", `{"hook_event_name":"SessionStart","session_id":"claude-sess-5","cwd":"/tmp/proj"}`)
+	post("/hooks/claude/pre-tool-use", `{"hook_event_name":"PreToolUse","session_id":"claude-sess-5","tool_use_id":"tu5","tool_use":{"name":"Write","input":{"file_path":"/tmp/b.txt"}}}`)
+	post("/hooks/claude/post-tool-use-failure", `{"hook_event_name":"PostToolUseFailure","session_id":"claude-sess-5","tool_use_id":"tu5","tool_use":{"name":"Write","input":{"file_path":"/tmp/b.txt"}},"error":"permission denied"}`)
+
+	sess = srv.getSession("claude-sess-5")
+	var started, failed *protocol.ToolCallPayload
+	var notifyErr bool
+	for _, hev := range sess.snapshot() {
+		switch hev.Type {
+		case protocol.EventToolCall:
+			var p protocol.ToolCallPayload
+			if err := hev.DecodePayload(&p); err != nil {
+				t.Fatal(err)
+			}
+			switch p.Status {
+			case "started":
+				started = &p
+			case "failed":
+				failed = &p
+			}
+		case protocol.EventNotify:
+			var p protocol.NotifyPayload
+			if err := hev.DecodePayload(&p); err == nil && p.Level == "error" {
+				notifyErr = true
+			}
+		}
+	}
+	if started == nil || failed == nil {
+		t.Fatalf("expected started and failed tool_call, got %+v / %+v", started, failed)
+	}
+	if started.Summary != failed.Summary || started.Tool != failed.Tool {
+		t.Fatalf("failed tool_call identity mismatch: started=%+v failed=%+v", started, failed)
+	}
+	if failed.Args == nil || failed.Args["file_path"] != "/tmp/b.txt" {
+		t.Fatalf("failed tool_call missing args: %+v", failed)
+	}
+	if !notifyErr {
+		t.Fatal("expected error notify")
+	}
+}
+
 func TestAttachPermissionTimeoutResolves(t *testing.T) {
 	old := approvalHookTimeout
 	approvalHookTimeout = 50 * time.Millisecond

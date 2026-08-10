@@ -75,6 +75,7 @@ type hookPayload struct {
 		NotificationType string `json:"notification_type"`
 		Message          string `json:"message"`
 	} `json:"notification"`
+	Error  string `json:"error"`
 	Reason string `json:"reason"`
 	Source string `json:"source"`
 }
@@ -442,6 +443,50 @@ func (s *Server) handleHookMessageDisplay(w http.ResponseWriter, r *http.Request
 	ev, err := protocol.NewEvent(sid, protocol.EventAgentMessage, protocol.AgentMessagePayload{Text: text})
 	if err == nil {
 		s.pumpEvent(sess, ev)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{})
+}
+
+// handleHookPostToolUseFailure receives Claude Code's PostToolUseFailure hook,
+// which fires when a tool call failed (e.g. a Bash command exited non-zero).
+// PostToolUse is not sent for failures, so without this handler the started
+// row would keep its spinner forever. The failed status carries the same
+// summary/args as the started event so the client merges in place (#260).
+func (s *Server) handleHookPostToolUseFailure(w http.ResponseWriter, r *http.Request) {
+	p, ok := decodeHook(r)
+	if !ok || p.SessionID == "" {
+		writeError(w, http.StatusBadRequest, "invalid hook payload")
+		return
+	}
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
+	name := p.toolName()
+	input := p.toolInput()
+	if name == "Bash" {
+		cmd, _ := input["command"].(string)
+		if cmd != "" {
+			exit := 1
+			ev, err := protocol.NewEvent(sid, protocol.EventCommand, protocol.CommandPayload{
+				Command: cmd, ExitCode: &exit, Output: p.Error,
+			})
+			if err == nil {
+				s.pumpEvent(sess, ev)
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{
+		Tool: name, Status: "failed", Summary: p.summary(), Args: p.toolInput(),
+	})
+	if err == nil {
+		s.pumpEvent(sess, ev)
+	}
+	if p.Error != "" {
+		if ev, err := protocol.NewEvent(sid, protocol.EventNotify,
+			protocol.NotifyPayload{Level: "error", Message: p.Error}); err == nil {
+			s.pumpEvent(sess, ev)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{})
 }
