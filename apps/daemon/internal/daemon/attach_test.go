@@ -194,7 +194,7 @@ func TestAttachHookFlow(t *testing.T) {
 	}
 
 	// idle_prompt notification flips the session back to waiting_input.
-	resp = post("/hooks/claude/notification", `{"hook_event_name":"Notification","session_id":"claude-sess-1","notification":{"type":"idle_prompt","message":"Claude is waiting for your input"}}`)
+	resp = post("/hooks/claude/notification", `{"hook_event_name":"Notification","session_id":"claude-sess-1","notification":{"notification_type":"idle_prompt","message":"Claude is waiting for your input"}}`)
 	resp.Body.Close()
 	ev = readEvent()
 	if ev.Type != protocol.EventAgentStatus {
@@ -209,6 +209,45 @@ func TestAttachHookFlow(t *testing.T) {
 	ev = readEvent()
 	if ev.Type != protocol.EventNotify {
 		t.Fatalf("expected notify, got %s", ev.Type)
+	}
+
+	// Stop hook also flips a running session back to waiting_input — and
+	// unlike idle_prompt it fires as soon as the previous turn finishes, so
+	// the client clears the activity indicator without a ~60s lag (#257).
+	attached.mu.Lock()
+	attached.status = protocol.StatusRunning
+	attached.mu.Unlock()
+	resp = post("/hooks/claude/stop", `{"hook_event_name":"Stop","session_id":"claude-sess-1","reason":"turn_end"}`)
+	resp.Body.Close()
+	ev = readEvent()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected waiting_input agent_status after stop hook, got %s", ev.Type)
+	}
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input after stop hook, got %q", st.Status)
+	}
+	// A Stop hook on an already-waiting session must not emit a duplicate.
+	waitingStatuses := func(events []protocol.Event) int {
+		n := 0
+		for _, hev := range events {
+			if hev.Type != protocol.EventAgentStatus {
+				continue
+			}
+			var p protocol.AgentStatusPayload
+			if hev.DecodePayload(&p) == nil && p.Status == protocol.StatusWaitingInput {
+				n++
+			}
+		}
+		return n
+	}
+	before := waitingStatuses(attached.snapshot())
+	resp = post("/hooks/claude/stop", `{"hook_event_name":"Stop","session_id":"claude-sess-1","reason":"turn_end"}`)
+	resp.Body.Close()
+	if after := waitingStatuses(attached.snapshot()); after != before {
+		t.Fatalf("expected no duplicate waiting_input event, got %d -> %d", before, after)
 	}
 
 	// 4. PermissionRequest hook blocks until the phone approves.

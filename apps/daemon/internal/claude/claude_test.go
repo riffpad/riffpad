@@ -298,7 +298,7 @@ func TestWriteSettingsInteractiveRegistersAllHooks(t *testing.T) {
 	}
 	want := []string{
 		"SessionStart", "SessionEnd", "UserPromptSubmit", "MessageDisplay",
-		"PreToolUse", "PostToolUse", "PermissionRequest", "Notification",
+		"PreToolUse", "PostToolUse", "PermissionRequest", "Notification", "Stop",
 	}
 	if len(s.Hooks) != len(want) {
 		t.Fatalf("expected %d hook events, got %d (%v)", len(want), len(s.Hooks), keysOf(s.Hooks))

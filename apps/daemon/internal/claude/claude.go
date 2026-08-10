@@ -397,6 +397,10 @@ func (c *Claude) hookSpecs() map[string]hookSpec {
 		"PostToolUse":       {path: "post-tool-use", timeout: 10},
 		"PermissionRequest": {path: "permission", timeout: 600},
 		"Notification":      {path: "notification", timeout: 10},
+		// Stop fires when the previous turn finishes, so the daemon can flip
+		// the session back to waiting_input immediately instead of waiting
+		// for idle_prompt's ~60s heuristic (#257).
+		"Stop": {path: "stop", timeout: 10},
 	}
 }
 
