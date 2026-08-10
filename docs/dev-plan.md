@@ -43,6 +43,7 @@
 | 自建 waitlist 表单与存储 | landing 直连 relay `POST /api/waitlist/subscribe`；`waitlist_entries` 表；`scripts/email fetch` 从 relay 拉取；旧 20 邮箱已入库 | #224 #225 |
 | 首跑配对体验 | `riffpad pair` 对 `host offline` 自动重试；daemon 版本号统一（v0.2.4 发布） | #220 #221 |
 | Claude 回复结束状态修复 | 注册 Stop hook 让回复一结束就翻回 `waiting_input`（不再等 idle_prompt 的 ~60s 计时）；Notification hook 兼容官方 `notification_type` 字段 | #257 |
+| Claude hook 工具行重复渲染修复 | Bash 改为单行 `command`（spinner→原地变绿），非 Bash 工具 completed 事件携带与 started 相同的 summary/args，client 按 key 原地合并 | #259 |
 
 ---
 
