@@ -2,6 +2,7 @@ package hub
 
 import (
 	"testing"
+	"time"
 )
 
 func TestFindOrCreateGitHubUser(t *testing.T) {
@@ -56,5 +57,37 @@ func TestGitHubUserLoginFailsWithoutPassword(t *testing.T) {
 	}
 	if _, err := s.VerifyLogin(u.Username, "anything"); err == nil {
 		t.Fatal("passwordless github user should not accept password login")
+	}
+}
+
+func TestUpsertSessionsKeepsAnnouncedLastSeenAt(t *testing.T) {
+	s, err := OpenStore(t.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-30 * time.Minute)
+	if err := s.UpsertSessions("host1", []SessionMeta{
+		{ID: "s1", CLI: "claude", Status: "running", LastSeenAt: old},
+		{ID: "s2", CLI: "claude", Status: "running"}, // no timestamp: legacy daemon
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var got []SessionMeta
+	if err := s.db.Where("host_id = ?", "host1").Find(&got).Error; err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]SessionMeta{}
+	for _, m := range got {
+		byID[m.ID] = m
+	}
+	if len(byID) != 2 {
+		t.Fatalf("expected 2 session rows, got %d", len(byID))
+	}
+	if delta := byID["s1"].LastSeenAt.Sub(old); delta > time.Minute || delta < -time.Minute {
+		t.Fatalf("s1 lastSeenAt overwritten: got %v want %v", byID["s1"].LastSeenAt, old)
+	}
+	if byID["s2"].LastSeenAt.IsZero() || time.Since(byID["s2"].LastSeenAt) > time.Minute {
+		t.Fatalf("zero timestamp not stamped live: %v", byID["s2"].LastSeenAt)
 	}
 }

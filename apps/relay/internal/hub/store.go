@@ -403,9 +403,14 @@ func (s *Store) SessionsForHosts(hostIDs []string) ([]SessionMeta, error) {
 }
 
 func (s *Store) UpsertSessions(hostID string, sessions []SessionMeta) error {
+	now := time.Now()
 	for i := range sessions {
 		sessions[i].HostID = hostID
-		sessions[i].LastSeenAt = time.Now()
+		if sessions[i].LastSeenAt.IsZero() {
+			// Older daemons announce without a timestamp: fall back to "live
+			// right now" instead of persisting Go's zero time.
+			sessions[i].LastSeenAt = now
+		}
 		if err := s.db.Save(&sessions[i]).Error; err != nil {
 			return err
 		}

@@ -1022,9 +1022,12 @@ func (s *Server) announceSessions() {
 		if sess.ended {
 			continue
 		}
+		sess.mu.Lock()
+		lastSeen := sess.lastSeen
+		sess.mu.Unlock()
 		list = append(list, RelaySession{
 			ID: sess.id, Name: sess.meta.Name, CLI: sess.meta.CLI,
-			Cwd: sess.meta.Cwd, Status: sess.status,
+			Cwd: sess.meta.Cwd, Status: sess.status, LastSeenAt: lastSeen,
 		})
 	}
 	s.mu.Unlock()
