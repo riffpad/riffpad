@@ -343,6 +343,16 @@ func (s *Server) handleHookUserPromptSubmit(w http.ResponseWriter, r *http.Reque
 	}
 	sid := hookSessionID(r, p)
 	sess := s.attachSession(sid, p.CWD)
+	// A prompt means the agent starts a new turn: flip the session back to
+	// running so the client shows the activity indicator immediately (#253).
+	sess.mu.Lock()
+	st := sess.status
+	sess.mu.Unlock()
+	if st != protocol.StatusRunning {
+		if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusRunning}); err == nil {
+			s.pumpEvent(sess, ev)
+		}
+	}
 	ev, err := protocol.NewEvent(sid, protocol.EventUserMessage, protocol.PromptPayload{Text: p.Prompt})
 	if err == nil {
 		s.pumpEvent(sess, ev)
@@ -358,6 +368,17 @@ func (s *Server) handleHookMessageDisplay(w http.ResponseWriter, r *http.Request
 	}
 	sid := hookSessionID(r, p)
 	sess := s.attachSession(sid, p.CWD)
+	// MessageDisplay means the agent started producing output: flip the
+	// session back to running so clients show the activity indicator. The
+	// idle_prompt notification flips it back to waiting_input (#253).
+	sess.mu.Lock()
+	st := sess.status
+	sess.mu.Unlock()
+	if st != protocol.StatusRunning {
+		if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusRunning}); err == nil {
+			s.pumpEvent(sess, ev)
+		}
+	}
 	// Accumulate per message_id; emit once when the final batch arrives so the
 	// timeline shows whole assistant messages instead of many partial cards.
 	if p.MessageID != "" && !p.Final {
@@ -408,13 +429,29 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 		}
 		p.Message = p.Notification.Message
 	}
-	if p.Message == "" {
+	needsTurnReset := notifType == "idle_prompt" || notifType == "agent_needs_input"
+	if !needsTurnReset && p.Message == "" {
 		writeJSON(w, http.StatusOK, map[string]any{})
 		return
 	}
 	sid := hookSessionID(r, p)
-	s.log.Printf("notification hook session=%s type=%s msg=%q", sid, notifType, p.Message)
 	sess := s.attachSession(sid, p.CWD)
+	if needsTurnReset {
+		// The agent finished a turn and is waiting for the next prompt.
+		sess.mu.Lock()
+		st := sess.status
+		sess.mu.Unlock()
+		if st != protocol.StatusWaitingInput {
+			if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusWaitingInput}); err == nil {
+				s.pumpEvent(sess, ev)
+			}
+		}
+	}
+	if p.Message == "" {
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	s.log.Printf("notification hook session=%s type=%s msg=%q", sid, notifType, p.Message)
 	ev, err := protocol.NewEvent(sid, protocol.EventNotify, protocol.NotifyPayload{Level: level, Message: p.Message})
 	if err == nil {
 		s.pumpEvent(sess, ev)

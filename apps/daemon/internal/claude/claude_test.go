@@ -39,41 +39,99 @@ func TestHandleLineAssistantAndUser(t *testing.T) {
 	c.handleLine([]byte(`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"src"}]}}`))
 
 	// Event order for a Bash call:
-	//   agent_message · command(started, no exit code) · command(completed, exit code)
+	//   agent_status(running) · agent_message · command(started, no exit code)
+	//   · command(completed, exit code)
 	// Bash renders as a single row: the started command (no exit code) makes
 	// the client show a spinner; the completed command carries the exit code
 	// and transitions it to green. No tool_call row for Bash (it duplicates).
 	var got []protocol.Event
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		select {
 		case ev := <-c.Events():
 			got = append(got, ev)
 		default:
-			t.Fatalf("expected %d events, got %d", 3, len(got))
+			t.Fatalf("expected %d events, got %d", 4, len(got))
 		}
 	}
-	if got[0].Type != protocol.EventAgentMessage {
-		t.Fatalf("expected agent_message, got %s", got[0].Type)
+	if got[0].Type != protocol.EventAgentStatus {
+		t.Fatalf("expected running agent_status, got %s", got[0].Type)
 	}
-	if got[1].Type != protocol.EventCommand {
-		t.Fatalf("expected started command, got %s", got[1].Type)
+	var runStatus protocol.AgentStatusPayload
+	if err := got[0].DecodePayload(&runStatus); err != nil {
+		t.Fatal(err)
+	}
+	if runStatus.Status != protocol.StatusRunning {
+		t.Fatalf("expected running, got %q", runStatus.Status)
+	}
+	if got[1].Type != protocol.EventAgentMessage {
+		t.Fatalf("expected agent_message, got %s", got[1].Type)
+	}
+	if got[2].Type != protocol.EventCommand {
+		t.Fatalf("expected started command, got %s", got[2].Type)
 	}
 	var cmdStart protocol.CommandPayload
-	if err := got[1].DecodePayload(&cmdStart); err != nil {
+	if err := got[2].DecodePayload(&cmdStart); err != nil {
 		t.Fatal(err)
 	}
 	if cmdStart.Command != "ls" || cmdStart.ExitCode != nil {
 		t.Fatalf("unexpected started command (want no exit code): %+v", cmdStart)
 	}
-	if got[2].Type != protocol.EventCommand {
-		t.Fatalf("expected completed command, got %s", got[2].Type)
+	if got[3].Type != protocol.EventCommand {
+		t.Fatalf("expected completed command, got %s", got[3].Type)
 	}
 	var cmdDone protocol.CommandPayload
-	if err := got[2].DecodePayload(&cmdDone); err != nil {
+	if err := got[3].DecodePayload(&cmdDone); err != nil {
 		t.Fatal(err)
 	}
 	if cmdDone.Command != "ls" || cmdDone.ExitCode == nil || *cmdDone.ExitCode != 0 {
 		t.Fatalf("unexpected completed command (want exit code 0): %+v", cmdDone)
+	}
+}
+
+func TestAssistantEmitsRunningOncePerTurn(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+
+	// First assistant chunk: running, then the message.
+	c.handleLine([]byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}`))
+	ev := <-c.Events()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected running agent_status, got %s", ev.Type)
+	}
+	var st protocol.AgentStatusPayload
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusRunning {
+		t.Fatalf("expected running, got %q", st.Status)
+	}
+	ev = <-c.Events()
+	if ev.Type != protocol.EventAgentMessage {
+		t.Fatalf("expected agent_message, got %s", ev.Type)
+	}
+
+	// Second chunk of the same turn: message only, no second running event.
+	c.handleLine([]byte(`{"type":"assistant","message":{"content":[{"type":"text","text":" world"}]}}`))
+	ev = <-c.Events()
+	if ev.Type != protocol.EventAgentMessage {
+		t.Fatalf("expected agent_message, got %s", ev.Type)
+	}
+	select {
+	case extra := <-c.Events():
+		t.Fatalf("unexpected extra event: %s", extra.Type)
+	default:
+	}
+
+	// Turn result resets the flag for the next turn.
+	c.handleLine([]byte(`{"type":"result","subtype":"success"}`))
+	ev = <-c.Events()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected agent_status, got %s", ev.Type)
+	}
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input, got %q", st.Status)
 	}
 }
 
