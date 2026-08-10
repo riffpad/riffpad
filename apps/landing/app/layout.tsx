@@ -37,12 +37,14 @@ export const metadata: Metadata = {
     siteName: "Riffpad",
     locale: "en_US",
     type: "website",
+    images: ["https://riffpad.ai/og.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Riffpad - Watch, approve, and steer AI coding agents from your phone",
     description:
       "Watch, approve and steer AI coding CLIs from your phone. Local daemon, end-to-end encryption, zero-knowledge relay.",
+    images: ["https://riffpad.ai/og.png"],
   },
   robots: {
     index: true,
