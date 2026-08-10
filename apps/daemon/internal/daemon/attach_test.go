@@ -126,12 +126,33 @@ func TestAttachHookFlow(t *testing.T) {
 		t.Fatalf("expected session_start, got %s", ev.Type)
 	}
 
-	// 3. Tool use hook -> tool_call event.
+	// 3. Tool use hook -> Bash renders as a single "$ cmd" row: started
+	// without an exit code, completed with one. No tool_call row (which
+	// would show a duplicate spinner + completed pair).
 	resp = post("/hooks/claude/pre-tool-use", `{"hook_event_name":"PreToolUse","session_id":"claude-sess-1","tool_use_id":"tu1","tool_use":{"name":"Bash","input":{"command":"ls"}}}`)
 	resp.Body.Close()
 	ev = readEvent()
-	if ev.Type != protocol.EventToolCall {
-		t.Fatalf("expected tool_call, got %s", ev.Type)
+	if ev.Type != protocol.EventCommand {
+		t.Fatalf("expected command, got %s", ev.Type)
+	}
+	var cp protocol.CommandPayload
+	if err := ev.DecodePayload(&cp); err != nil {
+		t.Fatal(err)
+	}
+	if cp.Command != "ls" || cp.ExitCode != nil {
+		t.Fatalf("expected running command ls, got %+v", cp)
+	}
+	resp = post("/hooks/claude/post-tool-use", `{"hook_event_name":"PostToolUse","session_id":"claude-sess-1","tool_use_id":"tu1","tool_use":{"name":"Bash","input":{"command":"ls"}}}`)
+	resp.Body.Close()
+	ev = readEvent()
+	if ev.Type != protocol.EventCommand {
+		t.Fatalf("expected completed command, got %s", ev.Type)
+	}
+	if err := ev.DecodePayload(&cp); err != nil {
+		t.Fatal(err)
+	}
+	if cp.Command != "ls" || cp.ExitCode == nil || *cp.ExitCode != 0 {
+		t.Fatalf("expected completed command ls with exit 0, got %+v", cp)
 	}
 
 	// 3b. User prompt and assistant message hooks flow into the timeline.
@@ -331,6 +352,65 @@ func TestAttachHookFlow(t *testing.T) {
 	}
 	if np.Level != "error" || np.RequestID != ap.RequestID {
 		t.Fatalf("unexpected notify: %+v", np)
+	}
+}
+
+// TestAttachToolCompletionKeepsInPlaceIdentity covers #210 for the hook path:
+// the completed tool_call must carry the same summary/args as the started one
+// so the client's in-place merge key matches (no duplicate spinner + completed
+// rows).
+func TestAttachToolCompletionKeepsInPlaceIdentity(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := log.New(io.Discard, "", 0)
+	srv := New(cfg, keys, dir, logger, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	post := func(path, body string) {
+		t.Helper()
+		resp := authRequest(t, http.MethodPost, ts.URL+path, cfg.LocalToken, strings.NewReader(body))
+		resp.Body.Close()
+	}
+
+	post("/hooks/claude/session-start", `{"hook_event_name":"SessionStart","session_id":"claude-sess-3","cwd":"/tmp/proj"}`)
+	post("/hooks/claude/pre-tool-use", `{"hook_event_name":"PreToolUse","session_id":"claude-sess-3","tool_use_id":"tu3","tool_use":{"name":"Write","input":{"file_path":"/tmp/a.txt"}}}`)
+	post("/hooks/claude/post-tool-use", `{"hook_event_name":"PostToolUse","session_id":"claude-sess-3","tool_use_id":"tu3","tool_use":{"name":"Write","input":{"file_path":"/tmp/a.txt"}}}`)
+
+	sess := srv.getSession("claude-sess-3")
+	var started, completed *protocol.ToolCallPayload
+	var fileChanged bool
+	for _, hev := range sess.snapshot() {
+		switch hev.Type {
+		case protocol.EventToolCall:
+			var p protocol.ToolCallPayload
+			if err := hev.DecodePayload(&p); err != nil {
+				t.Fatal(err)
+			}
+			switch p.Status {
+			case "started":
+				started = &p
+			case "completed":
+				completed = &p
+			}
+		case protocol.EventFileChange:
+			fileChanged = true
+		}
+	}
+	if started == nil || completed == nil {
+		t.Fatalf("expected started and completed tool_call, got %+v / %+v", started, completed)
+	}
+	if started.Summary != completed.Summary || started.Tool != completed.Tool {
+		t.Fatalf("completed tool_call identity mismatch: started=%+v completed=%+v", started, completed)
+	}
+	if completed.Args == nil || completed.Args["file_path"] != "/tmp/a.txt" {
+		t.Fatalf("completed tool_call missing args: %+v", completed)
+	}
+	if !fileChanged {
+		t.Fatal("expected file_change event")
 	}
 }
 

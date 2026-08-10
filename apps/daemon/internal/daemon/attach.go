@@ -296,6 +296,20 @@ func (s *Server) handleHookPreToolUse(w http.ResponseWriter, r *http.Request) {
 	}
 	sid := hookSessionID(r, p)
 	sess := s.attachSession(sid, p.CWD)
+	if name := p.toolName(); name == "Bash" {
+		// Bash renders as a single "$ cmd" row: started here (no exit code)
+		// for the spinner, completed in handleHookPostToolUse (with exit
+		// code) for the green check. No tool_call row — it would duplicate
+		// the command row (#216, mirrored from the codex/claude adapters).
+		if cmd, _ := p.toolInput()["command"].(string); cmd != "" {
+			ev, err := protocol.NewEvent(sid, protocol.EventCommand, protocol.CommandPayload{Command: cmd})
+			if err == nil {
+				s.pumpEvent(sess, ev)
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
 	ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{
 		Tool:    p.toolName(),
 		Status:  "started",
@@ -321,6 +335,10 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 	switch name {
 	case "Bash":
 		cmd, _ := input["command"].(string)
+		if cmd == "" {
+			writeJSON(w, http.StatusOK, map[string]any{})
+			return
+		}
 		// Attach hooks don't expose the shell exit status; default to 0 so the
 		// row resolves to done instead of spinning forever (the client treats
 		// a missing exit code as "running").
@@ -329,6 +347,8 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			s.pumpEvent(sess, ev)
 		}
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
 	case "Write", "Edit", "MultiEdit", "NotepadEdit":
 		path, _ := input["file_path"].(string)
 		if path == "" {
@@ -339,7 +359,12 @@ func (s *Server) handleHookPostToolUse(w http.ResponseWriter, r *http.Request) {
 			s.pumpEvent(sess, ev)
 		}
 	}
-	ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{Tool: name, Status: "completed"})
+	// Carry the same summary/args as the "started" event so the client's
+	// in-place merge keys match; otherwise it shows a duplicate row
+	// (spinner + completed) for the same tool call (#210).
+	ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{
+		Tool: name, Status: "completed", Summary: p.summary(), Args: p.toolInput(),
+	})
 	if err == nil {
 		s.pumpEvent(sess, ev)
 	}
