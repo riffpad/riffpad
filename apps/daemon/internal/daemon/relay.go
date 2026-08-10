@@ -20,11 +20,12 @@ import (
 
 // RelaySession is the session metadata announced to the relay.
 type RelaySession struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	CLI    string `json:"cli"`
-	Cwd    string `json:"cwd"`
-	Status string `json:"status"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	CLI        string    `json:"cli"`
+	Cwd        string    `json:"cwd"`
+	Status     string    `json:"status"`
+	LastSeenAt time.Time `json:"lastSeenAt,omitempty"`
 }
 
 // RelayJoin describes a viewer that connected through the relay.

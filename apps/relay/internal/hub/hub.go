@@ -1155,15 +1155,16 @@ func (h *Hub) hostReadLoop(host *hostConn) {
 						delete(h.sessions, sid)
 					}
 				}
-				now := time.Now()
 				for _, s := range fr.Sessions {
 					s.HostID = host.id
-					// The announce frame carries no timestamp; these sessions
-					// are live right now, so stamp them here (mirrors
-					// Store.UpsertSessions). Otherwise the in-memory snapshot
-					// served by /api/sessions would report Go's zero time and
-					// clients would show "739835d ago".
-					s.LastSeenAt = now
+					if s.LastSeenAt.IsZero() {
+						// Older daemons announce without a timestamp; these
+						// sessions are live right now, so stamp them here
+						// (mirrors Store.UpsertSessions). Otherwise the
+						// in-memory snapshot would report Go's zero time and
+						// clients would show "739835d ago".
+						s.LastSeenAt = time.Now()
+					}
 					h.sessions[s.ID] = s
 					h.sessionHosts[s.ID] = host.id
 				}

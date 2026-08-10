@@ -1154,6 +1154,29 @@ func waitForSessions(t *testing.T, ts *httptest.Server, token string, want ...st
 	}
 }
 
+// sessionMetaMap fetches the live session list as a map keyed by session id.
+func sessionMetaMap(t *testing.T, ts *httptest.Server, token string) map[string]SessionMeta {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Sessions []SessionMeta `json:"sessions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	m := map[string]SessionMeta{}
+	for _, s := range out.Sessions {
+		m[s.ID] = s
+	}
+	return m
+}
+
 // One host re-announcing its sessions must not clear the sessions announced
 // by another host of the same account (desktop + laptop) (#169).
 func TestHostAnnouncesDoNotClearOtherHosts(t *testing.T) {
@@ -1206,6 +1229,46 @@ func TestAnnouncedSessionsGetLiveLastSeenAt(t *testing.T) {
 		if s.LastSeenAt.IsZero() || time.Since(s.LastSeenAt) > time.Minute {
 			t.Fatalf("expected live lastSeenAt, got %v", s.LastSeenAt)
 		}
+	}
+}
+
+// Re-announcing one session must not refresh the LastSeenAt of the others:
+// every session carries its own timestamp and the relay has to keep it. The
+// relay used to stamp every announced session with now, so activity in one
+// session made the whole list show "just now".
+func TestAnnouncedSessionsKeepTheirOwnLastSeenAt(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "lastseen-own")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+	conn := dialHostWS(t, ts, hostID, secret)
+
+	old1 := time.Now().Add(-30 * time.Minute)
+	old2 := time.Now().Add(-5 * time.Minute)
+	announceSessions(t, conn,
+		SessionMeta{ID: "s1", CLI: "claude", Status: "running", LastSeenAt: old1},
+		SessionMeta{ID: "s2", CLI: "claude", Status: "running", LastSeenAt: old2},
+	)
+	waitForSessions(t, ts, token, "s1", "s2")
+
+	// s2 just had activity: only its timestamp advances on re-announce.
+	announceSessions(t, conn,
+		SessionMeta{ID: "s1", CLI: "claude", Status: "running", LastSeenAt: old1},
+		SessionMeta{ID: "s2", CLI: "claude", Status: "running", LastSeenAt: time.Now()},
+	)
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got := sessionMetaMap(t, ts, token)
+		if len(got) == 2 && got["s2"].LastSeenAt.After(old2.Add(time.Minute)) {
+			if delta := got["s1"].LastSeenAt.Sub(old1); delta > time.Minute || delta < -time.Minute {
+				t.Fatalf("s1 lastSeenAt refreshed to %v; want %v", got["s1"].LastSeenAt, old1)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("second announce never landed: s1=%v s2=%v", got["s1"].LastSeenAt, got["s2"].LastSeenAt)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 
