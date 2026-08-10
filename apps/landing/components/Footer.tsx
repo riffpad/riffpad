@@ -1,6 +1,6 @@
 "use client";
 
-import { BookIcon, DiscordIcon, GitHubIcon, MailIcon } from "./icons";
+import { BookIcon, DiscordIcon, GitHubIcon, MailIcon, XIcon } from "./icons";
 import { useLanguage } from "./LanguageProvider";
 
 export function Footer() {
@@ -39,6 +39,15 @@ export function Footer() {
               className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:text-ink"
             >
               <DiscordIcon className="h-4 w-4" />
+            </a>
+            <a
+              href="https://x.com/riffpad_ai"
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t.footer.x}
+              className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:text-ink"
+            >
+              <XIcon className="h-4 w-4" />
             </a>
             <a
               href="mailto:hi@riffpad.ai"
