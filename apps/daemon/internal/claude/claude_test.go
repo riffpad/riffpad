@@ -11,6 +11,27 @@ import (
 	"github.com/riffpad/riffpad/packages/protocol"
 )
 
+func TestSendPromptEchoPolicy(t *testing.T) {
+	c := New(adapter.CreateRequest{ID: "s1"})
+	if !c.interactive {
+		t.Fatal("expected interactive mode by default")
+	}
+	// PTY not attached yet (lazy start / fallback headless): keep the echo.
+	if !c.promptEcho() {
+		t.Fatal("expected echo before the interactive PTY is attached")
+	}
+	c.pty = &os.File{}
+	// Interactive TUI: the UserPromptSubmit hook already streams the prompt
+	// back to viewers; echoing here would duplicate every client message.
+	if c.promptEcho() {
+		t.Fatal("interactive TUI must not echo; the UserPromptSubmit hook provides the message")
+	}
+	c.interactive = false
+	if !c.promptEcho() {
+		t.Fatal("headless stream-json mode needs the local echo")
+	}
+}
+
 func TestHandleLineAssistantAndUser(t *testing.T) {
 	c := New(adapter.CreateRequest{ID: "s1", Name: "demo"})
 	c.handleLine([]byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}`))

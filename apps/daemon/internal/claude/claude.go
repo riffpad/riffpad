@@ -283,14 +283,14 @@ func (c *Claude) SendPrompt(text string) error {
 	if err := c.ensureStarted(); err != nil {
 		return err
 	}
-	// Mirror codex/kimi: echo the user's message back as an event so the
-	// phone client renders it (the daemon itself never sees the text again).
-	_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
 	if c.interactive && c.pty != nil {
 		if _, err := fmt.Fprintf(c.pty, "%s\r", text); err != nil {
 			return err
 		}
 		return nil
+	}
+	if c.promptEcho() {
+		_ = c.emit(protocol.EventUserMessage, protocol.AgentMessagePayload{Text: text})
 	}
 	msg := map[string]any{
 		"type": "user",
@@ -300,6 +300,15 @@ func (c *Claude) SendPrompt(text string) error {
 		},
 	}
 	return c.writeLine(msg)
+}
+
+// promptEcho reports whether SendPrompt should emit a user_message event for
+// the text it writes. The interactive TUI streams the prompt back through the
+// UserPromptSubmit hook (handleHookUserPromptSubmit), so an extra echo would
+// render every client-sent message twice; headless stream-json mode never sees
+// the text again and needs the local echo.
+func (c *Claude) promptEcho() bool {
+	return !(c.interactive && c.pty != nil)
 }
 
 func (c *Claude) writeLine(v any) error {
