@@ -91,6 +91,42 @@ func TestKimiHookUserAndStopEvents(t *testing.T) {
 	}
 }
 
+func TestKimiHookPromptFlippedRunningAndIdleFlippedWaiting(t *testing.T) {
+	_, ts, sess, tok := newKimiHookTestServer(t)
+
+	// A finished turn (waiting for input): the next prompt must flip the
+	// session back to running so the client shows the activity indicator.
+	sess.mu.Lock()
+	sess.status = protocol.StatusWaitingInput
+	sess.mu.Unlock()
+	resp, _ := postKimiHook(t, ts, "user-prompt-submit", `{"session_id":"x","cwd":"/tmp","prompt":"hello"}`, tok)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("user-prompt status %d", resp.StatusCode)
+	}
+
+	// idle_prompt notification ends the turn: back to waiting_input.
+	resp, _ = postKimiHook(t, ts, "notification", `{"session_id":"x","cwd":"/tmp","notification":{"notification_type":"idle_prompt","body":"Kimi is waiting for your input"}}`, tok)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("notification status %d", resp.StatusCode)
+	}
+
+	sess.pumpMu.Lock()
+	types := make([]string, 0, len(sess.history))
+	for _, ev := range sess.history {
+		types = append(types, ev.Type)
+	}
+	sess.pumpMu.Unlock()
+	want := []string{
+		protocol.EventAgentStatus, // running
+		protocol.EventUserMessage,
+		protocol.EventAgentStatus, // waiting_input
+		protocol.EventNotify,
+	}
+	if strings.Join(types, ",") != strings.Join(want, ",") {
+		t.Fatalf("history types = %v, want %v", types, want)
+	}
+}
+
 func TestKimiHookPreToolUseAutoAllowsReadTools(t *testing.T) {
 	if !kimiGatedTools()["Bash"] {
 		t.Fatal("Bash tool must be gated (kimi-code uses Bash, not Shell)")

@@ -123,6 +123,17 @@ func (s *Server) handleKimiHook(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	case "user-prompt-submit":
+		// A prompt starts a new turn: flip the session back to running so
+		// the client shows the activity indicator (#255).
+		sess.mu.Lock()
+		st := sess.status
+		sess.mu.Unlock()
+		if st != protocol.StatusRunning {
+			if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus,
+				protocol.AgentStatusPayload{Status: protocol.StatusRunning}); err == nil {
+				s.pumpEvent(sess, ev)
+			}
+		}
 		if text := kimiPromptText(p.Prompt); text != "" {
 			if ev, err := protocol.NewEvent(sid, protocol.EventUserMessage,
 				protocol.PromptPayload{Text: text}); err == nil {
@@ -144,7 +155,9 @@ func (s *Server) handleKimiHook(w http.ResponseWriter, r *http.Request) {
 		s.handleKimiPostToolUse(w, sess, sid, p, true)
 	case "notification":
 		level := "info"
+		notifType := ""
 		if p.Notification != nil {
+			notifType = p.Notification.NotificationType
 			switch p.Notification.NotificationType {
 			case "idle_prompt", "agent_needs_input":
 				level = "waiting"
@@ -157,6 +170,18 @@ func (s *Server) handleKimiHook(w http.ResponseWriter, r *http.Request) {
 			msg = p.Notification.Body
 			if msg == "" {
 				msg = p.Notification.Title
+			}
+		}
+		if notifType == "idle_prompt" || notifType == "agent_needs_input" {
+			// The agent finished a turn and is waiting for the next prompt.
+			sess.mu.Lock()
+			st := sess.status
+			sess.mu.Unlock()
+			if st != protocol.StatusWaitingInput {
+				if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus,
+					protocol.AgentStatusPayload{Status: protocol.StatusWaitingInput}); err == nil {
+					s.pumpEvent(sess, ev)
+				}
 			}
 		}
 		if msg != "" {
@@ -173,6 +198,17 @@ func (s *Server) handleKimiHook(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleKimiPreToolUse(w http.ResponseWriter, sess *session, sid string, p kimiHookPayload) {
 	tool := p.ToolName
+	// Tool execution belongs to an active turn: keep the running indicator
+	// lit (also while a phone approval is pending) (#255).
+	sess.mu.Lock()
+	st := sess.status
+	sess.mu.Unlock()
+	if st != protocol.StatusRunning {
+		if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus,
+			protocol.AgentStatusPayload{Status: protocol.StatusRunning}); err == nil {
+			s.pumpEvent(sess, ev)
+		}
+	}
 	// Emit the started row first so the timeline shows activity even while
 	// waiting for a phone decision.
 	if ev, err := protocol.NewEvent(sid, protocol.EventToolCall, protocol.ToolCallPayload{

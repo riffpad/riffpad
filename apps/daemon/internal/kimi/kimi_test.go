@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/adapter"
+	"github.com/riffpad/riffpad/packages/protocol"
 )
 
 func TestWriteSessionConfigRegistersAllHooks(t *testing.T) {
@@ -66,4 +67,32 @@ func TestWriteSessionConfigPreservesUserConfig(t *testing.T) {
 
 func strconvQuote(s string) string {
 	return "\"" + s + "\""
+}
+
+func TestKimiTurnResultResetsRunning(t *testing.T) {
+	k := New(adapter.CreateRequest{ID: "s1"})
+	// SendPrompt flips turnActive on; the turn result must flip it back and
+	// emit waiting_input so the client stops the running indicator (#255).
+	k.mu.Lock()
+	k.turnActive = true
+	k.mu.Unlock()
+
+	k.handleLine([]byte(`{"jsonrpc":"2.0","id":3,"result":{"sessionId":"s1","stopReason":"end_turn"}}`))
+	ev := <-k.Events()
+	if ev.Type != protocol.EventAgentStatus {
+		t.Fatalf("expected agent_status, got %s", ev.Type)
+	}
+	var st protocol.AgentStatusPayload
+	if err := ev.DecodePayload(&st); err != nil {
+		t.Fatal(err)
+	}
+	if st.Status != protocol.StatusWaitingInput {
+		t.Fatalf("expected waiting_input, got %q", st.Status)
+	}
+	k.mu.Lock()
+	active := k.turnActive
+	k.mu.Unlock()
+	if active {
+		t.Fatal("turnActive not reset after turn result")
+	}
 }

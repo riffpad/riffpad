@@ -77,6 +77,7 @@ type Kimi struct {
 	pendingTools  map[string]pendingTool
 	msgBuf        strings.Builder
 	msgActive     bool
+	turnActive    bool // true between a prompt and the turn result (client "running" indicator)
 }
 
 // New creates a Kimi Code ACP session adapter.
@@ -352,6 +353,16 @@ func (k *Kimi) SendPrompt(text string) error {
 	if err := k.waitReady(); err != nil {
 		return err
 	}
+	// Flip to running immediately so the client shows the activity indicator
+	// from the moment the prompt is sent, before any session/update arrives
+	// (#255). The turn result flips it back to waiting_input.
+	k.mu.Lock()
+	first := !k.turnActive
+	k.turnActive = true
+	k.mu.Unlock()
+	if first {
+		_ = k.emit(protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusRunning})
+	}
 	return k.request("session/prompt", map[string]any{
 		"sessionId": k.sessionID,
 		"prompt":    []any{map[string]any{"type": "text", "text": text}},
@@ -554,6 +565,9 @@ func (k *Kimi) handleResponse(id json.RawMessage, result json.RawMessage) {
 	default:
 		// A session/prompt response ends the current turn.
 		k.flushMessage()
+		k.mu.Lock()
+		k.turnActive = false
+		k.mu.Unlock()
 		// The turn is over but the session is still alive and waiting for
 		// input; "done" is reserved for real process exit.
 		status := protocol.StatusWaitingInput
