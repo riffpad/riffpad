@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -682,6 +683,21 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 				"lastSeen": lastSeen,
 			})
 		}
+		// Stable, meaningful order for the client: most recently active first,
+		// zero timestamps (restored sessions without activity) last, id as a
+		// tiebreaker. Ranging over a Go map yields a random order per request,
+		// which made the client list reshuffle on every 5s poll (#249).
+		sort.Slice(list, func(i, j int) bool {
+			a := list[i]["lastSeen"].(time.Time)
+			b := list[j]["lastSeen"].(time.Time)
+			if a.IsZero() != b.IsZero() {
+				return !a.IsZero()
+			}
+			if !a.Equal(b) {
+				return a.After(b)
+			}
+			return list[i]["id"].(string) < list[j]["id"].(string)
+		})
 		s.mu.Unlock()
 		writeJSON(w, http.StatusOK, map[string]any{"sessions": list})
 	case http.MethodPost:

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -972,6 +973,20 @@ func (h *Hub) handleSessions(w http.ResponseWriter, r *http.Request) {
 			liveSessions = append(liveSessions, s)
 		}
 	}
+	// Stable order for the client: most recently active first, zero
+	// timestamps last, id as a tiebreaker. Ranging over a Go map yields a
+	// random order per request, which made the client list reshuffle on
+	// every 5s poll (#249).
+	sort.Slice(liveSessions, func(i, j int) bool {
+		a, b := liveSessions[i], liveSessions[j]
+		if a.LastSeenAt.IsZero() != b.LastSeenAt.IsZero() {
+			return !a.LastSeenAt.IsZero()
+		}
+		if !a.LastSeenAt.Equal(b.LastSeenAt) {
+			return a.LastSeenAt.After(b.LastSeenAt)
+		}
+		return a.ID < b.ID
+	})
 	// hostOnline lets the client tell "daemon offline" (empty list because no
 	// host is connected) apart from "no sessions" (host connected, nothing
 	// running): the two need very different empty states (#174).

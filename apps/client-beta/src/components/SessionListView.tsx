@@ -28,6 +28,19 @@ function saveCwdHistory(list: string[]) {
 
 type TFunc = ReturnType<typeof useI18n>["t"];
 
+// sortSessions returns a stable, meaningful order for the session list:
+// most recently active first, missing/zero timestamps last, id as a
+// tiebreaker. Backends range over Go maps, so the raw API order is random
+// and would reshuffle the list on every 5s poll (#249).
+function sortSessions(list: SessionInfo[]): SessionInfo[] {
+  return [...list].sort((a, b) => {
+    const ta = new Date(a.lastSeenAt || 0).getTime();
+    const tb = new Date(b.lastSeenAt || 0).getTime();
+    if (ta !== tb) return tb - ta;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
 function timeAgo(iso: string | undefined, t: TFunc): string {
   if (!iso) return "";
   const ts = new Date(iso).getTime();
@@ -95,7 +108,7 @@ export default function SessionListView({ onOpen }: Props) {
     try {
       const res = await api("/api/sessions");
       const data = await res.json();
-      setSessions(data.sessions || []);
+      setSessions(sortSessions(data.sessions || []));
       setOffline(!res.ok);
       if (res.ok) setHostOffline(isRelay && data.hostOnline === false);
     } catch {
