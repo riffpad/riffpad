@@ -395,6 +395,7 @@ func (c *Claude) hookSpecs() map[string]hookSpec {
 		"MessageDisplay":    {path: "message-display", timeout: 10},
 		"PreToolUse":        {path: "pre-tool-use", timeout: 10},
 		"PostToolUse":       {path: "post-tool-use", timeout: 10},
+		"PostToolUseFailure": {path: "post-tool-use-failure", timeout: 10},
 		"PermissionRequest": {path: "permission", timeout: 600},
 		"Notification":      {path: "notification", timeout: 10},
 		// Stop fires when the previous turn finishes, so the daemon can flip

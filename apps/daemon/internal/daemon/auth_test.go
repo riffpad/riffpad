@@ -63,6 +63,7 @@ func TestLocalAuthRejectsMissingToken(t *testing.T) {
 		"/api/shutdown",
 		"/hooks/claude/session-start",
 		"/hooks/claude/stop",
+		"/hooks/claude/post-tool-use-failure",
 		"/ws",
 	}
 	for _, p := range paths {

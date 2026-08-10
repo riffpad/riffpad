@@ -1093,6 +1093,9 @@ button.github {
   background: var(--chat-green);
   vertical-align: -1px;
 }
+.tool-check.fail {
+  background: var(--chat-danger);
+}
 .tool-log-detail {
   margin: 0 0 6px 24px;
   padding: 8px;

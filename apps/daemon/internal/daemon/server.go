@@ -278,6 +278,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/hooks/claude/session-end", s.handleHookSessionEnd)
 	mux.HandleFunc("/hooks/claude/pre-tool-use", s.handleHookPreToolUse)
 	mux.HandleFunc("/hooks/claude/post-tool-use", s.handleHookPostToolUse)
+	mux.HandleFunc("/hooks/claude/post-tool-use-failure", s.handleHookPostToolUseFailure)
 	mux.HandleFunc("/hooks/claude/user-prompt-submit", s.handleHookUserPromptSubmit)
 	mux.HandleFunc("/hooks/claude/message-display", s.handleHookMessageDisplay)
 	mux.HandleFunc("/hooks/claude/stop", s.handleHookStop)
