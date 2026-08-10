@@ -35,7 +35,26 @@ AI coding agent 很强，也很“粘人”：会停下来等审批、趁你离�
 - **出网的永远是密文** — 端到端加密 + 零知识中继，默认本地优先。
 - **默认只读** — 每次批准/拒绝/发指令都是显式动作，绝无后台隐式访问。
 
-<img src=".github/assets/demo-mockup.png" alt="Mac 终端等待 Bash 审批，手机显示同一张审批卡片（同意/拒绝）" width="100%" />
+**Watch（看）** — agent 的输出实时同步到手机：
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-1-watch.gif" />
+  <img src=".github/assets/demo-1-watch-light.gif" alt="Watch：agent 输出实时同步到手机" width="100%" />
+</picture>
+
+**Steer（转向）** — 在手机上发一条新指令，它会出现在运行中的终端里：
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-2-steer.gif" />
+  <img src=".github/assets/demo-2-steer-light.gif" alt="Steer：手机输入指令，终端同步显示" width="100%" />
+</picture>
+
+**Approve（审批）** — 权限请求变成一键卡片：
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-3-approve.gif" />
+  <img src=".github/assets/demo-3-approve-light.gif" alt="Approve：手机一键批准，agent 继续" width="100%" />
+</picture>
 
 ## 快速开始
 
