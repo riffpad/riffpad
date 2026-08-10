@@ -91,3 +91,51 @@ func TestUpsertSessionsKeepsAnnouncedLastSeenAt(t *testing.T) {
 		t.Fatalf("zero timestamp not stamped live: %v", byID["s2"].LastSeenAt)
 	}
 }
+
+func TestSessionClientMetaStore(t *testing.T) {
+	s, err := OpenStore(t.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertSessionClientMeta(SessionClientMeta{
+		SessionID: "s1", HostID: "h1", UserID: "u1", DisplayName: "mine", Hidden: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.GetSessionClientMeta("s1", "h1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m == nil || m.DisplayName != "mine" || !m.Hidden || m.UserID != "u1" {
+		t.Fatalf("unexpected meta: %+v", m)
+	}
+
+	// Upsert merges via full-row save: rename keeps hidden=true.
+	if err := s.UpsertSessionClientMeta(SessionClientMeta{
+		SessionID: "s1", HostID: "h1", UserID: "u1", DisplayName: "renamed", Hidden: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	m, err = s.GetSessionClientMeta("s1", "h1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.DisplayName != "renamed" || !m.Hidden {
+		t.Fatalf("meta not updated: %+v", m)
+	}
+
+	list, err := s.SessionClientMetaForUser("u1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].SessionID != "s1" {
+		t.Fatalf("unexpected list: %+v", list)
+	}
+	other, err := s.SessionClientMetaForUser("u2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(other) != 0 {
+		t.Fatalf("other user saw meta: %+v", other)
+	}
+}

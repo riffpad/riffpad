@@ -89,6 +89,19 @@ type SessionMeta struct {
 	LastSeenAt time.Time `json:"lastSeenAt"`
 }
 
+// SessionClientMeta is client-side session metadata (custom display name and
+// hidden state) owned by the account. It is layered on top of the
+// host-announced SessionMeta and never sent back to the host: renaming or
+// hiding a session only changes what clients see, never what the agent does.
+type SessionClientMeta struct {
+	SessionID   string    `gorm:"primaryKey" json:"sessionId"`
+	HostID      string    `gorm:"primaryKey" json:"hostId"`
+	UserID      string    `gorm:"index" json:"userId"`
+	DisplayName string    `json:"displayName"`
+	Hidden      bool      `json:"hidden"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
 // EmailOptout is a waitlist address that asked to stop receiving
 // announcement emails. The address is normalized (lower-cased) and stored as
 // the primary key so unsubscribe is idempotent.
@@ -127,7 +140,7 @@ func OpenStore(dataDir, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}, &EmailOptout{}, &WaitlistEntry{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &OAuthAccount{}, &AuthToken{}, &HostRecord{}, &Device{}, &PairingRecord{}, &SessionMeta{}, &SessionClientMeta{}, &EmailOptout{}, &WaitlistEntry{}); err != nil {
 		return nil, err
 	}
 	return &Store{db: db}, nil
@@ -416,6 +429,35 @@ func (s *Store) UpsertSessions(hostID string, sessions []SessionMeta) error {
 		}
 	}
 	return nil
+}
+
+// GetSessionClientMeta returns the client-side meta for one session, or nil
+// when none exists yet.
+func (s *Store) GetSessionClientMeta(sessionID, hostID string) (*SessionClientMeta, error) {
+	var m SessionClientMeta
+	err := s.db.Where("session_id = ? AND host_id = ?", sessionID, hostID).First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// UpsertSessionClientMeta saves the full client-side meta for a session.
+func (s *Store) UpsertSessionClientMeta(m SessionClientMeta) error {
+	m.UpdatedAt = time.Now()
+	return s.db.Save(&m).Error
+}
+
+// SessionClientMetaForUser lists all client-side session meta for an account.
+func (s *Store) SessionClientMetaForUser(userID string) ([]SessionClientMeta, error) {
+	var out []SessionClientMeta
+	if err := s.db.Where("user_id = ?", userID).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *Store) MarkHostSessionsOffline(hostID string) error {

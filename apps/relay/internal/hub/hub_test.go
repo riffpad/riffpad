@@ -1155,7 +1155,7 @@ func waitForSessions(t *testing.T, ts *httptest.Server, token string, want ...st
 }
 
 // sessionMetaMap fetches the live session list as a map keyed by session id.
-func sessionMetaMap(t *testing.T, ts *httptest.Server, token string) map[string]SessionMeta {
+func sessionMetaMap(t *testing.T, ts *httptest.Server, token string) map[string]SessionView {
 	t.Helper()
 	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/sessions", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -1165,12 +1165,12 @@ func sessionMetaMap(t *testing.T, ts *httptest.Server, token string) map[string]
 	}
 	defer resp.Body.Close()
 	var out struct {
-		Sessions []SessionMeta `json:"sessions"`
+		Sessions []SessionView `json:"sessions"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
-	m := map[string]SessionMeta{}
+	m := map[string]SessionView{}
 	for _, s := range out.Sessions {
 		m[s.ID] = s
 	}
@@ -1321,6 +1321,85 @@ func TestSessionsListOrderedByLastSeenAt(t *testing.T) {
 	want := []string{"fresh", "mid", "old"}
 	if strings.Join(ids, ",") != strings.Join(want, ",") {
 		t.Fatalf("session order = %v, want %v", ids, want)
+	}
+}
+
+func TestSessionClientMetaUpdateAndJoin(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "meta-user")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+	conn := dialHostWS(t, ts, hostID, secret)
+	announceSessions(t, conn, SessionMeta{ID: "s1", Name: "demo", CLI: "claude", Status: "running", LastSeenAt: time.Now()})
+	waitForSessions(t, ts, token, "s1")
+
+	putMeta := func(body string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/sessions/s1/meta", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+
+	resp := putMeta(`{"hostId":"` + hostID + `","displayName":"我的会话","hidden":true}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("put meta status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	got := sessionMetaMap(t, ts, token)
+	s := got["s1"]
+	if s.DisplayName != "我的会话" || !s.Hidden {
+		t.Fatalf("meta not joined: %+v", s)
+	}
+	if s.Name != "demo" {
+		t.Fatalf("host-announced name lost: %+v", s)
+	}
+
+	// Rename + unhide: the upsert must merge, not reset the other field.
+	resp = putMeta(`{"hostId":"` + hostID + `","displayName":"renamed","hidden":false}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("put meta status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	got = sessionMetaMap(t, ts, token)
+	s = got["s1"]
+	if s.DisplayName != "renamed" || s.Hidden {
+		t.Fatalf("meta not updated: %+v", s)
+	}
+
+	// Clear the custom name: empty string removes it.
+	resp = putMeta(`{"hostId":"` + hostID + `","displayName":""}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("put meta status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	got = sessionMetaMap(t, ts, token)
+	if got["s1"].DisplayName != "" {
+		t.Fatalf("display name not cleared: %+v", got["s1"])
+	}
+}
+
+func TestSessionClientMetaForbiddenForOtherUser(t *testing.T) {
+	_, ts := newTestHub(t)
+	tokenOwner := registerUser(t, ts, "meta-owner")
+	hostID, _ := registerHost(t, ts, tokenOwner, "laptop")
+	tokenIntruder := registerUser(t, ts, "meta-intruder")
+
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/sessions/s1/meta",
+		strings.NewReader(`{"hostId":"`+hostID+`","displayName":"hack"}`))
+	req.Header.Set("Authorization", "Bearer "+tokenIntruder)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 for foreign host, got %d", resp.StatusCode)
 	}
 }
 

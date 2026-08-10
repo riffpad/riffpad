@@ -16,6 +16,12 @@ export interface SessionInfo {
   cwd?: string;
   status?: string;
   lastSeenAt?: string;
+  hostId?: string;
+  // Client-side metadata: custom display name and hidden state, layered on
+  // top of the host-announced session by the relay (or localStorage in
+  // local mode). Never sent back to the host.
+  displayName?: string;
+  hidden?: boolean;
 }
 
 export interface EventPayload {

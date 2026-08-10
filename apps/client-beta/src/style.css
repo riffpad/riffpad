@@ -765,6 +765,34 @@ button.github {
 .session-light.error { color: var(--danger); }
 .session-light.restored { color: var(--info); }
 
+.session-menu-btn {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mute);
+  cursor: pointer;
+}
+.session-menu-btn:hover {
+  color: var(--ink);
+  border-color: var(--hairline);
+  background: transparent;
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sheet-actions button {
+  min-height: 44px;
+}
+
 .new-session {
   display: flex;
   align-items: center;
