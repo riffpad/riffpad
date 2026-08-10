@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import Script from "next/script";
 
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
@@ -116,6 +117,11 @@ export default function RootLayout({
         <ThemeProvider>
           <LanguageProvider>{children}</LanguageProvider>
         </ThemeProvider>
+        <Script
+          src="https://cdn.jsdelivr.net/gh/sidiDev/devhunt-banner/indexV0.js"
+          strategy="lazyOnload"
+          data-url="https://devhunt.org/tool/riffpad"
+        />
       </body>
     </html>
   );
