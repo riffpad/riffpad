@@ -280,6 +280,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/hooks/claude/post-tool-use", s.handleHookPostToolUse)
 	mux.HandleFunc("/hooks/claude/user-prompt-submit", s.handleHookUserPromptSubmit)
 	mux.HandleFunc("/hooks/claude/message-display", s.handleHookMessageDisplay)
+	mux.HandleFunc("/hooks/claude/stop", s.handleHookStop)
 	mux.HandleFunc("/hooks/kimi/", s.handleKimiHook)
 	return s.localAuth(mux)
 }

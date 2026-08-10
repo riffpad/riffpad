@@ -69,8 +69,11 @@ type hookPayload struct {
 	Final         bool           `json:"final"`
 	MessageID     string         `json:"message_id"`
 	Notification  *struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
+		// Claude Code sends notification_type; older/community payloads used
+		// type, so both are accepted (see notificationType).
+		Type             string `json:"type"`
+		NotificationType string `json:"notification_type"`
+		Message          string `json:"message"`
 	} `json:"notification"`
 	Reason string `json:"reason"`
 	Source string `json:"source"`
@@ -116,6 +119,18 @@ func (p *hookPayload) toolInput() map[string]any {
 		return p.Input
 	}
 	return nil
+}
+
+// notificationType returns the Notification hook's type, preferring the
+// official notification_type field over the legacy type field.
+func (p *hookPayload) notificationType() string {
+	if p.Notification == nil {
+		return ""
+	}
+	if p.Notification.NotificationType != "" {
+		return p.Notification.NotificationType
+	}
+	return p.Notification.Type
 }
 
 func (p *hookPayload) summary() string {
@@ -412,7 +427,7 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid hook payload")
 		return
 	}
-	if p.Notification != nil && p.Notification.Type == "permission_prompt" {
+	if p.Notification != nil && p.notificationType() == "permission_prompt" {
 		// Permission prompts are surfaced by the PermissionRequest hook.
 		writeJSON(w, http.StatusOK, map[string]any{})
 		return
@@ -420,8 +435,8 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 	level := "info"
 	notifType := ""
 	if p.Notification != nil {
-		notifType = p.Notification.Type
-		switch p.Notification.Type {
+		notifType = p.notificationType()
+		switch notifType {
 		case "idle_prompt", "agent_needs_input":
 			level = "waiting"
 		case "agent_completed":
@@ -455,6 +470,29 @@ func (s *Server) handleHookNotification(w http.ResponseWriter, r *http.Request) 
 	ev, err := protocol.NewEvent(sid, protocol.EventNotify, protocol.NotifyPayload{Level: level, Message: p.Message})
 	if err == nil {
 		s.pumpEvent(sess, ev)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{})
+}
+
+// handleHookStop receives Claude Code's Stop hook, which fires when the
+// previous turn finishes (unlike idle_prompt, which can lag behind by ~60s).
+// A live session that is still marked running immediately flips back to
+// waiting_input so the client's activity indicator clears (#257).
+func (s *Server) handleHookStop(w http.ResponseWriter, r *http.Request) {
+	p, ok := decodeHook(r)
+	if !ok || p.SessionID == "" {
+		writeError(w, http.StatusBadRequest, "invalid hook payload")
+		return
+	}
+	sid := hookSessionID(r, p)
+	sess := s.attachSession(sid, p.CWD)
+	sess.mu.Lock()
+	st := sess.status
+	sess.mu.Unlock()
+	if st != protocol.StatusWaitingInput {
+		if ev, err := protocol.NewEvent(sid, protocol.EventAgentStatus, protocol.AgentStatusPayload{Status: protocol.StatusWaitingInput}); err == nil {
+			s.pumpEvent(sess, ev)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{})
 }
