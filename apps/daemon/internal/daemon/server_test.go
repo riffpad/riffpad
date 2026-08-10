@@ -40,6 +40,46 @@ func TestHistorySlice(t *testing.T) {
 	}
 }
 
+func TestHandleSessionsSortsByLastSeen(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	keys, err := config.LoadOrCreateKeys(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := New(cfg, keys, dir, log.New(io.Discard, "", 0), nil)
+
+	old := time.Now().Add(-10 * time.Minute)
+	newer := time.Now().Add(-time.Minute)
+	srv.sessions = map[string]*session{
+		"b": {id: "b", meta: protocol.SessionStartPayload{Name: "b"}, status: protocol.StatusRunning, lastSeen: newer},
+		"a": {id: "a", meta: protocol.SessionStartPayload{Name: "a"}, status: protocol.StatusRunning, lastSeen: old},
+		"c": {id: "c", meta: protocol.SessionStartPayload{Name: "c"}, status: protocol.StatusRunning},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions", nil)
+	rr := httptest.NewRecorder()
+	srv.handleSessions(rr, req)
+	var out struct {
+		Sessions []struct {
+			ID       string    `json:"id"`
+			LastSeen time.Time `json:"lastSeen"`
+		} `json:"sessions"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, 0, len(out.Sessions))
+	for _, s := range out.Sessions {
+		ids = append(ids, s.ID)
+	}
+	// Most recently active first, zero timestamp (no activity) last.
+	want := []string{"b", "a", "c"}
+	if strings.Join(ids, ",") != strings.Join(want, ",") {
+		t.Fatalf("session order = %v, want %v", ids, want)
+	}
+}
+
 func TestSnapshotLast(t *testing.T) {
 	sess := &session{}
 	for i := 0; i < 5; i++ {

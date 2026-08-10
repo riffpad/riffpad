@@ -1272,6 +1272,58 @@ func TestAnnouncedSessionsKeepTheirOwnLastSeenAt(t *testing.T) {
 	}
 }
 
+// The client polls /api/sessions every few seconds; a random order (Go map
+// range) made the list reshuffle on every poll. The relay must return a
+// stable order: most recently active first.
+func TestSessionsListOrderedByLastSeenAt(t *testing.T) {
+	_, ts := newTestHub(t)
+	token := registerUser(t, ts, "sorted-sessions")
+	hostID, secret := registerHost(t, ts, token, "laptop")
+	conn := dialHostWS(t, ts, hostID, secret)
+
+	old := time.Now().Add(-10 * time.Minute)
+	mid := time.Now().Add(-5 * time.Minute)
+	announceSessions(t, conn,
+		SessionMeta{ID: "old", CLI: "claude", Status: "running", LastSeenAt: old},
+		SessionMeta{ID: "mid", CLI: "claude", Status: "running", LastSeenAt: mid},
+		SessionMeta{ID: "fresh", CLI: "claude", Status: "running", LastSeenAt: time.Now()},
+	)
+
+	var ids []string
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/sessions", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out struct {
+			Sessions []SessionMeta `json:"sessions"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			resp.Body.Close()
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if len(out.Sessions) == 3 {
+			ids = make([]string, 0, 3)
+			for _, s := range out.Sessions {
+				ids = append(ids, s.ID)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("sessions never fully announced (got %d)", len(out.Sessions))
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	want := []string{"fresh", "mid", "old"}
+	if strings.Join(ids, ",") != strings.Join(want, ",") {
+		t.Fatalf("session order = %v, want %v", ids, want)
+	}
+}
+
 // A reconnecting host registers its new connection before the old one's
 // deferred removeHost runs; the old cleanup must not wipe the sessions the
 // new connection just announced (#169).
