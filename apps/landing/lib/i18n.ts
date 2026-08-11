@@ -17,8 +17,8 @@ const en = {
     betaError: "Couldn't sign you up — try again.",
   },
   install: {
-    unix: "macOS / Linux",
-    windows: "Windows",
+    tagline: "Send this to your AI agent — the rest is automatic.",
+    label: "for your AI agent",
     copy: "copy",
     copied: "copied ✓",
   },
@@ -223,8 +223,8 @@ const zh: typeof en = {
     betaError: "提交失败，请重试。",
   },
   install: {
-    unix: "macOS / Linux",
-    windows: "Windows",
+    tagline: "把这个发给你的 AI agent —— 然后一切就都准备好了。",
+    label: "给 AI agent",
     copy: "复制",
     copied: "已复制 ✓",
   },

@@ -3,21 +3,15 @@
 import { useState } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-const COMMANDS = {
-  unix: "curl -fsSL https://riffpad.ai/install.sh | sh",
-  windows: "irm https://riffpad.ai/install.ps1 | iex",
-} as const;
-
-type Platform = keyof typeof COMMANDS;
+const COMMAND = "curl -fsSL https://riffpad.ai/SKILL.md";
 
 export function InstallCommand() {
   const { t } = useLanguage();
-  const [platform, setPlatform] = useState<Platform>("unix");
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(COMMANDS[platform]);
+      await navigator.clipboard.writeText(COMMAND);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -25,30 +19,16 @@ export function InstallCommand() {
     }
   };
 
-  const tabs: { id: Platform; label: string }[] = [
-    { id: "unix", label: t.install.unix },
-    { id: "windows", label: t.install.windows },
-  ];
-
   return (
     <div className="mx-auto mt-10 w-full max-w-[560px]">
+      <p className="mb-3 text-sm font-semibold text-ink">
+        {t.install.tagline}
+      </p>
       <div className="border border-hairline bg-console text-on-console shadow-card transition-colors duration-200 hover:border-accent">
         <div className="flex items-stretch border-b border-hairline">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setPlatform(tab.id)}
-              aria-pressed={platform === tab.id}
-              className={`h-10 flex-1 cursor-pointer border-b-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 ${
-                platform === tab.id
-                  ? "border-accent text-on-console"
-                  : "border-transparent text-on-console-mute hover:text-accent"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <span className="flex h-10 items-center px-4 text-xs font-bold uppercase tracking-wide text-on-console-mute">
+            {t.install.label}
+          </span>
           <button
             type="button"
             onClick={copy}
@@ -62,9 +42,7 @@ export function InstallCommand() {
           onClick={copy}
           className="flex w-full cursor-pointer items-center justify-center px-4 py-4"
         >
-          <code className="break-all text-[13px] sm:text-sm">
-            {COMMANDS[platform]}
-          </code>
+          <code className="break-all text-[13px] sm:text-sm">{COMMAND}</code>
         </button>
       </div>
     </div>

@@ -1,5 +1,11 @@
 # Quickstart
 
+> **Using an AI agent?** Paste this into its chat — it reads the skill and sets up Riffpad for you:
+>
+> ```bash
+> curl -fsSL https://riffpad.ai/SKILL.md
+> ```
+
 ## 1. Install the CLI
 
 On your computer:

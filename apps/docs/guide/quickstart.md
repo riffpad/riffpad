@@ -1,5 +1,11 @@
 # 快速开始
 
+> **用 AI agent？** 把这行粘进它的对话框 —— 它会读 skill 并帮你装好、配好 Riffpad：
+>
+> ```bash
+> curl -fsSL https://riffpad.ai/SKILL.md
+> ```
+
 ## 1. 安装 CLI
 
 在电脑终端执行：
