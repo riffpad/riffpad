@@ -1,0 +1,188 @@
+version: "1"
+
+# Riffpad dogfoods Bro.
+#
+# This polyglot monorepo's build / test / lint pipeline is declared here and
+# run through Bro's content-addressed DAG. It mirrors what the Makefile and
+# .github/workflows/ci.yml do — but only work whose inputs actually changed
+# re-runs; everything else is a sub-millisecond cache hit.
+#
+#   bro list                 # see the task graph
+#   bro run check            # the full CI-equivalent pipeline
+#   bro run check            # again — every task is cached
+#   bro run build-daemon     # build just the daemon (and its deps)
+#
+# Repo layout notes that shaped this file:
+#
+#  • Each Go component has its own go.mod in a subdirectory. daemon & relay
+#    reach the shared packages/protocol and packages/webui via `replace`
+#    directives, so their inputs deliberately list those sibling packages —
+#    a protocol change must invalidate the daemon/relay cache.
+#
+#  • packages/webui embeds client-beta's build output via `//go:embed all:dist`
+#    (client-beta's vite build writes to ../../packages/webui/dist). So the
+#    real cross-language edge is: client-beta (TS) → webui/dist → daemon/relay
+#    (Go). build-daemon / build-relay therefore `deps:` build-client; Bro's
+#    dependency-output hashing propagates the dist content into their
+#    fingerprints automatically (spec §2.7).
+#
+#  • Inputs are root-relative globs (no per-task `dir:`). Bro scopes a task's
+#    `dir`-relative inputs to that directory alone, which would hide sibling
+#    packages and the root pnpm-lock.yaml — exactly the cross-cutting inputs
+#    this monorepo needs. Commands `cd` into the component instead.
+#
+#  • Node inputs use broad package globs (apps/<x>/**/*) plus an `exclude`
+#    list. Bro auto-excludes a task's own declared outputs, and the explicit
+#    exclude drops other generated content (node_modules, .next, out/, and the
+#    files the landing build regenerates under public/). Without exclude, those
+#    artifacts would fold back into the fingerprint and thrash the cache.
+
+global:
+  jobs: 4
+
+tasks:
+  # ── Go: shared protocol package ─────────────────────────────────────
+  test-protocol:
+    cmd: "cd packages/protocol && go test ./..."
+    inputs: ["packages/protocol/**/*.go", "packages/protocol/go.mod"]
+    input_cmds: ["go version"]
+
+  # ── Go: relay (depends on protocol + webui via replace) ─────────────
+  test-relay:
+    cmd: "cd apps/relay && go test ./..."
+    inputs:
+      - "apps/relay/**/*.go"
+      - "apps/relay/go.mod"
+      - "apps/relay/go.sum"
+      - "packages/protocol/**/*.go"
+      - "packages/webui/**/*.go"
+      - "packages/webui/go.mod"
+    input_cmds: ["go version"]
+    deps: ["test-protocol"]
+
+  build-relay:
+    cmd: "cd apps/relay && go build -o bin/relay ."
+    inputs:
+      - "apps/relay/**/*.go"
+      - "apps/relay/go.mod"
+      - "apps/relay/go.sum"
+      - "packages/protocol/**/*.go"
+      - "packages/webui/**/*.go"
+      - "packages/webui/go.mod"
+    input_cmds: ["go version"]
+    outputs: ["apps/relay/bin/relay"]
+    deps: ["test-relay"]
+
+  # ── Go: daemon (depends on protocol + webui via replace) ────────────
+  test-daemon:
+    cmd: "cd apps/daemon && go test ./..."
+    inputs:
+      - "apps/daemon/**/*.go"
+      - "apps/daemon/go.mod"
+      - "apps/daemon/go.sum"
+      - "packages/protocol/**/*.go"
+      - "packages/webui/**/*.go"
+      - "packages/webui/go.mod"
+    input_cmds: ["go version"]
+    deps: ["test-protocol"]
+
+  build-daemon:
+    cmd: "cd apps/daemon && go build -o bin/riffpad ./cmd/riffpad"
+    inputs:
+      - "apps/daemon/**/*.go"
+      - "apps/daemon/go.mod"
+      - "apps/daemon/go.sum"
+      - "packages/protocol/**/*.go"
+      - "packages/webui/**/*.go"
+      - "packages/webui/go.mod"
+    input_cmds: ["go version"]
+    outputs: ["apps/daemon/bin/riffpad"]
+    deps: ["test-daemon", "build-client"] # build-client refreshes webui/dist
+
+  # ── Web: client-beta (Vite + Vitest; outputs into packages/webui/dist)
+  typecheck-client:
+    cmd: "cd apps/client-beta && pnpm run typecheck"
+    inputs: ["apps/client-beta/**/*", "pnpm-lock.yaml"]
+    exclude: ["apps/client-beta/node_modules", "apps/client-beta/test-results", "apps/client-beta/playwright-report", "apps/client-beta/e2e"]
+    input_cmds: ["node --version"]
+
+  test-client:
+    cmd: "cd apps/client-beta && pnpm run test"
+    inputs: ["apps/client-beta/**/*", "pnpm-lock.yaml"]
+    exclude: ["apps/client-beta/node_modules", "apps/client-beta/test-results", "apps/client-beta/playwright-report", "apps/client-beta/e2e"]
+    input_cmds: ["node --version"]
+    deps: ["typecheck-client"]
+
+  build-client:
+    cmd: "cd apps/client-beta && pnpm run build"
+    inputs: ["apps/client-beta/**/*", "pnpm-lock.yaml"]
+    exclude: ["apps/client-beta/node_modules", "apps/client-beta/test-results", "apps/client-beta/playwright-report", "apps/client-beta/e2e"]
+    input_cmds: ["node --version"]
+    outputs: ["packages/webui/dist"] # vite outDir = ../../packages/webui/dist
+    deps: ["test-client"]
+
+  # ── Web: docs (VitePress) ───────────────────────────────────────────
+  build-docs:
+    cmd: "cd apps/docs && pnpm run build"
+    inputs: ["apps/docs/**/*", "pnpm-lock.yaml"]
+    exclude: ["apps/docs/node_modules"]
+    input_cmds: ["node --version"]
+    # VitePress outDir is configured to apps/landing/public/docs, which the
+    # Next.js landing build then serves as static public assets.
+    outputs: ["apps/landing/public/docs"]
+
+  # ── Web: landing (Next.js; its build also runs `pnpm --filter docs build`)
+  #  Bro's exclude keeps broad input globs safe: the build regenerates files
+  #  under public/ (install scripts, llms.txt, docs/) on every run, and emits
+  #  .next (a declared output — auto-excluded) and out (undeclared — excluded
+  #  explicitly). Generated public/ files are dropped here; docs content still
+  #  reaches this task via the build-docs dep edge (dep-output hashing).
+  lint-landing:
+    cmd: "cd apps/landing && pnpm run lint"
+    inputs: ["apps/landing/**/*", "scripts/sync-installers.sh", "scripts/generate-llms.mjs", "pnpm-lock.yaml"]
+    exclude:
+      - "apps/landing/node_modules"
+      - "apps/landing/.next"
+      - "apps/landing/out"
+      - "apps/landing/public/install.sh"
+      - "apps/landing/public/install.ps1"
+      - "apps/landing/public/llms.txt"
+      - "apps/landing/public/llms-full.txt"
+      - "apps/landing/public/docs"
+    input_cmds: ["node --version"]
+
+  build-landing:
+    cmd: "cd apps/landing && pnpm run build"
+    inputs: ["apps/landing/**/*", "scripts/sync-installers.sh", "scripts/generate-llms.mjs", "pnpm-lock.yaml"]
+    exclude:
+      - "apps/landing/node_modules"
+      - "apps/landing/out"
+      - "apps/landing/public/install.sh"
+      - "apps/landing/public/install.ps1"
+      - "apps/landing/public/llms.txt"
+      - "apps/landing/public/llms-full.txt"
+      - "apps/landing/public/docs"
+    input_cmds: ["node --version"]
+    outputs: ["apps/landing/.next"] # declared output → auto-excluded from inputs
+    deps: ["build-docs"] # landing build script builds docs too
+
+  # ── Aggregates ──────────────────────────────────────────────────────
+  test:
+    deps: ["test-protocol", "test-relay", "test-daemon", "test-client"]
+    cmd: "echo ok"
+
+  build:
+    deps: ["build-daemon", "build-relay", "build-client", "build-landing"]
+    cmd: "echo ok"
+
+  # CI-equivalent: frontend lint/typecheck/test/build + all Go tests + builds.
+  check:
+    deps:
+      - "test"
+      - "typecheck-client"
+      - "build-client"
+      - "lint-landing"
+      - "build-landing"
+      - "build-daemon"
+      - "build-relay"
+    cmd: "echo ok"
