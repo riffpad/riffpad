@@ -1,6 +1,9 @@
 export type Language = "en" | "zh";
 
 const en = {
+  header: {
+    docs: "Docs",
+  },
   hero: {
     title1: "Your AI coding agents,",
     title2: "synced to your phone.",
@@ -207,6 +210,9 @@ const en = {
 };
 
 const zh: typeof en = {
+  header: {
+    docs: "文档",
+  },
   hero: {
     title1: "你的 AI 编程 Agent，",
     title2: "同步到手机。",

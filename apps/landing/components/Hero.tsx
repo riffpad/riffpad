@@ -3,8 +3,6 @@
 import { useLanguage } from "./LanguageProvider";
 import { DeviceMockup } from "./DeviceMockup";
 import { InstallCommand } from "./InstallCommand";
-import { WaitlistForm } from "./WaitlistForm";
-import { DiscordIcon } from "./icons";
 
 export function Hero() {
   const { t } = useLanguage();
@@ -32,32 +30,7 @@ export function Hero() {
           >
             {t.hero.ctaPrimary}
           </a>
-          <a
-            href="https://www.riffpad.ai/docs/guide/quickstart"
-            className="btn btn-secondary w-full sm:w-auto"
-          >
-            {t.hero.ctaSecondary}
-          </a>
         </div>
-        <p className="mt-5 text-sm text-body">
-          {t.hero.betaPrefix}{" "}
-          <span className="font-semibold text-ink">{t.hero.betaWaitlist}</span>
-        </p>
-        <WaitlistForm />
-        <p className="mt-3 text-sm text-body">
-          {t.hero.betaOr}{" "}
-          <a
-            href="https://discord.gg/CDNFTg2QyM"
-            target="_blank"
-            rel="noreferrer"
-            className="group inline-flex items-center gap-1.5 font-semibold text-ink transition-colors hover:text-accent"
-          >
-            <DiscordIcon className="h-4 w-4 shrink-0" />
-            <span className="underline decoration-hairline-strong underline-offset-4 transition-colors group-hover:decoration-accent">
-              {t.hero.betaDiscord}
-            </span>
-          </a>
-        </p>
         <InstallCommand />
       </div>
 
