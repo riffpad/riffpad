@@ -1,242 +1,14 @@
 # Riffpad
 
-> AI coding agent 的手机遥控器 —— watch, approve, and steer AI coding agents from your phone.
+> Watch, approve, and steer AI coding agents from your phone.
 
 ## Landing
 
-AI coding agent 的手机遥控器 —— watch, approve, and steer AI coding agents from your phone.
+Watch, approve, and steer AI coding agents from your phone.
 
 Project site: https://riffpad.ai/
 
-## 快速开始 (中文)
-
-# 快速开始
-
-> **用 AI agent？** 把这行粘进它的对话框 —— 它会读 skill 并帮你装好、配好 Riffpad：
->
-> ```bash
-> curl -fsSL https://riffpad.ai/SKILL.md
-> ```
-
-## 1. 安装 CLI
-
-在电脑终端执行：
-
-::: code-group
-
-```bash [macOS / Linux]
-curl -fsSL https://riffpad.ai/install.sh | sh
-```
-
-```powershell [Windows]
-irm https://riffpad.ai/install.ps1 | iex
-```
-
-:::
-
-Windows 安装脚本会下载最新二进制、加入 PATH，并注册登录自启任务（daemon）；`riffpad setup --remove` 可移除。
-
-安装后确认：
-
-```bash
-riffpad version
-```
-
-## 2. 登录
-
-```bash
-riffpad login
-```
-
-会自动打开浏览器用 GitHub 授权（也支持 `--username` 密码登录）。登录成功后 daemon 自动重启。
-
-查看当前账号：
-
-```bash
-riffpad auth
-```
-
-## 3. 配对手机
-
-```bash
-riffpad pair
-```
-
-终端会打印 6 位配对码和二维码。手机浏览器打开 <https://app.riffpad.ai>，用同一个 GitHub 账号登录，然后扫码或输入配对码。
-
-## 4. 创建并查看会话
-
-```bash
-riffpad run codex
-```
-
-也可以指定 agent 与初始指令：
-
-```bash
-riffpad run claude --prompt "重构 auth 中间件"
-```
-
-会话出现在手机 App 的 Sessions 页，点进去即可查看实时进度、审批和发指令。
-
-## 常见命令
-
-| 命令 | 作用 |
-|---|---|
-| `riffpad login` / `logout` | GitHub 设备授权登录 / 退出 |
-| `riffpad auth` | 查看当前登录账号 |
-| `riffpad pair` | 打印配对码 + 二维码 |
-| `riffpad run <claude\|codex\|kimi>` | 创建并运行会话 |
-| `riffpad sessions` | 列出会话 |
-| `riffpad update` | 自更新二进制 |
-| `riffpad kill` | 熔断：停止所有会话并撤销设备 |
-
----
-
-## 手机遥控 (中文)
-
-# 手机遥控
-
-配对完成后，打开 <https://app.riffpad.ai>（或本地 daemon 的 8787 端口页面）即可：
-
-- **Sessions**：查看所有正在运行的会话、状态灯（WAITING FOR INPUT / RUNNING / DONE）、最近活跃时间；点卡片进入会话详情。
-- **会话详情**：实时聊天流 + 工具调用日志；Agent 运行时底部出现 `Interrupt` 打断按钮；向上翻历史会自动加载更早消息（分页）。
-- **审批**：Agent 等待确认时出现审批卡片，一键同意/拒绝。
-- **指令**：输入框输入文字并发送（`→`），指令会加密传输到电脑上的 daemon。
-- **Devices**：查看已配对设备、识别当前设备、撤销授权。
-
-## 需要 tmux 吗？
-
-不需要。`riffpad run` 是托管模式，daemon 直接捕获 CLI 会话；`riffpad attach` 可以把你自己启动的 Claude 会话也接进来。
-
-如果你想要“关掉终端后会话继续跑”的持久会话，建议搭配 tmux：
-
-```bash
-tmux new -s work
-riffpad run codex
-# Ctrl-b d 脱离；回来后 tmux attach -t work
-```
-
----
-
-## CLI 命令 (中文)
-
-# CLI 命令
-
-| 命令 | 说明 |
-|---|---|
-| `riffpad login [--url wss://…]` | GitHub 设备授权登录（默认）；`--username` 走密码登录 |
-| `riffpad logout` | 退出并撤销 relay token |
-| `riffpad auth` | 查看当前登录账号（实时校验） |
-| `riffpad pair` | 打印 6 位配对码与二维码 |
-| `riffpad run [claude\|codex\|kimi] [--name N] [--prompt P] [--cwd D]` | 创建并托管会话，终端保持可见可操作 |
-| `riffpad attach` / `detach` | 注入/移除 Claude hooks，捕获你自己启动的会话 |
-| `riffpad sessions` | 列出会话 |
-| `riffpad status` | daemon 状态 |
-| `riffpad setup [--remove]` | 安装/移除 Linux systemd 自启 |
-| `riffpad kill` | 熔断：停止所有会话 + 撤销所有设备 |
-| `riffpad update` | 检查并替换为最新版本（SHA256 校验 + 原子替换） |
-| `riffpad logs` | 查看 daemon 日志 |
-| `riffpad version` | 版本号 |
-
-## 多语种
-
-CLI 输出支持中/英文，自动跟随系统语言，可用 `--lang zh|en` 覆盖。
-
-## 环境变量
-
-| 变量 | 说明 |
-|---|---|
-| `RIFFPAD_RELAY_URL` | relay 地址（默认 `wss://api.riffpad.ai`） |
-| `RIFFPAD_RELAY_USER` / `RIFFPAD_RELAY_PASSWORD` | 密码登录凭据 |
-| `RIFFPAD_URL` | 本地 daemon 地址（默认 `http://127.0.0.1:8787`） |
-| `RIFFPAD_DIR` | 数据目录（默认 `~/.config/riffpad`） |
-
----
-
-## 系统架构 (中文)
-
-# 系统架构
-
-```
-┌─────────────────┐      ┌────────────────────┐      ┌──────────────┐
-│  你的电脑        │      │  云端中继 (relay)   │      │  手机/浏览器  │
-│                 │ WSS  │                    │ WSS  │              │
-│  coding CLI     │◀────▶│  只转发加密信封      │◀────▶│  会话列表      │
-│  (claude/codex) │      │  不解密 / 不落盘     │      │  审批卡片      │
-│     ↕ 适配器     │      │                    │      │  指令输入      │
-│  daemon         │      └────────────────────┘      └──────────────┘
-└─────────────────┘
-```
-
-- **coding CLI**：Claude Code、Codex、Kimi CLI 等，跑在用户电脑上，API key 只存在于本地环境。
-- **daemon**：通过适配器（Claude host 控制协议 / Codex app-server / Kimi ACP）捕获事件流、注入指令、转发审批。
-- **relay**：WebSocket 房间 + 加密信封转发，端到端加密下无法读取内容；只保存非敏感元数据（用户/设备/会话状态）。
-- **客户端**：Web App（PWA 方向），默认只读，审批和指令是显式动作。
-
-## 会话历史
-
-会话消息加密持久化在电脑本地（daemon 数据目录），不经过 relay 落盘。客户端每次进入会话由 daemon 重放最近内容，向上翻历史按需分页加载。
-
----
-
-## 安全模型 (中文)
-
-# 安全模型
-
-## 端到端加密
-
-- 配对时交换设备密钥（X25519 + P-256），会话密钥由双方密钥派生。
-- 消息使用 AES-GCM 加密，relay 只有密文，无法解密。
-- 手机端密钥保存在浏览器本地（原生 App 将使用 Keychain/Keystore）。
-
-## 零知识中继
-
-relay 不持久化会话内容，只保留必要的元数据（账号、设备、在线状态）。数据库里没有消息明文。
-
-## 设备与撤销
-
-- 一个账号可以配对多个设备，每台设备独立撤销。
-- `riffpad kill` 一键熔断：停止所有会话并撤销全部设备。
-- 撤销当前设备后，客户端会自动回到配对流程。
-
-## 账号
-
-- 目前支持 GitHub OAuth（也保留用户名/密码登录）。
-- 登录 token 30 天有效，登出即撤销。
-
----
-
-## FAQ (中文)
-
-# FAQ
-
-## 需要一直开着电脑吗？
-
-是。agent 跑在你自己的电脑上，Riffpad 只是把手机变成遥控器；电脑休眠后会话无法继续。
-
-## 我的数据会上传到云端吗？
-
-会话内容不会。只有加密信封经过 relay，relay 不解密、不落盘；消息历史存在电脑本地。
-
-## 支持哪些 coding CLI？
-
-Claude Code、Codex、Kimi CLI 已支持；DeepSeek / GLM 在路线图上。
-
-## 一个 daemon 能配对多少设备？
-
-不限。每台设备独立管理、可单独撤销。
-
-## 会话中途断网/重启 daemon 会怎样？
-
-客户端会自动重连并去重回放；daemon 重启后会恢复未结束的会话（Codex 可自动重连 TUI，Kimi/Claude 只读恢复）。
-
-## 如何反馈问题？
-
-去 <https://github.com/riffpad/riffpad/issues> 提 issue，或联系 hi@riffpad.ai。
-
----
-
-## Quickstart (English)
+## Quickstart
 
 # Quickstart
 
@@ -320,7 +92,7 @@ Sessions appear in the app's Sessions page; open one to watch progress, approve 
 
 ---
 
-## Remote control (English)
+## Remote control
 
 # Remote control
 
@@ -346,7 +118,7 @@ riffpad run codex
 
 ---
 
-## CLI (English)
+## CLI
 
 # CLI reference
 
@@ -381,7 +153,7 @@ The CLI output supports zh/en and follows the system language; override with `--
 
 ---
 
-## Architecture (English)
+## Architecture
 
 # Architecture
 
@@ -407,7 +179,7 @@ Session messages are encrypted and persisted locally by the daemon. The relay ne
 
 ---
 
-## Security model (English)
+## Security model
 
 # Security model
 
@@ -434,7 +206,7 @@ The relay does not persist session content — only necessary metadata (accounts
 
 ---
 
-## FAQ (English)
+## FAQ
 
 # FAQ
 
