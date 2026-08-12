@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeToggle } from "./ThemeToggle";
+import { useLanguage } from "./LanguageProvider";
 
 function formatStars(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
@@ -47,6 +48,8 @@ function GitHubLink() {
 }
 
 export function Header() {
+  const { t } = useLanguage();
+
   return (
     <header className="sticky top-0 z-50 border-b border-hairline bg-surface">
       <div className="mx-auto flex h-14 max-w-frame items-center justify-between px-4 sm:px-6">
@@ -59,6 +62,12 @@ export function Header() {
         </a>
 
         <div className="flex items-center gap-2">
+          <a
+            href="https://www.riffpad.ai/docs/guide/quickstart"
+            className="flex h-11 cursor-pointer items-center px-2 text-sm font-medium text-body transition-colors hover:text-ink"
+          >
+            {t.header.docs}
+          </a>
           <LanguageSwitch />
           <ThemeToggle />
           <GitHubLink />
