@@ -6,6 +6,7 @@ bin/
 apps/relay/dist/
 __pycache__/
 *.pyc
+*.tsbuildinfo
 .env
 *.log
 .DS_Store
