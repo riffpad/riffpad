@@ -19,54 +19,11 @@ const publicDir = resolve(root, "apps/landing/public");
 
 const SITE = "https://riffpad.ai";
 const TAGLINE =
-  "AI coding agent 的手机遥控器 —— watch, approve, and steer AI coding agents from your phone.";
+  "Watch, approve, and steer AI coding agents from your phone.";
 
 const GROUPS = [
   {
-    heading: "Docs（中文）",
-    langLabel: "中文",
-    items: [
-      {
-        title: "快速开始",
-        desc: "安装 CLI、登录与配对、启动第一个托管会话",
-        file: "guide/quickstart.md",
-        url: "/docs/guide/quickstart",
-      },
-      {
-        title: "手机遥控",
-        desc: "从手机查看、审批与转向 coding agent 会话",
-        file: "guide/remote.md",
-        url: "/docs/guide/remote",
-      },
-      {
-        title: "CLI 命令",
-        desc: "riffpad 全部命令与参数参考",
-        file: "reference/cli.md",
-        url: "/docs/reference/cli",
-      },
-      {
-        title: "系统架构",
-        desc: "daemon、relay 与客户端如何交互",
-        file: "reference/architecture.md",
-        url: "/docs/reference/architecture",
-      },
-      {
-        title: "安全模型",
-        desc: "端到端加密与零知识中继说明",
-        file: "reference/security.md",
-        url: "/docs/reference/security",
-      },
-      {
-        title: "FAQ",
-        desc: "常见问题与解答",
-        file: "faq.md",
-        url: "/docs/faq",
-      },
-    ],
-  },
-  {
-    heading: "Docs (English)",
-    langLabel: "English",
+    heading: "Docs",
     items: [
       {
         title: "Quickstart",
@@ -165,7 +122,7 @@ function renderFull() {
   for (const group of GROUPS) {
     for (const item of group.items) {
       sections.push(
-        `## ${item.title} (${group.langLabel})`,
+        `## ${item.title}`,
         ``,
         loadBody(item.file),
         ``,

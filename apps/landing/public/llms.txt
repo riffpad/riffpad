@@ -1,21 +1,12 @@
 # Riffpad
 
-> AI coding agent 的手机遥控器 —— watch, approve, and steer AI coding agents from your phone.
+> Watch, approve, and steer AI coding agents from your phone.
 
 ## Landing
 
-- [Riffpad](https://riffpad.ai/): AI coding agent 的手机遥控器 —— watch, approve, and steer AI coding agents from your phone.
+- [Riffpad](https://riffpad.ai/): Watch, approve, and steer AI coding agents from your phone.
 
-## Docs（中文）
-
-- [快速开始](https://riffpad.ai/docs/guide/quickstart): 安装 CLI、登录与配对、启动第一个托管会话
-- [手机遥控](https://riffpad.ai/docs/guide/remote): 从手机查看、审批与转向 coding agent 会话
-- [CLI 命令](https://riffpad.ai/docs/reference/cli): riffpad 全部命令与参数参考
-- [系统架构](https://riffpad.ai/docs/reference/architecture): daemon、relay 与客户端如何交互
-- [安全模型](https://riffpad.ai/docs/reference/security): 端到端加密与零知识中继说明
-- [FAQ](https://riffpad.ai/docs/faq): 常见问题与解答
-
-## Docs (English)
+## Docs
 
 - [Quickstart](https://riffpad.ai/docs/en/guide/quickstart): Install the CLI, sign in, pair, and start your first hosted session
 - [Remote control](https://riffpad.ai/docs/en/guide/remote): Watch, approve, and steer coding agent sessions from your phone
