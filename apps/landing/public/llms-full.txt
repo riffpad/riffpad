@@ -12,6 +12,12 @@ Project site: https://riffpad.ai/
 
 # 快速开始
 
+> **用 AI agent？** 把这行粘进它的对话框 —— 它会读 skill 并帮你装好、配好 Riffpad：
+>
+> ```bash
+> curl -fsSL https://riffpad.ai/SKILL.md
+> ```
+
 ## 1. 安装 CLI
 
 在电脑终端执行：
@@ -233,6 +239,12 @@ Claude Code、Codex、Kimi CLI 已支持；DeepSeek / GLM 在路线图上。
 ## Quickstart (English)
 
 # Quickstart
+
+> **Using an AI agent?** Paste this into its chat — it reads the skill and sets up Riffpad for you:
+>
+> ```bash
+> curl -fsSL https://riffpad.ai/SKILL.md
+> ```
 
 ## 1. Install the CLI
 
