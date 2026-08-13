@@ -1,6 +1,6 @@
 # Riffpad 开发计划（Dev Plan）
 
-> 最后更新：2026-08-11（按实际开发进度整理）
+> 最后更新：2026-08-13（self-host relay：一行命令脚本 + ghcr 镜像 CI + docs 页）
 > 关联文档：[PRD](prd.md)（产品需求）、[TSD](tsd.md)（技术规格）、[无 tmux 注入调研](agent-injection-research.md)
 > 用途：追踪 M0 → M3 的开发进度；每个里程碑完成时更新状态。
 
@@ -188,7 +188,7 @@
 |---|---|---|---|---|
 | M3.1 | 只读会话分享链接 | `[ ]` | 实时同步；可撤销 | — |
 | M3.2 | tmux / PTY 兜底（L3）正式实现 | `[ ]` | 任意 CLI 可监控 | — |
-| M3.3 | 自部署中继 | `[ ]` | 一键部署文档 + 镜像 | — |
+| M3.3 | 自部署中继 | `[~]` | 一行命令自部署：`curl https://riffpad.ai/selfhost.sh \| sh` 拉 ghcr 公共镜像（SQLite 默认，`--domain` 起 Caddy 自动 TLS）；docs 自部署页（中英）；release CI 推 `ghcr.io/riffpad/relay`（amd64/arm64）。**待办**：打下一个 release tag 触发首次推镜像 + GitHub Packages 设 public | — |
 | M3.4 | 局域网直连 / WebRTC（relay 退化信令） | `[ ]` | 局域网内无中继可用 | — |
 | M3.5 | Windows daemon | `[x]` | 交叉编译通过（codex Kill、daemon Flock、Setsid 拆 build tag）；CI 增加 windows/darwin 编译守卫；scripts/install.ps1 + schtasks 开机自启；release 矩阵含 windows amd64/arm64（随下个 release 发布） | #147 |
 | M3.6 | 团队版（多人共享设备/会话） | `[ ]` | 权限模型可用 | — |

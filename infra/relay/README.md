@@ -1,5 +1,15 @@
 # Riffpad Relay 部署
 
+> **想一行命令自部署？** 在任何装了 Docker 的机器上：
+>
+> ```bash
+> curl -fsSL https://riffpad.ai/selfhost.sh | sh
+> ```
+>
+> 带域名自动 HTTPS：`sh -s -- --domain relay.example.com`。详见
+> [自部署文档](https://riffpad.ai/docs/guide/self-host)。
+> 本文件（从源码构建 / VPS 手动部署 / 迁移等进阶场景）仍保留在下方。
+
 relay 是云端 WebSocket 中继：用户电脑上的 daemon（host）和手机（viewer）都主动连接它，
 不需要端口转发。用户/主机/设备/会话元数据默认持久化到 SQLite
 （`RELAY_DATA_DIR/relay.db`，WAL 模式），设置 `DATABASE_URL`（Postgres DSN）后自动切换

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 const zhNav = [
   { text: "快速开始", link: "/guide/quickstart" },
   { text: "手机遥控", link: "/guide/remote" },
+  { text: "自部署", link: "/guide/self-host" },
   { text: "CLI", link: "/reference/cli" },
   { text: "架构", link: "/reference/architecture" },
   { text: "安全", link: "/reference/security" },
@@ -16,6 +17,7 @@ const zhSidebar = [
     items: [
       { text: "快速开始", link: "/guide/quickstart" },
       { text: "手机遥控", link: "/guide/remote" },
+      { text: "自部署中继", link: "/guide/self-host" },
     ],
   },
   {
@@ -32,6 +34,7 @@ const zhSidebar = [
 const enNav = [
   { text: "Quickstart", link: "/en/guide/quickstart" },
   { text: "Remote", link: "/en/guide/remote" },
+  { text: "Self-host", link: "/en/guide/self-host" },
   { text: "CLI", link: "/en/reference/cli" },
   { text: "Architecture", link: "/en/reference/architecture" },
   { text: "Security", link: "/en/reference/security" },
@@ -44,6 +47,7 @@ const enSidebar = [
     items: [
       { text: "Quickstart", link: "/en/guide/quickstart" },
       { text: "Remote control", link: "/en/guide/remote" },
+      { text: "Self-host relay", link: "/en/guide/self-host" },
     ],
   },
   {
