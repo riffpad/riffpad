@@ -1,63 +1,59 @@
-# Riffpad Relay 部署
+# Riffpad Relay deployment
 
-> **想一行命令自部署？** 在任何装了 Docker 的机器上：
+> **Want to self-host in one command?** On any machine with Docker:
 >
 > ```bash
 > curl -fsSL https://riffpad.ai/selfhost.sh | sh
 > ```
 >
-> 带域名自动 HTTPS：`sh -s -- --domain relay.example.com`。详见
-> [自部署文档](https://riffpad.ai/docs/guide/self-host)。
-> 本文件（从源码构建 / VPS 手动部署 / 迁移等进阶场景）仍保留在下方。
+> Add a domain for automatic HTTPS: `sh -s -- --domain relay.example.com`.
+> See the [self-host docs](https://riffpad.ai/docs/guide/self-host).
+> This file covers the advanced cases (building from source / manual VPS
+> setup / migration) below.
 
-relay 是云端 WebSocket 中继：用户电脑上的 daemon（host）和手机（viewer）都主动连接它，
-不需要端口转发。用户/主机/设备/会话元数据默认持久化到 SQLite
-（`RELAY_DATA_DIR/relay.db`，WAL 模式），设置 `DATABASE_URL`（Postgres DSN）后自动切换
-Postgres——代码已支持双驱动，relay 重启不丢。
+The relay is the cloud WebSocket broker: the daemon (host) on a user's computer and the phone (viewer) both connect to it outbound, so no port forwarding is needed. User/host/device/session metadata is persisted to SQLite by default (`RELAY_DATA_DIR/relay.db`, WAL mode); setting `DATABASE_URL` (a Postgres DSN) switches to Postgres automatically — both drivers are implemented, and the relay survives restarts.
 
-## 方案对比
+## Options at a glance
 
-| 方案 | 成本 | TLS | 适合 | 备注 |
+| Option | Cost | TLS | Good for | Notes |
 |---|---|---|---|---|
-| Fly.io | 免费额度 / 约 $3-5/月 | 自动 | 海外测试、MVP | `fly deploy` 即可 |
-| Railway / Render | 免费额度有限 | 自动 | 快速试跑 | 免费服务会休眠，需常驻配置 |
-| VPS + Caddy | 约 $5/月 | Caddy 自动 | 长期/国内可用 | 最灵活，推荐生产 |
-| Cloudflare Tunnel | 免费 | 自动 | 不想开公网端口 | WebSocket 需开启 |
-| 国内云（腾讯云/阿里云）+ 备案域名 | 约 ¥50-100/月 | Caddy/Nginx | 国内正式上线 | 需 ICP 备案，周期 1-3 周 |
+| Fly.io | free tier / ~$3-5/mo | automatic | overseas testing, MVP | `fly deploy` and done |
+| Railway / Render | limited free tier | automatic | quick spin-up | free tiers sleep; needs always-on config |
+| VPS + Caddy | ~$5/mo | Caddy automatic | long-term / China-friendly | most flexible, recommended for production |
+| Cloudflare Tunnel | free | automatic | no public port wanted | enable WebSocket |
+| China cloud (Tencent/Alibaba) + filed domain | ~¥50-100/mo | Caddy/Nginx | official China launch | requires ICP filing, 1-3 week lead time |
 
-## Fly.io 部署
+## Fly.io
 
 ```bash
-# 1. 安装 flyctl 并登录（需要 Fly 账号）
+# 1. Install flyctl and sign in (needs a Fly account)
 curl -L https://fly.io/install.sh | sh
 fly auth login
 
-# 2. 改 infra/relay/fly.toml：app 名（数据库在 /data 卷上）
-# 3. 在仓库根目录部署
+# 2. Edit infra/relay/fly.toml: app name (database lives on a /data volume)
+# 3. Deploy from the repo root
 fly launch --no-deploy --name riffpad-relay --dockerfile infra/relay/Dockerfile
 fly deploy
 
-# 4. 拿到公网地址（自动 HTTPS）
+# 4. Get the public URL (automatic HTTPS)
 fly open
 ```
 
-部署后，在 relay 网页（https://…）注册账号并登录；daemon 配置：
+After deploying, register and sign in on the relay web UI (https://…); configure the daemon:
 
 ```bash
 export RIFFPAD_RELAY_URL=wss://riffpad-relay.fly.dev
-export RIFFPAD_RELAY_USER=<你的用户名>
-export RIFFPAD_RELAY_PASSWORD=<你的密码>
+export RIFFPAD_RELAY_USER=<your-username>
+export RIFFPAD_RELAY_PASSWORD=<your-password>
 ```
 
-或执行 `riffpad relay login --url wss://riffpad-relay.fly.dev --username <你的用户名>`。
-首次启动 daemon 会自动登录并注册 host（hostId + hostSecret 保存到
-`~/.config/riffpad/config.json`）。`riffpad pair` 返回 relay 页面地址
-（https://…/?pair=CODE），手机在已登录状态下输入即可配对。
+Or run `riffpad relay login --url wss://riffpad-relay.fly.dev --username <your-username>`.
+On first start the daemon logs in and registers the host automatically (hostId + hostSecret are saved to `~/.config/riffpad/config.json`). `riffpad pair` returns the relay page URL (https://…/?pair=CODE); open it on a signed-in phone and enter the code to pair.
 
-## VPS + Caddy 部署
+## VPS + Caddy
 
 ```bash
-# 服务器上
+# On the server
 useradd -r -m riffpad
 cp riffpad-relay.service /etc/systemd/system/
 cat > /etc/riffpad-relay.env <<EOF
@@ -68,45 +64,42 @@ EOF
 mkdir -p /var/lib/riffpad-relay && chown riffpad:riffpad /var/lib/riffpad-relay
 systemctl daemon-reload && systemctl enable --now riffpad-relay
 
-# nginx 反代（域名 api.riffpad.ai 解析到本机后）
+# nginx reverse proxy (after pointing api.riffpad.ai DNS at this host)
 cp nginx-api-riffpad-ai.conf /etc/nginx/sites-available/api-riffpad-ai
 ln -sf /etc/nginx/sites-available/api-riffpad-ai /etc/nginx/sites-enabled/api-riffpad-ai
 nginx -t && systemctl reload nginx
-# 然后 certbot --nginx -d api.riffpad.ai 自动签发 HTTPS
+# then certbot --nginx -d api.riffpad.ai to issue HTTPS
 
-# Caddy（域名解析到服务器后自动签发证书）
-apt install caddy   # 或 docker 跑 caddy
-cp Caddyfile /etc/caddy/Caddyfile   # 把 relay.example.com 换成你的域名
+# Caddy (issues a cert automatically once DNS resolves to the server)
+apt install caddy   # or run caddy in docker
+cp Caddyfile /etc/caddy/Caddyfile   # replace relay.example.com with your domain
 systemctl reload caddy
 ```
 
-## Docker Compose（relay + Postgres 一体）
+## Docker Compose (relay + Postgres bundle)
 
-生产推荐：nginx/certbot 留在宿主，relay 与 Postgres 用 compose 容器化。
-先准备密钥文件（600 权限，不进 git）：
+Recommended for production: keep nginx/certbot on the host, containerize relay and Postgres with compose. Prepare a secrets file (mode 600, never committed):
 
 ```bash
 install -m 600 /dev/null /opt/riffpad/.env
-# 填入 POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB / GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
+# Fill in POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB / GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
 $EDITOR /opt/riffpad/.env
 
-cd /path/to/riffpad   # 仓库根目录（compose build context）
+cd /path/to/riffpad   # repo root (compose build context)
 docker compose --env-file /opt/riffpad/.env -f infra/docker-compose.yml up -d --build
 ```
 
-relay 会自动通过 `DATABASE_URL` 连接 Postgres 并建表（AutoMigrate），并只监听
-`127.0.0.1:9090`，由宿主 nginx 反代（api.riffpad.ai / app.riffpad.ai）。
-想回到 SQLite 模式，去掉 `DATABASE_URL` 环境变量即可。
+The relay connects to Postgres via `DATABASE_URL` and creates its schema (AutoMigrate), listening only on `127.0.0.1:9090` behind the host nginx (api.riffpad.ai / app.riffpad.ai). To go back to SQLite, just drop the `DATABASE_URL` variable.
 
-### 从 SQLite 迁移到 Postgres
+### Migrate from SQLite to Postgres
 
-先只启动 Postgres（relay 尚未切换，原服务不受影响）：
+Start Postgres only first (the relay isn't switched yet, so the running service is unaffected):
 
 ```bash
 docker compose --env-file /opt/riffpad/.env -f infra/docker-compose.yml up -d postgres
 ```
 
-然后停掉旧 relay（避免迁移期间写入），用迁移工具拷贝数据：
+Then stop the old relay (to avoid writes during migration) and copy the data with the migration tool:
 
 ```bash
 sudo systemctl stop riffpad-relay
@@ -115,34 +108,32 @@ go run ./apps/relay/cmd/migrate-sqlite \
   -postgres 'postgres://<user>:<password>@127.0.0.1:5432/riffpad?sslmode=disable'
 ```
 
-迁移工具会逐表复制 users / oauth_accounts / auth_tokens / host_records / devices /
-session_meta，目标表非空时拒绝执行（`--force` 可覆盖，慎用）。完成后启动 compose：
+The tool copies users / oauth_accounts / auth_tokens / host_records / devices / session_meta table by table and refuses if the target tables are non-empty (`--force` overrides — use with care). Once done, bring up compose:
 
 ```bash
 docker compose --env-file /opt/riffpad/.env -f infra/docker-compose.yml up -d
 ```
 
-确认 `/api/status` 正常、登录/配对/审批全流程可用后，再停掉 systemd 旧服务：
+After confirming `/api/status` is healthy and the login/pair/approve flow works, retire the old systemd service:
 
 ```bash
 sudo systemctl disable --now riffpad-relay
 ```
 
-## 同 WiFi 真机测试（零部署）
+## Same-WiFi real-device testing (zero deployment)
 
-relay 默认监听所有网卡（`:9090`）。电脑和手机连同一 WiFi 后：
+The relay listens on all interfaces by default (`:9090`). With the computer and phone on the same WiFi:
 
-1. 电脑跑 `riffpad pair`，记下 6 位配对码
-2. 手机浏览器打开 `http://<电脑局域网IP>:9090/`，注册/登录账号
-3. 输入配对码完成配对，即可看到电脑上的 claude 会话并审批
+1. Run `riffpad pair` on the computer and note the 6-character code
+2. Open `http://<computer-LAN-IP>:9090/` in the phone browser, register/sign in
+3. Enter the code to pair; you can now see the computer's claude sessions and approve them
 
-> 注意：这没有 TLS，仅限可信局域网测试。
+> Note: this has no TLS — trusted-LAN testing only.
 
-## 安全提醒
+## Security notes
 
-- 密码用 bcrypt 哈希存储；登录 token 30 天过期，登出即失效
-- daemon 首次注册后使用专属 hostSecret 连接，不再共享密钥
-- relay 数据目录（SQLite）必须持久化；生产建议挂载独立卷。单实例早期 SQLite 够用；
-  多实例扩容或需要托管备份时切 Postgres（`DATABASE_URL`）
-- relay 零知识：只转发加密信封，不落内容；但元数据（设备/会话）可见，公网部署建议尽早接 Postgres 与审计
-- 生产多实例需要共享会话路由（Redis pub/sub 或粘性连接），单实例阶段不需要
+- Passwords are bcrypt-hashed; login tokens expire after 30 days and are revoked on logout.
+- After first registration the daemon connects with its own hostSecret and no longer shares the password.
+- The relay data directory (SQLite) must be persisted; mount a dedicated volume in production. SQLite is fine for early single-instance use; switch to Postgres (`DATABASE_URL`) when scaling to multiple instances or wanting managed backups.
+- The relay is zero-knowledge: it forwards encrypted envelopes and stores no content; metadata (devices/sessions) is visible, so for public deployments connect Postgres and add auditing early.
+- Multiple production instances need shared session routing (Redis pub/sub or sticky sessions); not needed at the single-instance stage.
