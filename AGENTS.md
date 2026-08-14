@@ -1,28 +1,28 @@
 # Riffpad Agent Guide
 
-## 项目
+## Project
 
-Riffpad 是 AI coding agent 的移动遥控器：本地 daemon 桥接电脑上的 CLI 会话，加密中继推送事件，手机端负责监督、审批与转向。
+Riffpad is a remote control for AI coding agents: a local daemon bridges the CLI sessions on your computer, an encrypted relay streams events, and the phone supervises, approves, and steers.
 
-## 规则
+## Rules
 
-1. **先读 `docs/prd.md` 与 `docs/tsd.md`**——产品定位与技术方案以它们为准；`docs/design.md` 是快速总览。
-2. **最小改动**——只做被要求的事。
-3. **安全优先**——中继零信任、端到端加密、移动端默认只读；任何涉及凭据/密钥的改动都要特别谨慎。
-4. **测试与验证**——改动后运行相关测试并构建。
-5. **协议同步**——事件协议变更必须同步更新 `packages/protocol` 与 `docs/design.md`。
-6. **使用 `gh` CLI**——issue、分支、PR 用 GitHub 工作流管理。
-7. **同步 dev plan**——`docs/dev-plan.md` 是开发进度追踪表：新任务、完成勾选、阻塞说明都更新到这里（遵守文件内“更新规则”）。
-8. **记录人工测试**——`test-notes/`（已 gitignore）存放人工测试记录，命名 `test-note-YYYY-MM-DD.txt`；测试发现的问题记录在此，并在修复时关联 issue 编号。
+1. **Read `docs/prd.md` and `docs/tsd.md` first** — they are the source of truth for product positioning and technical design; `docs/design.md` is a quick overview.
+2. **Minimal changes** — do only what is asked.
+3. **Security first** — the relay is zero-trust, transport is end-to-end encrypted, and the mobile client is read-only by default; treat any change involving credentials or keys with extra care.
+4. **Test and verify** — run the relevant tests and build after a change.
+5. **Keep the protocol in sync** — any event-protocol change must update both `packages/protocol` and `docs/design.md`.
+6. **Use the `gh` CLI** — manage issues, branches, and PRs through the GitHub workflow.
+7. **Keep the dev plan current** — `docs/dev-plan.md` is the progress tracker: record new tasks, check off completed ones, and note blockers there (follow its "Update rules" section).
+8. **Log manual testing** — `test-notes/` (gitignored) holds manual test notes named `test-note-YYYY-MM-DD.txt`; record issues found during testing there and reference the issue number when fixing.
 
-## 代码规范
+## Conventions
 
-- 分支：`feature/<n>-<slug>` / `bugfix/<n>-<slug>`
-- Commit：`feat(daemon): ... (#n)` / `fix(relay): ... (#n)`
-- PR 标题 + 验证步骤，body 写 `Closes #n`
+- Branches: `feature/<n>-<slug>` / `bugfix/<n>-<slug>`
+- Commits: `feat(daemon): ... (#n)` / `fix(relay): ... (#n)`
+- PRs: title + verification steps, body says `Closes #n`
 
-## Done Means
+## Done means
 
-- 代码可构建、可测试
-- 协议与文档一致
-- PR 已评审合并
+- Code builds and tests pass
+- Protocol and docs agree
+- PR reviewed and merged
