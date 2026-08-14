@@ -22,6 +22,7 @@ test-notes/
 scripts/email/
 apps/landing/public/install.sh
 apps/landing/public/install.ps1
+apps/landing/public/selfhost.sh
 
 # Bro task runner (local content-addressed cache)
 .bro/
