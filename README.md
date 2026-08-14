@@ -1,10 +1,5 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner.png?v=3" />
-  <img src=".github/assets/banner-light.png?v=3" alt="Riffpad banner" width="100%" />
-</picture>
-
 # Riffpad
 
 **Watch, approve, and steer AI coding agents from your phone.**
