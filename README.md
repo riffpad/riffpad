@@ -4,13 +4,11 @@
 
 **Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your phone — without staying chained to the desk.**
 
-[![CI](https://github.com/riffpad/riffpad/actions/workflows/ci.yml/badge.svg)](https://github.com/riffpad/riffpad/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
 [![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/guide/quickstart)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%7C%20relay%20BSL-1a7f37)](LICENSE)
 
-[Website](https://riffpad.ai) · [Documentation](https://www.riffpad.ai/docs/guide/quickstart) · [Discord community](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
+[Website](https://riffpad.ai) · [Docs](https://www.riffpad.ai/docs/guide/quickstart) · [Discord](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
 [EN](README.md) · [ZH](README.zh-CN.md)
 
@@ -21,12 +19,6 @@
 ## Why Riffpad?
 
 Riffpad bridges the AI coding CLI running on your machine to your phone, so a long refactor doesn't chain you to the desk:
-
-- **Watch** sessions live from anywhere.
-- **Approve** permission prompts in one tap.
-- **Steer** with remote instructions — no SSH or screen sharing.
-- **End-to-end encrypted**, local-first, zero-knowledge relay.
-- **Read-only by default**; every action is explicit.
 
 **Watch** — the agent's output streams live to your phone:
 
