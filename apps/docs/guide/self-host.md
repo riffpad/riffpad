@@ -1,60 +1,60 @@
-# 自部署中继（Self-host Relay）
+# Self-host the Relay
 
-默认情况下，daemon 和手机都连接官方中继 `app.riffpad.ai`。如果你希望自己掌控中继——部署在自己的 VPS、内网或家里——只需一条命令拉起一个独立的 relay 容器，**数据完全留在你自己的服务器上**。
+By default the daemon and your phone connect to the hosted relay at `app.riffpad.ai`. If you'd rather own the relay — on your own VPS, intranet, or a machine at home — a single command brings up an independent relay container, and **the data stays entirely on your server**.
 
-relay 零知识：只转发端到端加密的信封，看不到会话内容；它只保存账号 / 设备 / 会话的**元数据**。
+The relay is zero-knowledge: it forwards end-to-end-encrypted envelopes and never sees session content. It only stores **metadata** — accounts, devices, sessions.
 
-## 一行命令
+## One command
 
-::: tip 前置
-需要一台装了 Docker 的机器（VPS、家里的服务器、甚至 NAS 都行）。
+::: tip Prerequisite
+A machine with Docker installed (a VPS, a home server, even a NAS).
 :::
 
 ```bash
 curl -fsSL https://riffpad.ai/selfhost.sh | sh
 ```
 
-脚本会：
+The script:
 
-1. 拉取公共镜像 `ghcr.io/riffpad/relay`；
-2. 在 `~/.riffpad-relay/` 生成 `docker-compose.yml`、`.env` 和数据卷 `data/`；
-3. 启动 relay（默认内嵌 SQLite，无需额外数据库）；
-4. 打印访问地址，以及如何把你的电脑（daemon）指向这个中继。
+1. pulls the public image `ghcr.io/riffpad/relay`;
+2. writes `docker-compose.yml`, `.env`, and a `data/` volume into `~/.riffpad-relay/`;
+3. starts the relay (embedded SQLite by default — no separate database);
+4. prints the address to open, and how to point your computer's daemon at it.
 
-> 镜像首次发布后需在 [GitHub Packages](https://github.com/riffpad/riffpad/pkgs/container/relay) 把 `riffpad/relay` 设为 **public**，否则 `docker pull` 会 401。
+> After the image is first published, set `riffpad/relay` to **public** under [GitHub Packages](https://github.com/riffpad/riffpad/pkgs/container/relay), otherwise `docker pull` returns 401.
 
-## 公网 + 自动 HTTPS
+## Public + automatic HTTPS
 
-如果你有域名、要把中继暴露到公网，加 `--domain`，脚本会额外起一个 Caddy 容器自动签发证书：
+If you have a domain and want the relay reachable from the public internet, pass `--domain` and the script adds a Caddy sidecar that provisions certificates automatically:
 
 ```bash
 curl -fsSL https://riffpad.ai/selfhost.sh | sh -s -- --domain relay.example.com
 ```
 
-先把域名的 DNS A 记录指向这台机器。Caddy 会在首次请求时自动申请 Let's Encrypt 证书（可加 `--email you@x.com` 指定 ACME 账号）。
+Point the domain's DNS A record at this machine first. Caddy obtains a Let's Encrypt certificate on the first request (add `--email you@x.com` for the ACME account).
 
-没有域名？默认的 HTTP 模式适合**可信局域网 / 测试**。也可以自己在前面套 nginx/Caddy，见 [relay 部署 README](https://github.com/riffpad/riffpad/tree/main/infra/relay#readme)。
+No domain? The default HTTP mode is fine for a **trusted LAN / testing**. You can also put your own nginx/Caddy in front — see the [relay deployment README](https://github.com/riffpad/riffpad/tree/main/infra/relay#readme).
 
-## 把你的电脑指向自部署中继
+## Point your computer at the self-hosted relay
 
-relay 起来后，在每台跑 daemon 的电脑上注册并登录这个中继：
+Once the relay is up, register and sign in to it on each machine running a daemon:
 
 ```bash
-# HTTP 模式（局域网 IP:端口）或 HTTPS 模式（你的域名）
-export RIFFPAD_RELAY_URL=wss://relay.example.com   # HTTP 模式用 ws://<IP>:9090
+# HTTPS mode (your domain) or HTTP mode (ws://<IP>:9090)
+export RIFFPAD_RELAY_URL=wss://relay.example.com
 
-riffpad relay login --url "$RIFFPAD_RELAY_URL" --username <你的用户名>
+riffpad relay login --url "$RIFFPAD_RELAY_URL" --username <your-username>
 ```
 
-密码交互输入（也可用 `RIFFPAD_RELAY_PASSWORD` 环境变量）。登录后 daemon 自动重连，之后照常 `riffpad pair` 配对手机即可。
+You'll be prompted for the password (or set `RIFFPAD_RELAY_PASSWORD`). After login the daemon reconnects automatically; then `riffpad pair` to pair your phone as usual.
 
 ::: tip
-用户名 / 密码是**你在这个自部署 relay 上**首次注册的账号——在浏览器打开 relay 地址点注册即可创建。
+The username/password is the account **you register on this self-hosted relay** — open the relay address in a browser and sign up to create it.
 :::
 
-## 升级到 Postgres（可选）
+## Upgrade to Postgres (optional)
 
-默认 SQLite 单文件够大多数自部署场景用。若要更高的并发或托管备份，切到 Postgres：编辑 `~/.riffpad-relay/docker-compose.yml`，把 relay service 换成下面这版并加一个 postgres service：
+Default SQLite is plenty for most self-hosted setups. For higher concurrency or managed backups, switch to Postgres: edit `~/.riffpad-relay/docker-compose.yml`, replacing the relay service and adding a postgres service:
 
 ```yaml
 services:
@@ -92,32 +92,32 @@ volumes:
   pg-data:
 ```
 
-在 `.env` 里写 `POSTGRES_PASSWORD=...`，然后 `docker compose up -d`。relay 检测到 `DATABASE_URL` 会自动建表并使用 Postgres。
+Set `POSTGRES_PASSWORD=...` in `.env`, then `docker compose up -d`. The relay detects `DATABASE_URL` and auto-migrates to Postgres.
 
-## 管理、升级、备份
+## Manage, upgrade, back up
 
-所有操作在安装目录 `~/.riffpad-relay/` 下进行：
+Everything lives in the install dir, `~/.riffpad-relay/`:
 
 ```bash
 cd ~/.riffpad-relay
 
-docker compose logs -f relay     # 实时日志
-docker compose restart relay     # 重启
-docker compose pull && docker compose up -d   # 升级到最新镜像
-docker compose down               # 停止
+docker compose logs -f relay     # follow logs
+docker compose restart relay     # restart
+docker compose pull && docker compose up -d   # upgrade to the latest image
+docker compose down               # stop
 ```
 
-**备份**：停服后拷贝 `data/` 目录（SQLite 模式）或 dump Postgres 即可。元数据加密存储；会话内容从不落 relay 盘。
+**Backups**: stop the relay and copy the `data/` directory (SQLite mode) or dump Postgres. Metadata is encrypted at rest; session content never touches the relay's disk.
 
-**改端口 / 域名 / 镜像 tag**：重跑安装脚本，传新参数即可——它会重新生成 compose，数据卷不动：
+**Change port / domain / image tag**: re-run the installer with new flags — it regenerates the compose file and leaves the data volume intact:
 
 ```bash
 curl -fsSL https://riffpad.ai/selfhost.sh | sh -s -- --port 8080 --tag v0.2.5
 ```
 
-## 安全说明
+## Security notes
 
-- 默认 HTTP 模式**无加密**，仅限可信局域网。公网务必用 `--domain`（Caddy 自动 TLS）或自己的反代。
-- relay 只保存元数据（账号 / 设备 / 会话列表），会话内容是端到端加密的信封，relay 无法解密。
-- `~/.riffpad-relay/.env` 含凭据，设为 `chmod 600`，不要进 git。
-- 如需 GitHub 登录，在 `.env` 填 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`，并把回调地址配成你的 relay 域名。
+- Default HTTP mode is **unencrypted** — trusted LAN only. For public access use `--domain` (Caddy auto-TLS) or your own reverse proxy.
+- The relay stores only metadata (accounts/devices/sessions). Session content is end-to-end encrypted and unreadable to the relay.
+- `~/.riffpad-relay/.env` holds credentials — `chmod 600` it and keep it out of git.
+- For GitHub sign-in, set `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` in `.env` and point the OAuth callback at your relay domain.

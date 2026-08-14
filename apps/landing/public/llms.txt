@@ -8,12 +8,12 @@
 
 ## Docs
 
-- [Quickstart](https://riffpad.ai/docs/en/guide/quickstart): Install the CLI, sign in, pair, and start your first hosted session
-- [Remote control](https://riffpad.ai/docs/en/guide/remote): Watch, approve, and steer coding agent sessions from your phone
-- [CLI](https://riffpad.ai/docs/en/reference/cli): Full riffpad command reference
-- [Architecture](https://riffpad.ai/docs/en/reference/architecture): How the daemon, relay, and clients interact
-- [Security model](https://riffpad.ai/docs/en/reference/security): End-to-end encryption and zero-knowledge relay
-- [FAQ](https://riffpad.ai/docs/en/faq): Frequently asked questions
+- [Quickstart](https://riffpad.ai/docs/guide/quickstart): Install the CLI, sign in, pair, and start your first hosted session
+- [Remote control](https://riffpad.ai/docs/guide/remote): Watch, approve, and steer coding agent sessions from your phone
+- [CLI](https://riffpad.ai/docs/reference/cli): Full riffpad command reference
+- [Architecture](https://riffpad.ai/docs/reference/architecture): How the daemon, relay, and clients interact
+- [Security model](https://riffpad.ai/docs/reference/security): End-to-end encryption and zero-knowledge relay
+- [FAQ](https://riffpad.ai/docs/faq): Frequently asked questions
 
 ## Project
 

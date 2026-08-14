@@ -1,25 +1,25 @@
 # FAQ
 
-## 需要一直开着电脑吗？
+## Does my computer need to stay on?
 
-是。agent 跑在你自己的电脑上，Riffpad 只是把手机变成遥控器；电脑休眠后会话无法继续。
+Yes. Agents run on your own computer — Riffpad is the remote control. Sessions stop when the computer sleeps.
 
-## 我的数据会上传到云端吗？
+## Is my data uploaded to the cloud?
 
-会话内容不会。只有加密信封经过 relay，relay 不解密、不落盘；消息历史存在电脑本地。
+Session content is not. Only encrypted envelopes pass through the relay, which never decrypts or stores them; message history stays on your computer.
 
-## 支持哪些 coding CLI？
+## Which coding CLIs are supported?
 
-Claude Code、Codex、Kimi CLI 已支持；DeepSeek / GLM 在路线图上。
+Claude Code, Codex, and Kimi CLI today; DeepSeek / GLM are on the roadmap.
 
-## 一个 daemon 能配对多少设备？
+## How many devices can one daemon pair?
 
-不限。每台设备独立管理、可单独撤销。
+Unlimited. Each device is managed and revocable independently.
 
-## 会话中途断网/重启 daemon 会怎样？
+## What happens on a network drop or daemon restart?
 
-客户端会自动重连并去重回放；daemon 重启后会恢复未结束的会话（Codex 可自动重连 TUI，Kimi/Claude 只读恢复）。
+The client reconnects automatically and de-duplicates replay. After a daemon restart, unfinished sessions recover (Codex reattaches its TUI; Kimi/Claude recover read-only).
 
-## 如何反馈问题？
+## How do I report issues?
 
-去 <https://github.com/riffpad/riffpad/issues> 提 issue，或联系 hi@riffpad.ai。
+Open an issue at <https://github.com/riffpad/riffpad/issues> or email hi@riffpad.ai.

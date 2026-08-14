@@ -1,21 +1,21 @@
-# 系统架构
+# Architecture
 
 ```
 ┌─────────────────┐      ┌────────────────────┐      ┌──────────────┐
-│  你的电脑        │      │  云端中继 (relay)   │      │  手机/浏览器  │
+│  Your computer  │      │  Cloud relay       │      │  Phone/Web   │
 │                 │ WSS  │                    │ WSS  │              │
-│  coding CLI     │◀────▶│  只转发加密信封      │◀────▶│  会话列表      │
-│  (claude/codex) │      │  不解密 / 不落盘     │      │  审批卡片      │
-│     ↕ 适配器     │      │                    │      │  指令输入      │
-│  daemon         │      └────────────────────┘      └──────────────┘
+│  coding CLI     │◀────▶│  encrypted envelopes│◀────▶│  session list │
+│  (claude/codex) │      │  no decrypt/storage│      │  approvals    │
+│     ↕ adapters  │      └────────────────────┘      │  instructions │
+│  daemon         │                                   └──────────────┘
 └─────────────────┘
 ```
 
-- **coding CLI**：Claude Code、Codex、Kimi CLI 等，跑在用户电脑上，API key 只存在于本地环境。
-- **daemon**：通过适配器（Claude host 控制协议 / Codex app-server / Kimi ACP）捕获事件流、注入指令、转发审批。
-- **relay**：WebSocket 房间 + 加密信封转发，端到端加密下无法读取内容；只保存非敏感元数据（用户/设备/会话状态）。
-- **客户端**：Web App（PWA 方向），默认只读，审批和指令是显式动作。
+- **coding CLI**: Claude Code, Codex, Kimi CLI run on your computer; API keys never leave your machine.
+- **daemon**: captures events, injects instructions, and relays approvals through adapters (Claude host protocol / Codex app-server / Kimi ACP).
+- **relay**: WebSocket rooms that forward encrypted envelopes; it cannot read content and only stores non-sensitive metadata.
+- **client**: the web app (PWA direction), read-only by default; approvals and instructions are explicit actions.
 
-## 会话历史
+## Session history
 
-会话消息加密持久化在电脑本地（daemon 数据目录），不经过 relay 落盘。客户端每次进入会话由 daemon 重放最近内容，向上翻历史按需分页加载。
+Session messages are encrypted and persisted locally by the daemon. The relay never stores message content. On every open, the daemon replays recent history; older messages load on demand as you scroll up.

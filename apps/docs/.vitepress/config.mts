@@ -1,69 +1,87 @@
 import { defineConfig } from "vitepress";
 import { resolve } from "node:path";
 
-const zhNav = [
-  { text: "快速开始", link: "/guide/quickstart" },
-  { text: "手机遥控", link: "/guide/remote" },
-  { text: "自部署", link: "/guide/self-host" },
-  { text: "CLI", link: "/reference/cli" },
-  { text: "架构", link: "/reference/architecture" },
-  { text: "安全", link: "/reference/security" },
-  { text: "FAQ", link: "/faq" },
-];
-
-const zhSidebar = [
-  {
-    text: "指南",
-    items: [
-      { text: "快速开始", link: "/guide/quickstart" },
-      { text: "手机遥控", link: "/guide/remote" },
-      { text: "自部署中继", link: "/guide/self-host" },
-    ],
-  },
-  {
-    text: "参考",
-    items: [
-      { text: "CLI 命令", link: "/reference/cli" },
-      { text: "系统架构", link: "/reference/architecture" },
-      { text: "安全模型", link: "/reference/security" },
-    ],
-  },
-  { text: "FAQ", link: "/faq" },
-];
-
 const enNav = [
-  { text: "Quickstart", link: "/en/guide/quickstart" },
-  { text: "Remote", link: "/en/guide/remote" },
-  { text: "Self-host", link: "/en/guide/self-host" },
-  { text: "CLI", link: "/en/reference/cli" },
-  { text: "Architecture", link: "/en/reference/architecture" },
-  { text: "Security", link: "/en/reference/security" },
-  { text: "FAQ", link: "/en/faq" },
+  { text: "Quickstart", link: "/guide/quickstart" },
+  { text: "Remote", link: "/guide/remote" },
+  { text: "Self-host", link: "/guide/self-host" },
+  { text: "CLI", link: "/reference/cli" },
+  { text: "Architecture", link: "/reference/architecture" },
+  { text: "Security", link: "/reference/security" },
+  { text: "FAQ", link: "/faq" },
 ];
 
 const enSidebar = [
   {
     text: "Guide",
     items: [
-      { text: "Quickstart", link: "/en/guide/quickstart" },
-      { text: "Remote control", link: "/en/guide/remote" },
-      { text: "Self-host relay", link: "/en/guide/self-host" },
+      { text: "Quickstart", link: "/guide/quickstart" },
+      { text: "Remote control", link: "/guide/remote" },
+      { text: "Self-host relay", link: "/guide/self-host" },
     ],
   },
   {
     text: "Reference",
     items: [
-      { text: "CLI", link: "/en/reference/cli" },
-      { text: "Architecture", link: "/en/reference/architecture" },
-      { text: "Security model", link: "/en/reference/security" },
+      { text: "CLI", link: "/reference/cli" },
+      { text: "Architecture", link: "/reference/architecture" },
+      { text: "Security model", link: "/reference/security" },
     ],
   },
-  { text: "FAQ", link: "/en/faq" },
+  { text: "FAQ", link: "/faq" },
 ];
+
+const zhNav = [
+  { text: "快速开始", link: "/zh/guide/quickstart" },
+  { text: "手机遥控", link: "/zh/guide/remote" },
+  { text: "自部署", link: "/zh/guide/self-host" },
+  { text: "CLI", link: "/zh/reference/cli" },
+  { text: "架构", link: "/zh/reference/architecture" },
+  { text: "安全", link: "/zh/reference/security" },
+  { text: "FAQ", link: "/zh/faq" },
+];
+
+const zhSidebar = [
+  {
+    text: "指南",
+    items: [
+      { text: "快速开始", link: "/zh/guide/quickstart" },
+      { text: "手机遥控", link: "/zh/guide/remote" },
+      { text: "自部署中继", link: "/zh/guide/self-host" },
+    ],
+  },
+  {
+    text: "参考",
+    items: [
+      { text: "CLI 命令", link: "/zh/reference/cli" },
+      { text: "系统架构", link: "/zh/reference/architecture" },
+      { text: "安全模型", link: "/zh/reference/security" },
+    ],
+  },
+  { text: "FAQ", link: "/zh/faq" },
+];
+
+// Client-side redirect that sends users with a Chinese language preference to
+// /docs/zh/... while keeping English at the root. This mirrors the landing
+// page behaviour (see apps/landing/components/LanguageProvider.tsx).
+const localeRedirectScript = `(function () {
+  var STORAGE_KEY = "riffpad-lang";
+  var pathname = window.location.pathname;
+  // Only redirect on the docs root or an English top-level path; explicit
+  // /zh/ URLs are left alone.
+  if (pathname.startsWith("/docs/zh")) return;
+  if (!pathname.startsWith("/docs")) return;
+  var stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  var isZh = stored === "zh" || (!stored && (navigator.language || "").toLowerCase().startsWith("zh"));
+  if (!isZh) return;
+  var target = pathname.replace(/^\/docs/, "/docs/zh") || "/docs/zh/";
+  window.location.replace(target + window.location.search + window.location.hash);
+})();`;
 
 export default defineConfig({
   title: "Riffpad",
-  description: "AI coding agent 的手机遥控器 / Watch, approve, and steer AI coding agents from your phone",
+  description: "Watch, approve, and steer AI coding agents from your phone / AI coding agent 的手机遥控器",
   base: "/docs/",
   cleanUrls: true,
   ignoreDeadLinks: true,
@@ -99,6 +117,7 @@ export default defineConfig({
         })();`,
       },
     ],
+    ["script", { innerHTML: localeRedirectScript }],
   ],
   // Build straight into the landing app so riffpad.ai/docs is served by the
   // same Vercel deployment.
@@ -106,22 +125,22 @@ export default defineConfig({
   cleanOutDir: true,
   locales: {
     root: {
-      label: "中文",
-      lang: "zh-CN",
-      themeConfig: {
-        nav: zhNav,
-        sidebar: zhSidebar,
-        langMenuLabel: "语言",
-      },
-    },
-    en: {
       label: "English",
       lang: "en",
-      link: "/en/",
       themeConfig: {
         nav: enNav,
         sidebar: enSidebar,
         langMenuLabel: "Language",
+      },
+    },
+    zh: {
+      label: "中文",
+      lang: "zh-CN",
+      link: "/zh/",
+      themeConfig: {
+        nav: zhNav,
+        sidebar: zhSidebar,
+        langMenuLabel: "语言",
       },
     },
   },

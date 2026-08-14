@@ -1,14 +1,14 @@
-# 快速开始
+# Quickstart
 
-> **用 AI agent？** 把这行粘进它的对话框 —— 它会读 skill 并帮你装好、配好 Riffpad：
+> **Using an AI agent?** Paste this into its chat — it reads the skill and sets up Riffpad for you:
 >
 > ```bash
 > curl -fsSL https://riffpad.ai/SKILL.md
 > ```
 
-## 1. 安装 CLI
+## 1. Install the CLI
 
-在电脑终端执行：
+On your computer:
 
 ::: code-group
 
@@ -22,58 +22,58 @@ irm https://riffpad.ai/install.ps1 | iex
 
 :::
 
-Windows 安装脚本会下载最新二进制、加入 PATH，并注册登录自启任务（daemon）；`riffpad setup --remove` 可移除。
+The Windows script downloads the latest binary, adds it to your user PATH, and registers a logon autostart task for the daemon; remove it with `riffpad setup --remove`.
 
-安装后确认：
+Verify:
 
 ```bash
 riffpad version
 ```
 
-## 2. 登录
+## 2. Sign in
 
 ```bash
 riffpad login
 ```
 
-会自动打开浏览器用 GitHub 授权（也支持 `--username` 密码登录）。登录成功后 daemon 自动重启。
+This opens a browser for GitHub authorization (password login stays available via `--username`). The daemon restarts automatically after login.
 
-查看当前账号：
+Check your account:
 
 ```bash
 riffpad auth
 ```
 
-## 3. 配对手机
+## 3. Pair your phone
 
 ```bash
 riffpad pair
 ```
 
-终端会打印 6 位配对码和二维码。手机浏览器打开 <https://app.riffpad.ai>，用同一个 GitHub 账号登录，然后扫码或输入配对码。
+The terminal prints a 6-character code and a QR code. Open <https://app.riffpad.ai> on your phone, sign in with the same GitHub account, then scan or enter the code.
 
-## 4. 创建并查看会话
+## 4. Start and watch a session
 
 ```bash
 riffpad run codex
 ```
 
-也可以指定 agent 与初始指令：
+Or with a specific agent and prompt:
 
 ```bash
-riffpad run claude --prompt "重构 auth 中间件"
+riffpad run claude --prompt "Refactor the auth middleware"
 ```
 
-会话出现在手机 App 的 Sessions 页，点进去即可查看实时进度、审批和发指令。
+Sessions appear in the app's Sessions page; open one to watch progress, approve actions, and send instructions.
 
-## 常见命令
+## Common commands
 
-| 命令 | 作用 |
+| Command | Purpose |
 |---|---|
-| `riffpad login` / `logout` | GitHub 设备授权登录 / 退出 |
-| `riffpad auth` | 查看当前登录账号 |
-| `riffpad pair` | 打印配对码 + 二维码 |
-| `riffpad run <claude\|codex\|kimi>` | 创建并运行会话 |
-| `riffpad sessions` | 列出会话 |
-| `riffpad update` | 自更新二进制 |
-| `riffpad kill` | 熔断：停止所有会话并撤销设备 |
+| `riffpad login` / `logout` | GitHub device sign-in / sign-out |
+| `riffpad auth` | Show the current account |
+| `riffpad pair` | Print pairing code + QR |
+| `riffpad run <claude\|codex\|kimi>` | Create and run a session |
+| `riffpad sessions` | List sessions |
+| `riffpad update` | Self-update the binary |
+| `riffpad kill` | Kill switch: stop sessions + revoke devices |

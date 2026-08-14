@@ -13,11 +13,11 @@
 
 [![CI](https://github.com/riffpad/riffpad/actions/workflows/ci.yml/badge.svg)](https://github.com/riffpad/riffpad/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
-[![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/guide/quickstart)
+[![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/zh/guide/quickstart)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%7C%20relay%20BSL-1a7f37)](LICENSE)
 
-[官网](https://riffpad.ai) · [文档](https://www.riffpad.ai/docs/guide/quickstart) · [Discord 社区](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
+[官网](https://riffpad.ai) · [文档](https://www.riffpad.ai/docs/zh/guide/quickstart) · [Discord 社区](https://discord.gg/CDNFTg2QyM) · [App](https://app.riffpad.ai)
 
 [English](README.md) · [中文](README.zh-CN.md)
 
@@ -106,7 +106,7 @@ riffpad run codex
 
 CLI 支持中英文，默认英文。如需中文请显式使用 `riffpad --lang zh`；`riffpad --lang en` 可显式指定英文。
 
-> 想捕获你自己启动的 Claude 会话？用 `riffpad attach`——详见[文档](https://www.riffpad.ai/docs/guide/quickstart)。
+> 想捕获你自己启动的 Claude 会话？用 `riffpad attach`——详见[文档](https://www.riffpad.ai/docs/zh/guide/quickstart)。
 
 ## 工作原理
 
@@ -132,7 +132,7 @@ CLI 支持中英文，默认英文。如需中文请显式使用 `riffpad --lang
 
 - [Discord](https://discord.gg/CDNFTg2QyM) — 社区讨论
 - [GitHub Issues](https://github.com/riffpad/riffpad/issues) — 反馈 bug 和功能建议
-- [文档](https://www.riffpad.ai/docs/guide/quickstart) — 安装、配对、安全模型
+- [文档](https://www.riffpad.ai/docs/zh/guide/quickstart) — 安装、配对、安全模型
 
 ## 开源协议
 

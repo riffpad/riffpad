@@ -1,22 +1,22 @@
-# 安全模型
+# Security model
 
-## 端到端加密
+## End-to-end encryption
 
-- 配对时交换设备密钥（X25519 + P-256），会话密钥由双方密钥派生。
-- 消息使用 AES-GCM 加密，relay 只有密文，无法解密。
-- 手机端密钥保存在浏览器本地（原生 App 将使用 Keychain/Keystore）。
+- Device keys are exchanged during pairing (X25519 + P-256); the session key is derived on both sides.
+- Messages are encrypted with AES-GCM; the relay only sees ciphertext.
+- Client keys live in browser storage (native apps will use Keychain/Keystore).
 
-## 零知识中继
+## Zero-knowledge relay
 
-relay 不持久化会话内容，只保留必要的元数据（账号、设备、在线状态）。数据库里没有消息明文。
+The relay does not persist session content — only necessary metadata (accounts, devices, online state). No plaintext messages are stored.
 
-## 设备与撤销
+## Devices & revocation
 
-- 一个账号可以配对多个设备，每台设备独立撤销。
-- `riffpad kill` 一键熔断：停止所有会话并撤销全部设备。
-- 撤销当前设备后，客户端会自动回到配对流程。
+- One account can pair many devices; each device can be revoked independently.
+- `riffpad kill` is a kill switch: stop all sessions and revoke every device.
+- Revoking the current device sends the client back to pairing immediately.
 
-## 账号
+## Accounts
 
-- 目前支持 GitHub OAuth（也保留用户名/密码登录）。
-- 登录 token 30 天有效，登出即撤销。
+- GitHub OAuth is supported today (username/password login remains).
+- Login tokens last 30 days and are revoked on sign-out.

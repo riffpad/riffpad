@@ -1,3 +1,0 @@
-<meta http-equiv="refresh" content="0; url=/docs/en/guide/quickstart">
-
-Redirecting to [Quickstart](/docs/en/guide/quickstart)…
