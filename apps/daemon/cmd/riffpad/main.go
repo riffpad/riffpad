@@ -46,7 +46,7 @@ var (
 	pairRetryMaxWait = 10 * time.Second
 )
 
-// t is the active language bundle, initialized in main from --lang / env.
+// t is the active language bundle, initialized in main from --lang.
 var t = i18n.New(i18n.DefaultLang)
 
 // cliDataDir and cliToken feed localToken; cliDataDir is set in main before

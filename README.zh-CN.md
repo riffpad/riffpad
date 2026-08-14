@@ -104,7 +104,7 @@ riffpad run codex
 
 会话会立即出现在 App 里——随时随地看进度、批准操作、发指令。
 
-CLI 支持中英文，自动跟随系统语言，可用 `riffpad --lang zh` / `riffpad --lang en` 强制切换；不支持的 locale 回退英文。
+CLI 支持中英文，默认英文。如需中文请显式使用 `riffpad --lang zh`；`riffpad --lang en` 可显式指定英文。
 
 > 想捕获你自己启动的 Claude 会话？用 `riffpad attach`——详见[文档](https://www.riffpad.ai/docs/guide/quickstart)。
 

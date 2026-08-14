@@ -2,15 +2,15 @@
 //
 // Language selection order:
 //  1. --lang flag (highest priority)
-//  2. environment: LC_ALL > LC_MESSAGES > LANG
-//  3. default: en
+//  2. default: en
 //
-// Unsupported languages fall back to English instead of erroring.
+// The CLI no longer infers language from LC_ALL/LC_MESSAGES/LANG; English is
+// the default, and Chinese is only used when explicitly requested with
+// `--lang zh`. Unsupported languages fall back to English instead of erroring.
 package i18n
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -58,22 +58,12 @@ func (b *Bundle) T(key string, args ...any) string {
 	return fmt.Sprintf(format, args...)
 }
 
-// Detect resolves the language code from an explicit flag value or the
-// environment. Returns a supported code ("zh" or "en"); unsupported values
-// fall back to DefaultLang.
+// Detect resolves the language code from an explicit --lang flag value.
+// Returns a supported code ("zh" or "en"); unsupported values fall back to
+// DefaultLang ("en"). When langFlag is empty, English is used.
 func Detect(langFlag string) string {
 	if langFlag != "" {
 		if l := resolve(langFlag); l != "" {
-			return l
-		}
-		return DefaultLang
-	}
-	for _, env := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		v := os.Getenv(env)
-		if v == "" {
-			continue
-		}
-		if l := resolve(v); l != "" {
 			return l
 		}
 	}

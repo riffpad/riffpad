@@ -110,10 +110,9 @@ riffpad run codex
 The session appears in the app immediately — watch progress, approve actions,
 and send instructions from your phone, from anywhere.
 
-The CLI speaks English and Chinese. It detects your locale from
-`LC_ALL`/`LC_MESSAGES`/`LANG`; override it anytime with
-`riffpad --lang zh` or `riffpad --lang en`. Unsupported locales fall back to
-English.
+The CLI speaks English and Chinese. English is the default; use
+`riffpad --lang zh` to switch to Chinese, or `riffpad --lang en` to explicitly
+select English.
 
 > Want to capture a Claude session you started yourself? Use `riffpad attach`
 > instead — see the [documentation](https://www.riffpad.ai/docs/guide/quickstart).
