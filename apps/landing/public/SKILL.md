@@ -62,7 +62,7 @@ Verify with `riffpad version`. If still not found after install, open a new term
 - `--cwd D` — set the working directory
 
 ### Languages
-Output follows the system language (zh/en); override with `--lang zh|en`.
+Output defaults to English. Use `--lang zh` to switch to Chinese; `--lang en` explicitly selects English.
 
 ### Environment variables
 | Variable | Default | Purpose |

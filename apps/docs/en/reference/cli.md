@@ -18,7 +18,7 @@
 
 ## Languages
 
-The CLI output supports zh/en and follows the system language; override with `--lang zh|en`.
+The CLI output defaults to English. Use `--lang zh` to switch to Chinese; `--lang en` explicitly selects English.
 
 ## Environment variables
 

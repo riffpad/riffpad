@@ -2,25 +2,24 @@ package i18n
 
 import "testing"
 
-func TestDetectFlagOverridesEnv(t *testing.T) {
-	t.Setenv("LANG", "zh_CN.UTF-8")
+func TestDetectFlag(t *testing.T) {
 	if got := Detect("en"); got != "en" {
-		t.Fatalf("flag should override env, got %q", got)
+		t.Fatalf("flag en should return en, got %q", got)
+	}
+	if got := Detect("zh"); got != "zh" {
+		t.Fatalf("flag zh should return zh, got %q", got)
+	}
+	if got := Detect("zh_CN.UTF-8"); got != "zh" {
+		t.Fatalf("flag zh_CN.UTF-8 should normalize to zh, got %q", got)
 	}
 	if got := Detect("fr"); got != "en" {
 		t.Fatalf("unsupported flag should fall back to en, got %q", got)
 	}
 }
 
-func TestDetectEnvPrecedence(t *testing.T) {
-	t.Setenv("LANG", "zh_CN.UTF-8")
-	t.Setenv("LC_MESSAGES", "en_US.UTF-8")
+func TestDetectDefault(t *testing.T) {
 	if got := Detect(""); got != "en" {
-		t.Fatalf("LC_MESSAGES should beat LANG, got %q", got)
-	}
-	t.Setenv("LC_ALL", "zh_TW.UTF-8")
-	if got := Detect(""); got != "zh" {
-		t.Fatalf("LC_ALL should beat LC_MESSAGES, got %q", got)
+		t.Fatalf("empty flag should default to en, got %q", got)
 	}
 }
 
