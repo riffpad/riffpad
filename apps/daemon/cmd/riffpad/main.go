@@ -837,11 +837,11 @@ func runCmd(args []string, base string) error {
 // terminal (no-silent hosting). Ctrl-C exits the TUI; the daemon session
 // remains available from the phone.
 func attachCodexTUI(base, sessionID string) error {
-	fmt.Println("正在启动 Codex TUI（会话已托管到 daemon）…")
+	fmt.Println(t.T("codex_tui_starting"))
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := daemonDo(client, http.MethodGet, base+"/api/sessions/"+sessionID+"/connect", nil)
 	if err != nil {
-		return fmt.Errorf("等待 Codex 会话就绪失败: %w", err)
+		return fmt.Errorf("%s", t.T("codex_tui_wait_failed", err))
 	}
 	defer resp.Body.Close()
 	var info struct {
@@ -852,11 +852,11 @@ func attachCodexTUI(base, sessionID string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK || info.Socket == "" || info.ThreadID == "" {
-		return fmt.Errorf("Codex 会话未就绪（状态 %d）", resp.StatusCode)
+		return fmt.Errorf("%s", t.T("codex_tui_not_ready", resp.StatusCode))
 	}
 	codexBin, err := exec.LookPath("codex")
 	if err != nil {
-		return fmt.Errorf("未找到 codex 可执行文件: %w", err)
+		return fmt.Errorf("%s", t.T("codex_not_found", err))
 	}
 	cmd := exec.Command(codexBin, "resume", "--remote", "unix://"+info.Socket, info.ThreadID)
 	cmd.Stdin = os.Stdin
@@ -906,7 +906,7 @@ func attachCodexTUI(base, sessionID string) error {
 	runErr := cmd.Run()
 	close(exited)
 	if runErr != nil {
-		fmt.Fprintln(os.Stderr, "Codex TUI 已退出：", runErr)
+		fmt.Fprintln(os.Stderr, t.T("codex_tui_exit_error"), runErr)
 	}
 	// The user exited the TUI — per the no-silent-hosting convention, exiting
 	// means exiting. Close the daemon session so it disappears from the client
@@ -915,7 +915,7 @@ func attachCodexTUI(base, sessionID string) error {
 	if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); err == nil {
 		_ = resp.Body.Close()
 	}
-	fmt.Printf("Codex TUI 已退出，会话 %s 已关闭。\n", sessionID)
+	fmt.Printf("%s\n", t.T("codex_tui_exited", sessionID))
 	return nil
 }
 

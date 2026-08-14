@@ -23,7 +23,7 @@ import (
 // vendor process exits (or the console disconnects) the daemon session is
 // closed, matching the no-silent-hosting convention.
 func attachConsoleTUI(base, sessionID, cliName string) error {
-	fmt.Printf("正在启动 %s TUI（会话已托管到 daemon）…\n", cliName)
+	fmt.Printf("%s\n", t.T("run_tui_starting", cliName))
 	wsURL := strings.Replace(base, "http://", "ws://", 1) +
 		"/api/sessions/" + sessionID + "/pty"
 	if tok := localToken(); tok != "" {
@@ -43,7 +43,7 @@ func attachConsoleTUI(base, sessionID, cliName string) error {
 			if resp, stopErr := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); stopErr == nil {
 				_ = resp.Body.Close()
 			}
-			return fmt.Errorf("连接会话 PTY 失败: %w", err)
+			return fmt.Errorf("%s", t.T("run_tui_pty_connect_failed", err))
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -136,6 +136,6 @@ func attachConsoleTUI(base, sessionID, cliName string) error {
 	if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); err == nil {
 		_ = resp.Body.Close()
 	}
-	fmt.Printf("%s TUI 已退出，会话 %s 已关闭。\n", cliName, sessionID)
+	fmt.Printf("%s\n", t.T("run_tui_exited", cliName, sessionID))
 	return nil
 }
