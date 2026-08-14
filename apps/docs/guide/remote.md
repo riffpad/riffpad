@@ -1,21 +1,21 @@
-# 手机遥控
+# Remote control
 
-配对完成后，打开 <https://app.riffpad.ai>（或本地 daemon 的 8787 端口页面）即可：
+After pairing, open <https://app.riffpad.ai> (or the local daemon page on port 8787):
 
-- **Sessions**：查看所有正在运行的会话、状态灯（WAITING FOR INPUT / RUNNING / DONE）、最近活跃时间；点卡片进入会话详情。
-- **会话详情**：实时聊天流 + 工具调用日志；Agent 运行时底部出现 `Interrupt` 打断按钮；向上翻历史会自动加载更早消息（分页）。
-- **审批**：Agent 等待确认时出现审批卡片，一键同意/拒绝。
-- **指令**：输入框输入文字并发送（`→`），指令会加密传输到电脑上的 daemon。
-- **Devices**：查看已配对设备、识别当前设备、撤销授权。
+- **Sessions**: see every running session with its status light (WAITING FOR INPUT / RUNNING / DONE) and recent activity; tap a card to open it.
+- **Session detail**: live chat stream plus tool-call logs; an `Interrupt` button appears while the agent is running; scrolling up loads older history in pages.
+- **Approvals**: approve or reject permission requests with one tap.
+- **Instructions**: type a message and send it with the `→` button; it travels end-to-end encrypted to your daemon.
+- **Devices**: list paired devices, identify this device, revoke access.
 
-## 需要 tmux 吗？
+## Do I need tmux?
 
-不需要。`riffpad run` 是托管模式，daemon 直接捕获 CLI 会话；`riffpad attach` 可以把你自己启动的 Claude 会话也接进来。
+No. `riffpad run` hosts the session for you; `riffpad attach` can also capture a Claude session you started yourself.
 
-如果你想要“关掉终端后会话继续跑”的持久会话，建议搭配 tmux：
+If you want a session to survive closing the terminal, pair it with tmux:
 
 ```bash
 tmux new -s work
 riffpad run codex
-# Ctrl-b d 脱离；回来后 tmux attach -t work
+# Ctrl-b d to detach; reattach later with: tmux attach -t work
 ```

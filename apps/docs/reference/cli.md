@@ -1,30 +1,30 @@
-# CLI 命令
+# CLI reference
 
-| 命令 | 说明 |
+| Command | Description |
 |---|---|
-| `riffpad login [--url wss://…]` | GitHub 设备授权登录（默认）；`--username` 走密码登录 |
-| `riffpad logout` | 退出并撤销 relay token |
-| `riffpad auth` | 查看当前登录账号（实时校验） |
-| `riffpad pair` | 打印 6 位配对码与二维码 |
-| `riffpad run [claude\|codex\|kimi] [--name N] [--prompt P] [--cwd D]` | 创建并托管会话，终端保持可见可操作 |
-| `riffpad attach` / `detach` | 注入/移除 Claude hooks，捕获你自己启动的会话 |
-| `riffpad sessions` | 列出会话 |
-| `riffpad status` | daemon 状态 |
-| `riffpad setup [--remove]` | 安装/移除 Linux systemd 自启 |
-| `riffpad kill` | 熔断：停止所有会话 + 撤销所有设备 |
-| `riffpad update` | 检查并替换为最新版本（SHA256 校验 + 原子替换） |
-| `riffpad logs` | 查看 daemon 日志 |
-| `riffpad version` | 版本号 |
+| `riffpad login [--url wss://…]` | GitHub device sign-in (default); `--username` for password login |
+| `riffpad logout` | Sign out and revoke the relay token |
+| `riffpad auth` | Show the current account (live validation) |
+| `riffpad pair` | Print a 6-char pairing code and QR |
+| `riffpad run [claude\|codex\|kimi] [--name N] [--prompt P] [--cwd D]` | Create a hosted session; the terminal stays visible and interactive |
+| `riffpad attach` / `detach` | Inject/remove Claude hooks to capture your own session |
+| `riffpad sessions` | List sessions |
+| `riffpad status` | Daemon status |
+| `riffpad setup [--remove]` | Install/remove the Linux systemd autostart |
+| `riffpad kill` | Kill switch: stop all sessions + revoke all devices |
+| `riffpad update` | Check and replace with the latest version (SHA256 + atomic swap) |
+| `riffpad logs` | Show daemon logs |
+| `riffpad version` | Print the version |
 
-## 多语种
+## Languages
 
-CLI 输出默认为英文。如需中文，请显式使用 `--lang zh`；`--lang en` 可显式指定英文。
+The CLI output defaults to English. Use `--lang zh` to switch to Chinese; `--lang en` explicitly selects English.
 
-## 环境变量
+## Environment variables
 
-| 变量 | 说明 |
+| Variable | Description |
 |---|---|
-| `RIFFPAD_RELAY_URL` | relay 地址（默认 `wss://api.riffpad.ai`） |
-| `RIFFPAD_RELAY_USER` / `RIFFPAD_RELAY_PASSWORD` | 密码登录凭据 |
-| `RIFFPAD_URL` | 本地 daemon 地址（默认 `http://127.0.0.1:8787`） |
-| `RIFFPAD_DIR` | 数据目录（默认 `~/.config/riffpad`） |
+| `RIFFPAD_RELAY_URL` | Relay address (default `wss://api.riffpad.ai`) |
+| `RIFFPAD_RELAY_USER` / `RIFFPAD_RELAY_PASSWORD` | Password login credentials |
+| `RIFFPAD_URL` | Local daemon address (default `http://127.0.0.1:8787`) |
+| `RIFFPAD_DIR` | Data directory (default `~/.config/riffpad`) |

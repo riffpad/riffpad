@@ -1,0 +1,3 @@
+<meta http-equiv="refresh" content="0; url=/docs/zh/guide/quickstart">
+
+正在跳转到[快速开始](/docs/zh/guide/quickstart)…
