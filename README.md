@@ -2,9 +2,7 @@
 
 # Riffpad
 
-**Watch, approve, and steer AI coding agents from your phone.**
-
-Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your phone — without staying chained to the desk.
+**Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your phone — without staying chained to the desk.**
 
 [![CI](https://github.com/riffpad/riffpad/actions/workflows/ci.yml/badge.svg)](https://github.com/riffpad/riffpad/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
@@ -22,34 +20,13 @@ Watch, approve, and steer Claude Code, Codex, and other AI coding CLIs from your
 
 ## Why Riffpad?
 
-AI coding agents are powerful — and needy. They pause for approvals, finish tasks while you're away, and quietly wait for input you could have given from the couch. Riffpad bridges the CLI agents running on your own machine to your phone, so a long refactor doesn't chain you to the desk:
+Riffpad bridges the AI coding CLI running on your machine to your phone, so a long refactor doesn't chain you to the desk:
 
-- **Watch from anywhere** — live event stream of every session, mirrored to your phone in real time.
-- **Approve in one tap** — permission prompts become approval cards; decide from the couch, the office, or the subway.
-- **Steer remotely** — send messages and course-correct a running session without SSH or screen-sharing hacks.
-- **Nothing leaves your machine unencrypted** — end-to-end encryption with a zero-knowledge relay, local-first by design.
-- **Read-only by default** — every approve, reject, or prompt is an explicit action, never ambient access.
-
-**Watch** — the agent's output streams live to your phone:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-1-watch.gif" />
-  <img src=".github/assets/demo-1-watch-light.gif" alt="Watch: the CLI agent's output streams live to the phone" width="100%" />
-</picture>
-
-**Steer** — send a new instruction from your phone; it lands in the running terminal:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-2-steer.gif" />
-  <img src=".github/assets/demo-2-steer-light.gif" alt="Steer: a message typed on the phone appears in the running terminal" width="100%" />
-</picture>
-
-**Approve** — permission prompts become one-tap cards:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-3-approve.gif" />
-  <img src=".github/assets/demo-3-approve-light.gif" alt="Approve: approve a Bash command from the phone and the agent continues" width="100%" />
-</picture>
+- **Watch** sessions live from anywhere.
+- **Approve** permission prompts in one tap.
+- **Steer** with remote instructions — no SSH or screen sharing.
+- **End-to-end encrypted**, local-first, zero-knowledge relay.
+- **Read-only by default**; every action is explicit.
 
 ## Quickstart
 
