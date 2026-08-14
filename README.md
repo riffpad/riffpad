@@ -28,6 +28,27 @@ Riffpad bridges the AI coding CLI running on your machine to your phone, so a lo
 - **End-to-end encrypted**, local-first, zero-knowledge relay.
 - **Read-only by default**; every action is explicit.
 
+**Watch** — the agent's output streams live to your phone:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-1-watch.gif" />
+  <img src=".github/assets/demo-1-watch-light.gif" alt="Watch: the CLI agent's output streams live to the phone" width="100%" />
+</picture>
+
+**Steer** — send a new instruction from your phone; it lands in the running terminal:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-2-steer.gif" />
+  <img src=".github/assets/demo-2-steer-light.gif" alt="Steer: a message typed on the phone appears in the running terminal" width="100%" />
+</picture>
+
+**Approve** — permission prompts become one-tap cards:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo-3-approve.gif" />
+  <img src=".github/assets/demo-3-approve-light.gif" alt="Approve: approve a Bash command from the phone and the agent continues" width="100%" />
+</picture>
+
 ## Quickstart
 
 > **Using an AI agent?** Paste this into its chat — it reads the skill and sets up Riffpad for you:
