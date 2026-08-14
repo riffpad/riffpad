@@ -1,18 +1,9 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner.png?v=3" />
-  <img src=".github/assets/banner-light.png?v=3" alt="Riffpad banner" width="100%" />
-</picture>
-
 # Riffpad
 
-**AI coding agent 的手机遥控器。**
+**在手机上查看、批准、遥控 Claude Code、Codex 等 AI coding CLI —— 不用再守在电脑前。**
 
-在手机上查看、批准、遥控 Claude Code、Codex 等 AI coding CLI，不用再守在电脑前。
-
-[![CI](https://github.com/riffpad/riffpad/actions/workflows/ci.yml/badge.svg)](https://github.com/riffpad/riffpad/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/riffpad/riffpad?style=flat&color=1a7f37)](https://github.com/riffpad/riffpad/stargazers)
 [![Docs](https://img.shields.io/badge/docs-riffpad.ai-1a7f37)](https://www.riffpad.ai/docs/zh/guide/quickstart)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/CDNFTg2QyM)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%7C%20relay%20BSL-1a7f37)](LICENSE)
@@ -27,13 +18,7 @@
 
 ## 为什么用 Riffpad？
 
-AI coding agent 很强，也很“粘人”：会停下来等审批、趁你离开时完成任务、安静地等你从沙发上发一条指令。Riffpad 把跑在你电脑上的 CLI agent 桥接到手机，让一次长时间重构不再把你钉在工位上：
-
-- **随处查看** — 每个会话的实时事件流，同步到手机。
-- **一键审批** — 权限提示变成审批卡片，在沙发上、办公室或地铁里做决定。
-- **远程转向** — 直接发消息纠正正在运行的会话，不需要 SSH 或共享屏幕。
-- **出网的永远是密文** — 端到端加密 + 零知识中继，默认本地优先。
-- **默认只读** — 每次批准/拒绝/发指令都是显式动作，绝无后台隐式访问。
+Riffpad 把跑在你电脑上的 AI coding CLI 桥接到手机，让长时间重构不再把你钉在工位上：
 
 **Watch（看）** — agent 的输出实时同步到手机：
 
