@@ -1,4 +1,4 @@
-package main
+package commands
 
 // Characterization tests for setupCmd (unit-file install/remove with all
 // external effects stubbed) and extractLangFlag, added before the #282 split.
@@ -33,7 +33,7 @@ func TestSetupCmdRemove(t *testing.T) {
 	calls := stubSystemctl(t)
 	t.Setenv("HOME", t.TempDir())
 
-	if err := setupCmd([]string{"--remove"}, t.TempDir()); err != nil {
+	if err := SetupCmd([]string{"--remove"}, t.TempDir()); err != nil {
 		t.Fatalf("setup --remove failed: %v", err)
 	}
 	if len(*calls) != 1 || (*calls)[0] != "disable --now riffpad.service" {
@@ -53,7 +53,7 @@ func TestSetupCmdInstallsUnitFile(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin:50%off")
 	exe := withFakeSelfExecutable(t)
 
-	if err := setupCmd(nil, t.TempDir()); err != nil {
+	if err := SetupCmd(nil, t.TempDir()); err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 	raw, err := os.ReadFile(filepath.Join(home, ".config", "systemd", "user", "riffpad.service"))
@@ -69,25 +69,5 @@ func TestSetupCmdInstallsUnitFile(t *testing.T) {
 	}
 	if len(*calls) != 2 || (*calls)[0] != "daemon-reload" || (*calls)[1] != "enable --now riffpad.service" {
 		t.Fatalf("unexpected systemctl calls: %v", *calls)
-	}
-}
-
-func TestExtractLangFlag(t *testing.T) {
-	cases := []struct {
-		in   []string
-		lang string
-		rest []string
-	}{
-		{[]string{"run", "--lang", "zh"}, "zh", []string{"run"}},
-		{[]string{"run", "--lang=zh"}, "zh", []string{"run"}},
-		{[]string{"-lang=zh", "run"}, "zh", []string{"run"}},
-		{[]string{"run"}, "", []string{"run"}},
-		{[]string{"--lang"}, "", []string{}},
-	}
-	for _, c := range cases {
-		lang, rest := extractLangFlag(c.in)
-		if lang != c.lang || strings.Join(rest, ",") != strings.Join(c.rest, ",") {
-			t.Errorf("extractLangFlag(%v) = (%q, %v), want (%q, %v)", c.in, lang, rest, c.lang, c.rest)
-		}
 	}
 }

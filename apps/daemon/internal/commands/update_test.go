@@ -1,4 +1,4 @@
-package main
+package commands
 
 // Characterization tests for the update path (updateCmd, verifyChecksum,
 // compareVersions, updatePlatform), added before the #282 file split so the
@@ -98,7 +98,7 @@ func TestUpdateCmdReplacesBinary(t *testing.T) {
 	stubUpdateServer(t, "v9.9.9", []byte("new-binary-content"))
 	exe := withFakeSelfExecutable(t)
 
-	if err := updateCmd([]string{"--no-restart", "--force"}, t.TempDir()); err != nil {
+	if err := UpdateCmd([]string{"--no-restart", "--force"}, t.TempDir()); err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
 	data, err := os.ReadFile(exe)
@@ -120,7 +120,7 @@ func TestUpdateCmdUpToDateSkipsDownload(t *testing.T) {
 	stubUpdateServer(t, "v0.0.0", []byte("unused"))
 	withFakeSelfExecutable(t)
 
-	if err := updateCmd(nil, t.TempDir()); err != nil {
+	if err := UpdateCmd(nil, t.TempDir()); err != nil {
 		t.Fatalf("up-to-date update failed: %v", err)
 	}
 }
@@ -141,7 +141,7 @@ func TestUpdateCmdChecksumMismatchAborts(t *testing.T) {
 	stubUpdateEndpoints(t, srv)
 	exe := withFakeSelfExecutable(t)
 
-	if err := updateCmd([]string{"--force", "--no-restart"}, t.TempDir()); err == nil {
+	if err := UpdateCmd([]string{"--force", "--no-restart"}, t.TempDir()); err == nil {
 		t.Fatal("expected checksum mismatch to abort the update")
 	}
 	if data, err := os.ReadFile(exe); err != nil || string(data) == "new-binary-content" {
