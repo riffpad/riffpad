@@ -38,6 +38,23 @@ import (
 
 const updateRepo = "riffpad/riffpad"
 
+// updateAPIBase and updateDownloadBase point the updater at GitHub; they are
+// vars so tests can serve a fake release server.
+var (
+	updateAPIBase      = "https://api.github.com/repos"
+	updateDownloadBase = "https://github.com/" + updateRepo + "/releases/latest/download/"
+)
+
+// osExecutableFn and systemctlFn are indirections so update/setup tests can
+// run against a throwaway binary and without touching the real systemd user
+// session.
+var (
+	osExecutableFn = os.Executable
+	systemctlFn    = func(args ...string) ([]byte, error) {
+		return exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput()
+	}
+)
+
 // pairRetryDelay and pairRetryMaxWait control the transient "host offline"
 // retry in mintPairingCode: right after the daemon starts, its relay
 // WebSocket registration can lag the local HTTP endpoint by a few seconds.
@@ -501,14 +518,14 @@ func setupCmd(args []string, dataDir string) error {
 	unitDir := filepath.Join(home, ".config", "systemd", "user")
 	unitPath := filepath.Join(unitDir, "riffpad.service")
 	if *remove {
-		_ = exec.Command("systemctl", "--user", "disable", "--now", "riffpad.service").Run()
+		_, _ = systemctlFn("disable", "--now", "riffpad.service")
 		if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		fmt.Println(t.T("setup_removed"))
 		return nil
 	}
-	exe, err := os.Executable()
+	exe, err := osExecutableFn()
 	if err != nil {
 		return err
 	}
@@ -540,10 +557,10 @@ WantedBy=default.target
 	if err := os.WriteFile(unitPath, []byte(unit), 0o600); err != nil {
 		return err
 	}
-	if out, err := exec.Command("systemctl", "--user", "daemon-reload").CombinedOutput(); err != nil {
+	if out, err := systemctlFn("daemon-reload"); err != nil {
 		return fmt.Errorf("systemctl daemon-reload: %v\n%s", err, out)
 	}
-	if out, err := exec.Command("systemctl", "--user", "enable", "--now", "riffpad.service").CombinedOutput(); err != nil {
+	if out, err := systemctlFn("enable", "--now", "riffpad.service"); err != nil {
 		return fmt.Errorf("systemctl enable riffpad: %v\n%s", err, out)
 	}
 	fmt.Println(t.T("setup_installed", unitPath))
@@ -1574,10 +1591,10 @@ func updateCmd(args []string, dataDir string) error {
 		return err
 	}
 	asset := "riffpad-" + osName + "-" + arch
-	base := "https://github.com/" + updateRepo + "/releases/latest/download/"
+	base := updateDownloadBase
 	fmt.Println(t.T("update_downloading", asset))
 
-	exe, err := os.Executable()
+	exe, err := osExecutableFn()
 	if err != nil {
 		return err
 	}
@@ -1630,7 +1647,7 @@ func latestReleaseTag() (string, error) {
 	// http.DefaultClient has no timeout; a wedged network must fail the
 	// update instead of hanging it forever (#174).
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get("https://api.github.com/repos/" + updateRepo + "/releases/latest")
+	resp, err := client.Get(updateAPIBase + "/" + updateRepo + "/releases/latest")
 	if err != nil {
 		return "", err
 	}
