@@ -1,4 +1,4 @@
-package main
+package commands
 
 // In-memory daemon integration smoke test (issue #282 testing strategy #5):
 // spins a real daemon Server on a random port and drives the CLI command
@@ -12,6 +12,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
 )
@@ -39,27 +40,28 @@ func newInMemDaemon(t *testing.T) (base string) {
 	httpSrv := &http.Server{Handler: srv.Handler()}
 	t.Cleanup(func() { _ = httpSrv.Close() })
 	go func() { _ = httpSrv.Serve(ln) }()
-	withCliToken(t, cfg.LocalToken)
+	cliutil.SetToken(cfg.LocalToken)
+	t.Cleanup(func() { cliutil.SetToken("") })
 	return "http://" + ln.Addr().String()
 }
 
 func TestSessionsCmdAgainstInMemDaemon(t *testing.T) {
 	base := newInMemDaemon(t)
-	if err := sessionsCmd(base); err != nil {
+	if err := SessionsCmd(base); err != nil {
 		t.Fatalf("sessions failed: %v", err)
 	}
 }
 
 func TestStatusCmdAgainstInMemDaemon(t *testing.T) {
 	base := newInMemDaemon(t)
-	if err := statusCmd(base); err != nil {
+	if err := StatusCmd(base); err != nil {
 		t.Fatalf("status failed: %v", err)
 	}
 }
 
 func TestKillCmdAgainstInMemDaemon(t *testing.T) {
 	base := newInMemDaemon(t)
-	if err := killCmd(base); err != nil {
+	if err := KillCmd(base); err != nil {
 		t.Fatalf("kill failed: %v", err)
 	}
 }
@@ -68,7 +70,7 @@ func TestKillCmdAgainstInMemDaemon(t *testing.T) {
 // path against the real pairing handler.
 func TestPairCmdLocalAgainstInMemDaemon(t *testing.T) {
 	base := newInMemDaemon(t)
-	if err := pairCmd(base, []string{"--local"}); err != nil {
+	if err := PairCmd(base, []string{"--local"}); err != nil {
 		t.Fatalf("pair --local failed: %v", err)
 	}
 }
@@ -78,7 +80,7 @@ func TestPairCmdLocalAgainstInMemDaemon(t *testing.T) {
 // returns without attaching a TUI.
 func TestRunCmdAgainstInMemDaemon(t *testing.T) {
 	base := newInMemDaemon(t)
-	if err := runCmd([]string{"--cli", "demo"}, base); err != nil {
+	if err := RunCmd([]string{"--cli", "demo"}, base); err != nil {
 		t.Fatalf("run demo failed: %v", err)
 	}
 }
