@@ -22,14 +22,15 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
 	"golang.org/x/term"
 
+	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
+	"github.com/riffpad/riffpad/apps/daemon/internal/console"
 	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
 	"github.com/riffpad/riffpad/apps/daemon/internal/i18n"
 	"github.com/riffpad/riffpad/apps/daemon/internal/logging"
@@ -66,50 +67,17 @@ var (
 // t is the active language bundle, initialized in main from --lang.
 var t = i18n.New(i18n.DefaultLang)
 
-// cliDataDir and cliToken feed localToken; cliDataDir is set in main before
-// dispatch, cliToken is loaded lazily on the first daemon API call.
-var (
-	cliDataDir string
-	cliToken   string
-	tokenOnce  sync.Once
-)
-
-// localToken returns the daemon's local API token. It lives in config.json
-// (created on demand by config.Load), so the CLI and the daemon always agree
-// on the same token without any user setup.
-func localToken() string {
-	tokenOnce.Do(func() {
-		if cliToken == "" && cliDataDir != "" {
-			if cfg, err := config.Load(cliDataDir); err == nil {
-				cliToken = cfg.LocalToken
-			}
-		}
-	})
-	return cliToken
-}
-
-// daemonDo performs an authenticated request against the local daemon API.
-// A nil client uses http.DefaultClient.
+// localToken and daemonDo delegate to internal/cliutil, which owns the
+// daemon's local API token resolution shared by all CLI commands.
+func localToken() string { return cliutil.LocalToken() }
 func daemonDo(client *http.Client, method, url string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, err
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if tok := localToken(); tok != "" {
-		req.Header.Set(daemon.LocalTokenHeader, tok)
-	}
-	if client == nil {
-		client = http.DefaultClient
-	}
-	return client.Do(req)
+	return cliutil.DaemonDo(client, method, url, body)
 }
 
 func main() {
 	langFlag, args := extractLangFlag(os.Args[1:])
 	t = i18n.New(i18n.Detect(langFlag))
+	console.SetBundle(t)
 	os.Args = append([]string{os.Args[0]}, args...)
 	// Corrupted state files are backed up and rebuilt automatically (#172);
 	// warn instead of dying at startup. runDaemon overrides this to also log.
@@ -139,7 +107,7 @@ func main() {
 		}
 		dataDir = d
 	}
-	cliDataDir = dataDir
+	cliutil.SetDataDir(dataDir)
 
 	var err error
 	switch os.Args[1] {
@@ -832,7 +800,7 @@ func runCmd(args []string, base string) error {
 		return fmt.Errorf("%s", t.T("run_failed_status", resp.StatusCode))
 	}
 	if data.CLI == "codex" {
-		return attachCodexTUI(base, data.ID)
+		return console.AttachCodexTUI(base, data.ID)
 	}
 	if data.CLI == "demo" {
 		fmt.Println(t.T("session_url", data.ID, data.URL))
@@ -843,7 +811,7 @@ func runCmd(args []string, base string) error {
 			fmt.Println(t.T("session_url", data.ID, data.URL))
 			return nil
 		}
-		return attachConsoleTUI(base, data.ID, data.CLI)
+		return console.AttachConsoleTUI(base, data.ID, data.CLI)
 	}
 	fmt.Println(t.T("session_url", data.ID, data.URL))
 	return nil

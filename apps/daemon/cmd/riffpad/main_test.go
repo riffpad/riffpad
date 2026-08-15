@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
 )
@@ -265,9 +266,8 @@ func TestEnsureDaemonConcurrentSingleStart(t *testing.T) {
 // withCliToken stubs the CLI's local token for the duration of a test.
 func withCliToken(t *testing.T, token string) {
 	t.Helper()
-	oldToken, oldDir, oldOnce := cliToken, cliDataDir, tokenOnce
-	cliToken, cliDataDir, tokenOnce = token, "", sync.Once{}
-	t.Cleanup(func() { cliToken, cliDataDir, tokenOnce = oldToken, oldDir, oldOnce })
+	cliutil.SetToken(token)
+	t.Cleanup(func() { cliutil.SetToken("") })
 }
 
 func TestDaemonDoAttachesLocalToken(t *testing.T) {

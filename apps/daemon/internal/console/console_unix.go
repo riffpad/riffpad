@@ -1,6 +1,6 @@
 //go:build !windows
 
-package main
+package console
 
 import (
 	"encoding/base64"
@@ -15,18 +15,20 @@ import (
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
+
+	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
 )
 
-// attachConsoleTUI bridges the user's terminal to the daemon-hosted
+// AttachConsoleTUI bridges the user's terminal to the daemon-hosted
 // interactive PTY (Claude foreground mode). Raw mode forwards keystrokes,
 // window resizes are propagated, and Ctrl-C reaches the vendor TUI. When the
 // vendor process exits (or the console disconnects) the daemon session is
 // closed, matching the no-silent-hosting convention.
-func attachConsoleTUI(base, sessionID, cliName string) error {
+func AttachConsoleTUI(base, sessionID, cliName string) error {
 	fmt.Printf("%s\n", t.T("run_tui_starting", cliName))
 	wsURL := strings.Replace(base, "http://", "ws://", 1) +
 		"/api/sessions/" + sessionID + "/pty"
-	if tok := localToken(); tok != "" {
+	if tok := cliutil.LocalToken(); tok != "" {
 		wsURL += "?token=" + url.QueryEscape(tok)
 	}
 	var conn *websocket.Conn
@@ -40,7 +42,7 @@ func attachConsoleTUI(base, sessionID, cliName string) error {
 		if time.Now().After(deadline) {
 			// Session may be left running headless if the console never
 			// attached; close it so we never silently host in the background.
-			if resp, stopErr := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); stopErr == nil {
+			if resp, stopErr := cliutil.DaemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); stopErr == nil {
 				_ = resp.Body.Close()
 			}
 			return fmt.Errorf("%s", t.T("run_tui_pty_connect_failed", err))
@@ -122,7 +124,7 @@ func attachConsoleTUI(base, sessionID, cliName string) error {
 		for {
 			select {
 			case <-ticker.C:
-				if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/heartbeat", nil); err == nil {
+				if resp, err := cliutil.DaemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/heartbeat", nil); err == nil {
 					_ = resp.Body.Close()
 				}
 			case <-hbStop:
@@ -133,7 +135,7 @@ func attachConsoleTUI(base, sessionID, cliName string) error {
 
 	<-done
 	_ = term.Restore(fd, oldState)
-	if resp, err := daemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); err == nil {
+	if resp, err := cliutil.DaemonDo(nil, http.MethodPost, base+"/api/sessions/"+sessionID+"/stop", nil); err == nil {
 		_ = resp.Body.Close()
 	}
 	fmt.Printf("%s\n", t.T("run_tui_exited", cliName, sessionID))
