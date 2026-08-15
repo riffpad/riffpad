@@ -3,7 +3,7 @@
 PREFIX ?= $(HOME)/.local/bin
 
 dev-daemon:
-	cd apps/daemon && go run .
+	cd apps/daemon && go run ./cmd/riffpad
 
 dev-relay:
 	cd apps/relay && go run .
