@@ -29,6 +29,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
+	"github.com/riffpad/riffpad/apps/daemon/internal/commands"
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 	"github.com/riffpad/riffpad/apps/daemon/internal/console"
 	"github.com/riffpad/riffpad/apps/daemon/internal/daemon"
@@ -77,6 +78,7 @@ func daemonDo(client *http.Client, method, url string, body io.Reader) (*http.Re
 func main() {
 	langFlag, args := extractLangFlag(os.Args[1:])
 	t = i18n.New(i18n.Detect(langFlag))
+	commands.SetBundle(t)
 	console.SetBundle(t)
 	os.Args = append([]string{os.Args[0]}, args...)
 	// Corrupted state files are backed up and rebuilt automatically (#172);
@@ -616,20 +618,7 @@ func forceKillDaemon(dataDir string) error {
 	return nil
 }
 
-func statusCmd(base string) error {
-	resp, err := daemonDo(nil, http.MethodGet, base+"/api/status", nil)
-	if err != nil {
-		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	var out bytes.Buffer
-	if json.Indent(&out, body, "", "  ") != nil {
-		out.Write(body)
-	}
-	fmt.Println(out.String())
-	return nil
-}
+func statusCmd(base string) error { return commands.StatusCmd(base) }
 
 func pairCmd(base string, args []string) error {
 	fs := flag.NewFlagSet("pair", flag.ExitOnError)
@@ -730,20 +719,7 @@ func pairWithRetry(post func() (pairingResult, error)) (pairingResult, error) {
 	}
 }
 
-func sessionsCmd(base string) error {
-	resp, err := daemonDo(nil, http.MethodGet, base+"/api/sessions", nil)
-	if err != nil {
-		return fmt.Errorf("%s: %w", t.T("daemon_not_reachable", base), err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	var out bytes.Buffer
-	if json.Indent(&out, body, "", "  ") != nil {
-		out.Write(body)
-	}
-	fmt.Println(out.String())
-	return nil
-}
+func sessionsCmd(base string) error { return commands.SessionsCmd(base) }
 
 func runCmd(args []string, base string) error {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
@@ -904,14 +880,7 @@ func attachCodexTUI(base, sessionID string) error {
 	return nil
 }
 
-func logsCmd(dataDir string) error {
-	out, err := logging.Tail(dataDir, 200)
-	if err != nil {
-		return err
-	}
-	fmt.Println(out)
-	return nil
-}
+func logsCmd(dataDir string) error { return commands.LogsCmd(dataDir) }
 
 // attachCmd injects Claude Code hooks pointing at the local daemon, so a
 // normal interactive `claude` session is captured and approvals can be made
