@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <style>
+    .bg { fill: #ffffff; }
+    .fg { fill: #000000; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #000000; }
+      .fg { fill: #ffffff; }
+    }
+  </style>
+  <rect class="bg" x="0" y="0" width="300" height="300"/>
+  <g transform="rotate(-90, 150, 150)">
+    <rect class="fg" x="70" y="70" width="40" height="40"/>
+    <rect class="fg" x="130" y="70" width="40" height="40"/>
+    <rect class="fg" x="190" y="70" width="40" height="40"/>
+    <rect class="fg" x="70" y="130" width="100" height="40"/>
+    <rect class="fg" x="190" y="130" width="40" height="40"/>
+    <rect class="fg" x="70" y="190" width="160" height="40"/>
+  </g>
+</svg>
