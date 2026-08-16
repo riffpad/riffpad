@@ -64,37 +64,6 @@ const themeScript = `
   })();
 `;
 
-const faviconScript = `
-  (function () {
-    var link = document.getElementById("riffpad-favicon");
-    if (!link) return;
-    var html = document.documentElement;
-    function currentTheme() {
-      var stored = null;
-      try { stored = localStorage.getItem("riffpad-theme"); } catch (e) {}
-      var attr = html.getAttribute("data-theme");
-      if (attr === "dark" || stored === "dark") return "dark";
-      if (attr === "light" || stored === "light") return "light";
-      return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    }
-    function apply() {
-      link.setAttribute(
-        "href",
-        currentTheme() === "dark" ? "/favicon-dark.png" : "/favicon-light.png"
-      );
-    }
-    apply();
-    if ("MutationObserver" in window) {
-      new MutationObserver(apply).observe(html, {
-        attributes: true,
-        attributeFilter: ["data-theme"],
-      });
-    }
-  })();
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -104,13 +73,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <link
-          rel="icon"
-          type="image/png"
-          href="/favicon-light.png"
-          id="riffpad-favicon"
-        />
-        <script dangerouslySetInnerHTML={{ __html: faviconScript }} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/png" href="/favicon-light.png" />
       </head>
       <body className={`${geistMono.variable} antialiased`}>
         <ThemeProvider>
