@@ -2,6 +2,7 @@
 
 import { useLanguage } from "./LanguageProvider";
 import { BRAND_ICONS } from "./brand-icons";
+import { ScrollReveal } from "./ScrollReveal";
 
 const NODE_W = 160;
 const NODE_H = 96;
@@ -131,13 +132,20 @@ export function Architecture() {
       className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
       <div className="mx-auto max-w-content">
-        <span className="label">{`// ${a.label}`}</span>
-        <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
-          {a.title}
-        </h2>
-        <p className="mt-3 text-base text-body">{a.description}</p>
+        <ScrollReveal>
+          <span className="label">{`// ${a.label}`}</span>
+        </ScrollReveal>
+        <ScrollReveal delay={100}>
+          <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
+            {a.title}
+          </h2>
+        </ScrollReveal>
+        <ScrollReveal delay={200}>
+          <p className="mt-3 text-base text-body">{a.description}</p>
+        </ScrollReveal>
 
-        <div className="mt-12 overflow-x-auto border border-hairline">
+        <ScrollReveal delay={300}>
+          <div className="mt-12 overflow-x-auto border border-hairline">
           <div className="relative min-w-[680px]">
             <div className="arch-grid absolute inset-0" aria-hidden="true" />
             <svg
@@ -257,6 +265,7 @@ export function Architecture() {
             </svg>
           </div>
         </div>
+        </ScrollReveal>
       </div>
     </section>
   );
