@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "./LanguageProvider";
+import { ScrollReveal } from "./ScrollReveal";
 import type { Messages } from "@/lib/i18n";
 
 // Deterministic PRNG so server and client render the same ciphertext.
@@ -141,7 +142,7 @@ export function Security() {
     >
       <div className="mx-auto max-w-content">
         <div className="grid items-start gap-10 lg:grid-cols-2">
-          <div className="min-w-0">
+          <ScrollReveal className="min-w-0">
             <span className="label">{`// ${t.security.label}`}</span>
             <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
               {t.security.title}
@@ -162,9 +163,11 @@ export function Security() {
                 </div>
               ))}
             </div>
-          </div>
+          </ScrollReveal>
 
-          <CipherFlow t={t} />
+          <ScrollReveal delay={200}>
+            <CipherFlow t={t} />
+          </ScrollReveal>
         </div>
       </div>
     </section>
