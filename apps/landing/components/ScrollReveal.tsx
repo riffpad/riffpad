@@ -45,7 +45,7 @@ export function ScrollReveal({ children, delay = 0, className = "" }: ScrollReve
   return (
     <div
       ref={ref}
-      className={`${className} ${
+      className={`${className} min-w-0 ${
         reducedMotion
           ? ""
           : visible
