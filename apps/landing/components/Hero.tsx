@@ -21,12 +21,12 @@ export function Hero() {
             {t.hero.title2}
           </h1>
         </ScrollReveal>
-        <ScrollReveal delay={100}>
+        <ScrollReveal delay={75}>
           <p className="mx-auto mt-6 max-w-[560px] text-base leading-[1.7] text-body">
             {t.hero.description}
           </p>
         </ScrollReveal>
-        <ScrollReveal delay={200}>
+        <ScrollReveal delay={150}>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
               href="https://app.riffpad.ai"
@@ -38,12 +38,12 @@ export function Hero() {
             </a>
           </div>
         </ScrollReveal>
-        <ScrollReveal delay={300}>
+        <ScrollReveal delay={225}>
           <InstallCommand />
         </ScrollReveal>
       </div>
 
-      <ScrollReveal delay={400}>
+      <ScrollReveal delay={300}>
         <div className="mt-16 sm:mt-20">
           <DeviceMockup />
         </div>

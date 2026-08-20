@@ -36,7 +36,7 @@ export function Footer() {
             </p>
           </div>
         </ScrollReveal>
-        <ScrollReveal delay={150}>
+        <ScrollReveal delay={100}>
           <div className="flex flex-col gap-4 pt-8 sm:flex-row sm:items-end sm:justify-between">
             <div className="text-xs text-mute">{t.footer.copyright}</div>
             <div className="flex flex-wrap items-center gap-4 sm:gap-6">

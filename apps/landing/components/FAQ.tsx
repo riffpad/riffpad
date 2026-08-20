@@ -17,13 +17,13 @@ export function FAQ() {
         <ScrollReveal>
           <span className="label">{`// ${t.faq.label}`}</span>
         </ScrollReveal>
-        <ScrollReveal delay={100}>
+        <ScrollReveal delay={75}>
           <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
             {t.faq.title}
           </h2>
         </ScrollReveal>
 
-        <ScrollReveal delay={200}>
+        <ScrollReveal delay={150}>
           <div className="card mt-12 divide-y divide-hairline p-2 sm:p-4">
           {t.faq.items.map((item, index) => {
             const isOpen = open === index;

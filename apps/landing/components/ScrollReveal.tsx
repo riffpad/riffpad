@@ -51,7 +51,7 @@ export function ScrollReveal({ children, delay = 0, className = "" }: ScrollReve
           : visible
             ? "translate-y-0 opacity-100"
             : "translate-y-6 opacity-0"
-      } transition-all duration-700 ease-out`}
+      } transition-all duration-500 ease-out`}
       style={reducedMotion ? undefined : { transitionDelay: `${delay}ms` }}
     >
       {children}
