@@ -88,12 +88,12 @@ export function HowItWorks() {
         <ScrollReveal>
           <span className="label">{`// ${t.how.label}`}</span>
         </ScrollReveal>
-        <ScrollReveal delay={100}>
+        <ScrollReveal delay={75}>
           <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
             {t.how.title}
           </h2>
         </ScrollReveal>
-        <ScrollReveal delay={200}>
+        <ScrollReveal delay={150}>
           <p className="mt-3 text-base text-body">{t.how.subtitle}</p>
         </ScrollReveal>
 
@@ -106,7 +106,7 @@ export function HowItWorks() {
             {t.how.steps.map((step, index) => {
               const Visual = visuals[index % visuals.length];
               return (
-                <ScrollReveal key={index} delay={300 + index * 150}>
+                <ScrollReveal key={index} delay={225 + index * 110}>
                   <div className="card relative flex flex-col p-6 sm:p-8">
                     <span className="text-3xl font-bold text-accent">
                       {String(index + 1).padStart(2, "0")}

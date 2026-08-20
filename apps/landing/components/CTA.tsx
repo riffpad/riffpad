@@ -13,12 +13,12 @@ export function CTA() {
           {t.cta.title}
         </h2>
       </ScrollReveal>
-      <ScrollReveal delay={100}>
+      <ScrollReveal delay={75}>
         <p className="mx-auto mt-4 max-w-[560px] text-base text-body">
           {t.cta.description}
         </p>
       </ScrollReveal>
-      <ScrollReveal delay={200}>
+      <ScrollReveal delay={150}>
         <a
           href="https://app.riffpad.ai"
           target="_blank"
@@ -28,7 +28,7 @@ export function CTA() {
           {t.cta.button} <span aria-hidden="true">→</span>
         </a>
       </ScrollReveal>
-      <ScrollReveal delay={300}>
+      <ScrollReveal delay={225}>
         <p className="mt-4 text-xs text-mute">{t.cta.note}</p>
       </ScrollReveal>
     </section>

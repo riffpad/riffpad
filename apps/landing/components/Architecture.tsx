@@ -135,16 +135,16 @@ export function Architecture() {
         <ScrollReveal>
           <span className="label">{`// ${a.label}`}</span>
         </ScrollReveal>
-        <ScrollReveal delay={100}>
+        <ScrollReveal delay={75}>
           <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
             {a.title}
           </h2>
         </ScrollReveal>
-        <ScrollReveal delay={200}>
+        <ScrollReveal delay={150}>
           <p className="mt-3 text-base text-body">{a.description}</p>
         </ScrollReveal>
 
-        <ScrollReveal delay={300}>
+        <ScrollReveal delay={225}>
           <div className="mt-12 overflow-x-auto border border-hairline">
           <div className="relative min-w-[680px]">
             <div className="arch-grid absolute inset-0" aria-hidden="true" />

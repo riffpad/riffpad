@@ -165,7 +165,7 @@ export function Security() {
             </div>
           </ScrollReveal>
 
-          <ScrollReveal delay={200}>
+          <ScrollReveal delay={150}>
             <CipherFlow t={t} />
           </ScrollReveal>
         </div>
