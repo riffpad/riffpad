@@ -107,7 +107,7 @@ export function HowItWorks() {
               const Visual = visuals[index % visuals.length];
               return (
                 <ScrollReveal key={index} delay={225 + index * 110}>
-                  <div className="card relative flex flex-col p-6 sm:p-8">
+                  <div className="card relative flex h-full flex-col p-6 sm:p-8">
                     <span className="text-3xl font-bold text-accent">
                       {String(index + 1).padStart(2, "0")}
                     </span>
