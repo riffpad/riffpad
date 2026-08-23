@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 
 type ptyTestTerm struct {
 	m        *os.File
+	mu       sync.Mutex
 	lastCols uint16
 	lastRows uint16
 }
@@ -30,12 +32,23 @@ type ptyTestTerm struct {
 func (t *ptyTestTerm) Read(p []byte) (int, error)  { return t.m.Read(p) }
 func (t *ptyTestTerm) Write(p []byte) (int, error) { return t.m.Write(p) }
 func (t *ptyTestTerm) Close() error                { return t.m.Close() }
-func (t *ptyTestTerm) Resize(c, r uint16) error    { t.lastCols, t.lastRows = c, r; return nil }
+func (t *ptyTestTerm) Resize(c, r uint16) error {
+	t.mu.Lock()
+	t.lastCols, t.lastRows = c, r
+	t.mu.Unlock()
+	return nil
+}
+func (t *ptyTestTerm) LastSize() (uint16, uint16) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.lastCols, t.lastRows
+}
 
 type ptyTestAdapter struct {
 	id     string
 	events chan protocol.Event
 	master *os.File
+	mu     sync.Mutex
 	last   *ptyTestTerm
 }
 
@@ -50,8 +63,16 @@ func (f *ptyTestAdapter) SendPrompt(_ string) error      { return nil }
 func (f *ptyTestAdapter) Alive() bool                    { return true }
 func (f *ptyTestAdapter) Stop() error                    { return nil }
 func (f *ptyTestAdapter) AttachPTY() (adapter.Terminal, error) {
-	f.last = &ptyTestTerm{m: f.master}
-	return f.last, nil
+	term := &ptyTestTerm{m: f.master}
+	f.mu.Lock()
+	f.last = term
+	f.mu.Unlock()
+	return term, nil
+}
+func (f *ptyTestAdapter) LastTerm() *ptyTestTerm {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.last
 }
 
 func TestPTYConsoleRoundTrip(t *testing.T) {
@@ -139,13 +160,28 @@ func TestPTYConsoleRoundTrip(t *testing.T) {
 	if err := conn.WriteJSON(map[string]any{"resize": map[string]uint16{"cols": 120, "rows": 40}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := srv.ptys["pty-1"]; got == nil {
+	srv.mu.Lock()
+	got := srv.ptys["pty-1"]
+	srv.mu.Unlock()
+	if got == nil {
 		t.Fatal("console not registered")
 	}
 	deadline = time.Now().Add(5 * time.Second)
-	for ad.last == nil || ad.last.lastCols != 120 || ad.last.lastRows != 40 {
+	for {
+		term := ad.LastTerm()
+		if term != nil {
+			cols, rows := term.LastSize()
+			if cols == 120 && rows == 40 {
+				break
+			}
+		}
 		if time.Now().After(deadline) {
-			t.Fatalf("resize not applied: cols=%d rows=%d", ad.last.lastCols, ad.last.lastRows)
+			term := ad.LastTerm()
+			var cols, rows uint16
+			if term != nil {
+				cols, rows = term.LastSize()
+			}
+			t.Fatalf("resize not applied: cols=%d rows=%d", cols, rows)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
