@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeToggle } from "./ThemeToggle";
 import { MobileMenu } from "./MobileMenu";
 import { GitHubIcon, BookIcon } from "./icons";
 import { useLanguage } from "./LanguageProvider";
+import githubStars from "../lib/github-stars.json";
 
 function formatStars(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
@@ -19,19 +19,7 @@ function GitHubLink({
   compact?: boolean;
   className?: string;
 }) {
-  const [stars, setStars] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch("https://api.github.com/repos/riffpad/riffpad")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data && typeof data.stargazers_count === "number") {
-          setStars(data.stargazers_count);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
+  const stars = githubStars.stars;
   return (
     <a
       href="https://github.com/riffpad/riffpad"
