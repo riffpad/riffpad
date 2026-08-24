@@ -104,6 +104,24 @@ export function Footer() {
                   className="block h-8 w-auto opacity-80 transition-opacity hover:opacity-100"
                 />
               </a>
+              <a
+                href="https://www.uneed.best/tool/riffpad"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Featured on Uneed"
+              >
+                <img
+                  src={
+                    theme === "dark"
+                      ? "https://www.uneed.best/EMBED1.png"
+                      : "https://www.uneed.best/EMBED1A.png"
+                  }
+                  alt="Featured on Uneed"
+                  width="250"
+                  height="62"
+                  className="block h-8 w-auto opacity-80 transition-opacity hover:opacity-100"
+                />
+              </a>
             </div>
           </div>
         </ScrollReveal>
