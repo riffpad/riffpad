@@ -5,7 +5,7 @@ import { useLanguage } from "./LanguageProvider";
 
 const COMMAND = "curl -fsSL https://riffpad.ai/SKILL.md";
 
-export function InstallCommand() {
+export function InstallCommand({ className = "" }: { className?: string }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
@@ -20,7 +20,7 @@ export function InstallCommand() {
   };
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-[560px]">
+    <div className={`w-full max-w-[560px] ${className}`}>
       <p className="mb-3 text-sm font-semibold text-ink">
         {t.install.tagline}
       </p>

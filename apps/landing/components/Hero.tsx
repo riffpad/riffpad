@@ -3,7 +3,6 @@
 import { useLanguage } from "./LanguageProvider";
 import { DeviceMockup } from "./DeviceMockup";
 import { InstallCommand } from "./InstallCommand";
-import { ScrollReveal } from "./ScrollReveal";
 
 export function Hero() {
   const { t } = useLanguage();
@@ -11,23 +10,19 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="mx-auto max-w-frame scroll-mt-20 px-4 pb-12 pt-10 sm:px-6 sm:pb-28 sm:pt-20"
+      className="flex min-h-[calc(100svh-3.5rem)] scroll-mt-14 items-center px-4 sm:px-6 lg:px-8"
     >
-      <div className="mx-auto max-w-content text-center">
-        <ScrollReveal>
-          <h1 className="text-balance text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">
+      <div className="mx-auto grid w-full max-w-[1280px] items-center gap-8 py-10 sm:gap-10 sm:py-12 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-16">
+        <div className="text-left">
+          <h1 className="text-balance text-[28px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[40px] lg:text-[52px]">
             {t.hero.title1}
             <br />
             {t.hero.title2}
           </h1>
-        </ScrollReveal>
-        <ScrollReveal delay={75}>
-          <p className="mx-auto mt-6 max-w-[560px] text-base leading-[1.7] text-body">
+          <p className="mt-5 max-w-[540px] text-base leading-[1.7] text-body sm:mt-6 sm:text-lg">
             {t.hero.description}
           </p>
-        </ScrollReveal>
-        <ScrollReveal delay={150}>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-6 flex flex-col items-start gap-3 sm:mt-8 sm:flex-row">
             <a
               href="https://app.riffpad.ai"
               target="_blank"
@@ -37,17 +32,15 @@ export function Hero() {
               {t.hero.ctaPrimary}
             </a>
           </div>
-        </ScrollReveal>
-        <ScrollReveal delay={225}>
-          <InstallCommand />
-        </ScrollReveal>
-      </div>
-
-      <ScrollReveal delay={300}>
-        <div className="mt-16 sm:mt-20">
-          <DeviceMockup />
+          <InstallCommand className="mt-8 sm:mt-10" />
         </div>
-      </ScrollReveal>
+
+        <div className="relative flex min-w-0 items-center justify-center">
+          <div className="origin-center scale-[0.68] sm:scale-[0.8] lg:scale-[0.88] xl:scale-100">
+            <DeviceMockup />
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
