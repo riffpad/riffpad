@@ -98,13 +98,11 @@
   body {
     @apply bg-canvas font-mono text-ink antialiased;
     text-rendering: optimizeLegibility;
-    /* Subtle dot grid that adds texture without competing with content. */
-    background-image: radial-gradient(
-      circle at center,
-      var(--hairline) 1px,
-      transparent 1px
-    );
-    background-size: 24px 24px;
+    /* Subtle line grid that adds texture without competing with content. */
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--hairline) 50%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--hairline) 50%, transparent) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
   ::selection {
@@ -169,8 +167,9 @@
     display: none;
   }
 
-  /* Soft accent glow placed behind the hero mockup. */
-  .hero-glow {
+  /* Aperture spotlight behind the hero mockup: a defined circular pool
+     of light with a visible edge, like a stage spot. */
+  .hero-aperture {
     position: absolute;
     top: 50%;
     right: 0;
@@ -180,8 +179,9 @@
     pointer-events: none;
     background: radial-gradient(
       circle at 50% 50%,
-      color-mix(in srgb, var(--accent) 10%, transparent) 0%,
-      transparent 70%
+      color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 8%, transparent) 40%,
+      transparent 65%
     );
     z-index: 0;
   }
