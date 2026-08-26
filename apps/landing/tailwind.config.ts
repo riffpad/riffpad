@@ -76,7 +76,7 @@ const config: Config = {
       },
       maxWidth: {
         content: "960px",
-        frame: "1100px",
+        frame: "1320px",
       },
     },
   },

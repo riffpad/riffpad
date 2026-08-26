@@ -3,7 +3,6 @@
 import { BookIcon, DiscordIcon, GitHubIcon, MailIcon, XIcon } from "./icons";
 import { useLanguage } from "./LanguageProvider";
 import { useTheme } from "./ThemeProvider";
-import { WaitlistForm } from "./WaitlistForm";
 import { ScrollReveal } from "./ScrollReveal";
 
 export function Footer() {
@@ -14,30 +13,7 @@ export function Footer() {
     <footer className="border-t border-hairline bg-surface">
       <div className="mx-auto max-w-frame px-4 py-12 sm:px-6">
         <ScrollReveal>
-          <div className="flex flex-col items-center gap-4 border-b border-hairline pb-12 text-center">
-            <p className="text-sm text-body">
-              {t.hero.betaPrefix}{" "}
-              <span className="font-semibold text-ink">{t.hero.betaWaitlist}</span>
-            </p>
-            <WaitlistForm />
-            <p className="text-sm text-body">
-              {t.hero.betaOr}{" "}
-              <a
-                href="https://discord.gg/CDNFTg2QyM"
-                target="_blank"
-                rel="noreferrer"
-                className="group inline-flex items-center gap-1.5 font-semibold text-ink transition-colors hover:text-accent"
-              >
-                <DiscordIcon className="h-4 w-4 shrink-0" />
-                <span className="underline decoration-hairline-strong underline-offset-4 transition-colors group-hover:decoration-accent">
-                  {t.hero.betaDiscord}
-                </span>
-              </a>
-            </p>
-          </div>
-        </ScrollReveal>
-        <ScrollReveal delay={100}>
-          <div className="flex flex-col gap-4 pt-8 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="text-xs text-mute">{t.footer.copyright}</div>
             <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               <nav

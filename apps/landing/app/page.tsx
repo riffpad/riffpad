@@ -11,13 +11,19 @@ export default function Home() {
   return (
     <>
       <Header />
-      <main>
+      <main className="relative">
         <Hero />
-        <Architecture />
+        <div className="bg-surface-muted">
+          <Architecture />
+        </div>
         <HowItWorks />
-        <Security />
+        <div className="bg-surface-muted">
+          <Security />
+        </div>
         <FAQ />
-        <CTA />
+        <div className="bg-surface-muted">
+          <CTA />
+        </div>
       </main>
       <Footer />
     </>

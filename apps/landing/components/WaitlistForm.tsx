@@ -9,7 +9,7 @@ const WAITLIST_ENDPOINT = `${API_URL}/api/waitlist/subscribe`;
 
 type Status = "idle" | "submitting" | "success" | "error";
 
-export function WaitlistForm() {
+export function WaitlistForm({ className = "" }: { className?: string }) {
   const { t } = useLanguage();
   const [status, setStatus] = useState<Status>("idle");
 
@@ -43,7 +43,7 @@ export function WaitlistForm() {
   }
 
   return (
-    <div className="mt-3 flex flex-col items-center gap-2">
+    <div className={`mt-3 flex flex-col gap-2 ${className}`}>
       <form
         onSubmit={handleSubmit}
         className="flex items-stretch gap-2"

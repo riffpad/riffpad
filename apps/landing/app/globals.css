@@ -98,6 +98,11 @@
   body {
     @apply bg-canvas font-mono text-ink antialiased;
     text-rendering: optimizeLegibility;
+    /* Subtle line grid that adds texture without competing with content. */
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--hairline) 35%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--hairline) 35%, transparent) 1px, transparent 1px);
+    background-size: 72px 72px;
   }
 
   ::selection {
@@ -160,6 +165,27 @@
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Bubble-like aperture behind the hero mockup: off-center, with a
+     defined round edge and a small highlight sheen. */
+  .hero-aperture {
+    position: absolute;
+    top: 5%;
+    right: -5%;
+    width: 80%;
+    height: 90%;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.08) 0%, transparent 14%),
+      radial-gradient(
+        circle at 55% 45%,
+        color-mix(in srgb, var(--accent) 18%, transparent) 0%,
+        color-mix(in srgb, var(--accent) 8%, transparent) 38%,
+        color-mix(in srgb, var(--accent) 3%, transparent) 58%,
+        transparent 72%
+      );
+    z-index: 0;
   }
 }
 
