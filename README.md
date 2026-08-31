@@ -20,6 +20,10 @@
 
 Riffpad bridges the AI coding CLI running on your machine to your phone, so a long refactor doesn't chain you to the desk:
 
+<video src="https://app.riffpad.ai/riffpad-demo.mp4" controls width="100%">
+  <a href="https://app.riffpad.ai/riffpad-demo.mp4">Watch the demo video</a>
+</video>
+
 **Watch** — the agent's output streams live to your phone:
 
 <picture>
