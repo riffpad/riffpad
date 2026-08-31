@@ -20,8 +20,8 @@
 
 Riffpad 把跑在你电脑上的 AI coding CLI 桥接到手机，让长时间重构不再把你钉在工位上：
 
-<video src="https://app.riffpad.ai/riffpad-demo.mp4" controls width="100%">
-  <a href="https://app.riffpad.ai/riffpad-demo.mp4">观看演示视频</a>
+<video src="https://github.com/riffpad/riffpad/releases/download/v0.2.6/riffpad-demo.mp4" controls width="100%">
+  <a href="https://github.com/riffpad/riffpad/releases/download/v0.2.6/riffpad-demo.mp4">观看演示视频</a>
 </video>
 
 **Watch（看）** — agent 的输出实时同步到手机：
