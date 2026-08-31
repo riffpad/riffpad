@@ -20,7 +20,7 @@
 
 Riffpad bridges the AI coding CLI running on your machine to your phone, so a long refactor doesn't chain you to the desk:
 
-https://raw.githubusercontent.com/riffpad/riffpad/main/.github/assets/riffpad-demo.mp4
+https://github.com/user-attachments/assets/ba55d433-2cb7-4469-98da-608fb828f583
 
 **Watch** — the agent's output streams live to your phone:
 
