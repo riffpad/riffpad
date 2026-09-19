@@ -1055,6 +1055,18 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 	token := registerUser(t, ts, "hb-viewer")
 	hostID, hostSecret := registerHost(t, ts, token, "laptop")
 	hostConn := dialHostWS(t, ts, hostID, hostSecret)
+	// Keep the host alive: it is subject to the same shrunk heartbeat, and a Go
+	// websocket client only answers pings while it is reading. Without this
+	// drain the relay drops the host after wsPongTimeout, wipes its sessions
+	// (so the viewer dial below races a 404) and closes the viewer itself —
+	// which would make the silence assertion below pass for the wrong reason.
+	go func() {
+		for {
+			if _, _, err := hostConn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
 	fr, _ := json.Marshal(hostFrame{Kind: "sessions", Sessions: []SessionMeta{{ID: "s1", Name: "demo", CLI: "claude", Cwd: "/tmp", Status: "running"}}})
 	if err := hostConn.WriteMessage(websocket.TextMessage, fr); err != nil {
 		t.Fatal(err)
@@ -1099,9 +1111,16 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 
 	h.mu.Lock()
 	n := len(h.viewers)
+	hostLive := h.hosts[hostID] != nil
 	h.mu.Unlock()
 	if n != 0 {
 		t.Fatalf("silent viewer still registered: %d", n)
+	}
+	// The host must still be connected: removeHost tears down a host's viewers
+	// too, so a dead host would satisfy the check above without proving that a
+	// silent viewer is dropped on its own.
+	if !hostLive {
+		t.Fatal("host connection was dropped too; the viewer silence was not isolated")
 	}
 }
 
