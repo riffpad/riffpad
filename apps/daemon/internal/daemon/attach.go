@@ -279,7 +279,7 @@ func (s *Server) handleHookSessionEnd(w http.ResponseWriter, r *http.Request) {
 	sid := hookSessionID(r, p)
 	sess := s.getSession(sid)
 	if sess != nil {
-		sess.status = protocol.StatusDone
+		sess.setStatus(protocol.StatusDone)
 		ev, err := protocol.NewEvent(sid, protocol.EventSessionEnd, protocol.SessionEndPayload{Reason: p.Reason})
 		if err == nil {
 			s.pumpEvent(sess, ev)

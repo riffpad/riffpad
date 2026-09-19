@@ -80,6 +80,37 @@ func (sess *session) getAdapter() adapter.Session {
 	return sess.adapter
 }
 
+// sess.mu guards every mutable field on session (status, ended, lastSeen,
+// lease, lastHB, leaseMissed, connect, adapter, seq, history, clients). The
+// snapshot/update helpers below are the only place those fields are touched
+// outside the lock, so no caller has to remember the rule (#312).
+
+// state returns the session's status and ended flag in one atomic read.
+func (sess *session) state() (status string, ended bool) {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	return sess.status, sess.ended
+}
+
+func (sess *session) setState(status string, ended bool) {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	sess.status = status
+	sess.ended = ended
+}
+
+func (sess *session) setStatus(status string) {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	sess.status = status
+}
+
+func (sess *session) isEnded() bool {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	return sess.ended
+}
+
 // Server is the local daemon HTTP/WS server.
 type Server struct {
 	cfg         *config.Config
@@ -361,7 +392,8 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 	s.mu.Unlock()
 	for _, sess := range sessions {
-		if sess.managed && !sess.ended {
+		managed, ended := sess.managed, sess.isEnded()
+		if managed && !ended {
 			s.log.Printf("shutdown: stopping spawned session %s", sess.id)
 			_ = sess.getAdapter().Stop()
 		}
@@ -670,18 +702,20 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		list := make([]map[string]any, 0, len(s.sessions))
 		for _, sess := range s.sessions {
+			sess.mu.Lock()
 			if sess.ended {
+				sess.mu.Unlock()
 				continue
 			}
-			sess.mu.Lock()
 			lastSeen := sess.lastSeen
+			status := sess.status
 			sess.mu.Unlock()
 			list = append(list, map[string]any{
 				"id":       sess.id,
 				"name":     sess.meta.Name,
 				"cli":      sess.meta.CLI,
 				"cwd":      sess.meta.Cwd,
-				"status":   sess.status,
+				"status":   status,
 				"lastSeen": lastSeen,
 			})
 		}
@@ -838,12 +872,14 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessionHeartbeat(w http.ResponseWriter, id string) {
 	s.mu.Lock()
 	sess, ok := s.sessions[id]
+	s.mu.Unlock()
 	if ok {
+		sess.mu.Lock()
 		sess.lease = true
 		sess.lastHB = time.Now()
 		sess.leaseMissed = false
+		sess.mu.Unlock()
 	}
-	s.mu.Unlock()
 	if !ok {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
@@ -862,7 +898,7 @@ func (s *Server) stopSession(id string) {
 	if !ok {
 		return
 	}
-	sess.ended = true
+	sess.setState(protocol.StatusDone, true)
 	s.persistSession(sess)
 	s.announceSessions()
 	_ = sess.getAdapter().Stop()
@@ -925,11 +961,10 @@ func (s *Server) pumpEvent(sess *session, ev protocol.Event) {
 		var p protocol.AgentStatusPayload
 		_ = ev.DecodePayload(&p)
 		if ev.Type == protocol.EventSessionEnd {
-			sess.status = protocol.StatusDone
-			sess.ended = true
+			sess.setState(protocol.StatusDone, true)
 			s.announceSessions()
 		} else if p.Status != "" {
-			sess.status = p.Status
+			sess.setStatus(p.Status)
 		}
 	}
 	ev = sess.addEvent(ev)
@@ -961,7 +996,7 @@ func (s *Server) sweepOnce() {
 	}
 	s.mu.Unlock()
 	for _, sess := range sessions {
-		s.mu.Lock()
+		sess.mu.Lock()
 		leaseExpired := sess.lease && time.Since(sess.lastHB) > 20*time.Second
 		alreadyEnded := sess.ended
 		// Grace period (#170): after a system sleep the sweep ticker and the
@@ -972,7 +1007,8 @@ func (s *Server) sweepOnce() {
 		if grace {
 			sess.leaseMissed = true
 		}
-		s.mu.Unlock()
+		status := sess.status
+		sess.mu.Unlock()
 		if grace {
 			s.log.Printf("session %s lease expired; granting one sweep period before closing", sess.id)
 			continue
@@ -982,7 +1018,7 @@ func (s *Server) sweepOnce() {
 			s.stopSession(sess.id)
 			continue
 		}
-		if sess.status != protocol.StatusRunning {
+		if status != protocol.StatusRunning {
 			continue
 		}
 		if _, isAttach := sess.getAdapter().(*attachAdapter); isAttach {
@@ -1037,15 +1073,17 @@ func (s *Server) announceSessions() {
 	s.mu.Lock()
 	list := make([]RelaySession, 0, len(s.sessions))
 	for _, sess := range s.sessions {
+		sess.mu.Lock()
 		if sess.ended {
+			sess.mu.Unlock()
 			continue
 		}
-		sess.mu.Lock()
 		lastSeen := sess.lastSeen
+		status := sess.status
 		sess.mu.Unlock()
 		list = append(list, RelaySession{
 			ID: sess.id, Name: sess.meta.Name, CLI: sess.meta.CLI,
-			Cwd: sess.meta.Cwd, Status: sess.status, LastSeenAt: lastSeen,
+			Cwd: sess.meta.Cwd, Status: status, LastSeenAt: lastSeen,
 		})
 	}
 	s.mu.Unlock()

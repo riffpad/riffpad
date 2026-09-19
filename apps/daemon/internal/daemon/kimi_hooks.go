@@ -113,10 +113,10 @@ func (s *Server) handleKimiHook(w http.ResponseWriter, r *http.Request) {
 
 	switch event {
 	case "session-start":
-		sess.status = protocol.StatusRunning
+		sess.setStatus(protocol.StatusRunning)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	case "session-end":
-		sess.status = protocol.StatusDone
+		sess.setStatus(protocol.StatusDone)
 		if ev, err := protocol.NewEvent(sid, protocol.EventSessionEnd,
 			protocol.SessionEndPayload{Reason: p.Reason}); err == nil {
 			s.pumpEvent(sess, ev)
