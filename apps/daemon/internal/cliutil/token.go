@@ -3,8 +3,11 @@
 package cliutil
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +50,24 @@ func LocalToken() string {
 		}
 	})
 	return cliToken
+}
+
+// DaemonBase returns the local daemon's base URL. RIFFPAD_URL wins when set;
+// otherwise the port comes from config.json (the same Config.Port the daemon
+// binds, env overrides included); otherwise the default. Every CLI command
+// that talks to the local daemon must resolve its base through here — a
+// self-hosted daemon on a custom port is unreachable otherwise (#316).
+func DaemonBase() string {
+	if v := os.Getenv("RIFFPAD_URL"); v != "" {
+		return strings.TrimSuffix(v, "/")
+	}
+	port := config.Default().Port
+	if cliDataDir != "" {
+		if cfg, err := config.Load(cliDataDir); err == nil && cfg.Port > 0 {
+			port = cfg.Port
+		}
+	}
+	return fmt.Sprintf("http://127.0.0.1:%d", port)
 }
 
 // DaemonDo performs an authenticated request against the local daemon API.
