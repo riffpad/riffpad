@@ -112,9 +112,16 @@ jobs:
         working-directory: apps/daemon
         run: go build -o bin/riffpad ./cmd/riffpad
 
+      - name: Build relay
+        working-directory: apps/relay
+        run: go build -o bin/relay .
+
       - name: Install Playwright browsers
         working-directory: apps/client-beta
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Core-path smoke (login → pair → run → approve, through the relay)
+        run: node scripts/e2e-core-smoke.mjs
 
       - name: Run UI smoke tests
         working-directory: apps/client-beta

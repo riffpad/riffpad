@@ -6,7 +6,8 @@
   "scripts": {
     "dev:mobile": "pnpm --filter mobile dev",
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "test:smoke": "node scripts/e2e-core-smoke.mjs"
   },
   "packageManager": "pnpm@9.0.0"
 }
