@@ -245,10 +245,10 @@
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
 | T1 | relay hub 拆分（`apps/relay/internal/hub/hub.go` 1588 行） | `[~]` | `hub.go` 收敛为路由表 + wiring；各关注点独立文件、独立可测；HTTP 路由不变。Phase 0–2 已合并（#311，1588 → 921：`util.go` / `websocket.go` / `auth.go` / `oauth.go`）；剩 Phase 3–5（REST 拆分、WS 拆分、路由表测试） | #294 |
-| T2 | daemon server 拆分（`server.go` 1115 行） | `[ ]` | `server.go` 变薄壳编排；api / session / pairing / relay / sweep 各成模块 | #295 |
+| T2 | daemon server 拆分（`server.go` 1153 行） | `[x]` | 已合并 #318：`server.go` 1153 → 237（只剩 Server 结构体 / New 装配 / 路由表 / Start·Shutdown）；拆出 `devices.go` / `session.go` / `sweep.go` / `codex_cleanup.go` / `http.go`，relay 胶水并入 `relay.go` | #295 |
 | T3 | client-beta sessionSocket 分层（471 行） | `[ ]` | `lib/crypto.ts` 已抽出；剩余 socket 生命周期与协议分层，crypto 纯函数无 WS 依赖 | #296 |
 | T4 | relay store 按域拆分（`store.go` 478 行） | `[ ]` | 每个 store 文件 < 300 行；schema 不变 | #297 |
-| T5 | CLI adapter 拆分 parser / runtime | `[ ]` | codex 1044 / kimi 817 / claude 760 → 每个 < 500 行；parser 可用 fixture 单测 | #298 |
+| T5 | CLI adapter 拆分 parser / runtime | `[x]` | 已合并 #319：codex 1044 → 434、kimi 817 → 336、claude 760 → 295，各自拆出 `*_rpc.go` / `*_events.go`（kimi 另有 `kimi_home.go`、claude 另有 `claude_hooks.go`）；顺带修掉 `claude.go` 的历史 gofmt 违规 | #298 |
 | T6 | daemon 次要模块拆分 | `[ ]` | attach 642 / relay 380 / ws 360 / kimi_hooks 322 / commands/auth 394 → 每个 < 300 行 | #299 |
 | T7 | 前端大组件拆分 | `[ ]` | DeviceMockup 600 / SessionDetailView 532 / SessionListView 376 拆为子组件 | #300 |
 
