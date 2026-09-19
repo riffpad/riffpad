@@ -104,6 +104,7 @@ func TestGitHubEndpointsFromEnv(t *testing.T) {
 	t.Setenv("GITHUB_AUTHORIZE_URL", "http://127.0.0.1:1/authorize")
 	t.Setenv("GITHUB_TOKEN_URL", "http://127.0.0.1:2/token")
 	t.Setenv("GITHUB_USER_URL", "http://127.0.0.1:3/user")
+	t.Setenv("GITHUB_REDIRECT_URL", "http://127.0.0.1:4/api/auth/github/callback")
 
 	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
 	if err != nil {
@@ -117,6 +118,9 @@ func TestGitHubEndpointsFromEnv(t *testing.T) {
 	}
 	if h.githubUserURL != "http://127.0.0.1:3/user" {
 		t.Errorf("user URL = %q", h.githubUserURL)
+	}
+	if h.githubRedirectURL != "http://127.0.0.1:4/api/auth/github/callback" {
+		t.Errorf("redirect URL = %q", h.githubRedirectURL)
 	}
 
 	// Defaults stay production GitHub when nothing is set.

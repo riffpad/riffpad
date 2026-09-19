@@ -49,7 +49,7 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 	redirect, _ := url.Parse(h.githubAuthorizeURL)
 	q := redirect.Query()
 	q.Set("client_id", h.githubID)
-	q.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
+	q.Set("redirect_uri", h.githubRedirectURL)
 	q.Set("scope", "read:user")
 	q.Set("state", state)
 	redirect.RawQuery = q.Encode()
@@ -100,7 +100,7 @@ func (h *Hub) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	form.Set("client_id", h.githubID)
 	form.Set("client_secret", h.githubSecret)
 	form.Set("code", code)
-	form.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")
+	form.Set("redirect_uri", h.githubRedirectURL)
 	tokenReq, err := http.NewRequest(http.MethodPost, h.githubTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "github token exchange failed")
