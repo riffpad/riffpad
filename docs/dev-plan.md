@@ -263,3 +263,7 @@ T7 (#300) 独立
 ```
 
 **波次**：Wave 1 = T1 → T4（relay）；Wave 2 = T2 → T5 → T6（daemon）；Wave 3 = T3 → T7（client-beta）。Wave 1 与 Wave 2 分属不同 app，可并行，但每个 PR 都是千行级纯搬迁 diff，建议串行以便 review。
+
+**批次已完成（#294–#300 全关）**。过程中另修 6 个问题：daemon session 状态 data race（#312）、relay GitHub redirect URI 硬编码导致自建 relay 无法登录（#329）、CLI 不读 config.json 端口（#316）、smoke test teardown 竞态（#322）、relay 测试 flake 且长期"因错误原因通过"（#324）、部署 job 并发竞态（#327）。
+
+**回归网现状**：`scripts/e2e-core-smoke.mjs`（二进制级链路，13 检查）+ `test:e2e:core`（真浏览器走完 login→pair→run→审批）+ relay 套件同时跑 SQLite 与 **Postgres**（`RIFFPAD_TEST_DATABASE_URL`）。覆盖率：relay 74.9% / daemon 65.3% / commands 48.9% / codex 40.2% / claude 39.0% / kimi 15.4%。
