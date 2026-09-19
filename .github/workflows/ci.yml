@@ -47,6 +47,22 @@ jobs:
   go:
     name: Go tests
     runs-on: ubuntu-latest
+    services:
+      # Production runs Postgres; these tests run SQLite by default, so the
+      # relay suite is re-run against Postgres below to catch dialect drift.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: riffpad
+          POSTGRES_PASSWORD: riffpad
+          POSTGRES_DB: riffpad_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,6 +82,14 @@ jobs:
 
       - name: Test relay
         working-directory: apps/relay
+        run: go test -race ./...
+
+      # The same suite, against the database production actually uses. Without
+      # this every store test passes on a dialect nobody deploys.
+      - name: Test relay (Postgres)
+        working-directory: apps/relay
+        env:
+          RIFFPAD_TEST_DATABASE_URL: postgres://riffpad:riffpad@127.0.0.1:5432/riffpad_test?sslmode=disable
         run: go test -race ./...
 
       - name: Test protocol

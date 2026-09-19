@@ -6,7 +6,7 @@ import (
 )
 
 func TestFindOrCreateGitHubUser(t *testing.T) {
-	s, err := OpenStore(t.TempDir(), "")
+	s, err := OpenStore(t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestFindOrCreateGitHubUser(t *testing.T) {
 }
 
 func TestGitHubUserLoginFailsWithoutPassword(t *testing.T) {
-	s, err := OpenStore(t.TempDir(), "")
+	s, err := OpenStore(t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestGitHubUserLoginFailsWithoutPassword(t *testing.T) {
 }
 
 func TestUpsertSessionsKeepsAnnouncedLastSeenAt(t *testing.T) {
-	s, err := OpenStore(t.TempDir(), "")
+	s, err := OpenStore(t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestUpsertSessionsKeepsAnnouncedLastSeenAt(t *testing.T) {
 }
 
 func TestSessionClientMetaStore(t *testing.T) {
-	s, err := OpenStore(t.TempDir(), "")
+	s, err := OpenStore(t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}

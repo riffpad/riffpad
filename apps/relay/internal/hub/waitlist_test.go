@@ -17,7 +17,7 @@ func newWaitlistTestHub(t *testing.T) (*Hub, *httptest.Server) {
 	t.Setenv("UNSUBSCRIBE_SECRET", "test-secret")
 	t.Setenv("WAITLIST_ADMIN_KEY", "admin-key")
 	t.Setenv("RIFFPAD_WEB_ORIGINS", "https://riffpad.ai,https://www.riffpad.ai")
-	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
+	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
