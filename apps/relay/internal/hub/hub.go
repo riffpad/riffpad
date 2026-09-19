@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -24,33 +23,6 @@ import (
 )
 
 const version = "0.2.0"
-
-// WebSocket heartbeat parameters, shared by host and viewer connections.
-// Pings go out every wsPingPeriod; if no pong (or any other frame) arrives
-// within wsPongWait the connection is treated as half-open and torn down.
-// Atomics (not constants) so tests can shrink them without data races.
-var (
-	wsWriteWait  atomic.Int64
-	wsPingPeriod atomic.Int64
-	wsPongWait   atomic.Int64
-)
-
-func init() {
-	wsWriteWait.Store(int64(10 * time.Second))
-	wsPingPeriod.Store(int64(30 * time.Second))
-	wsPongWait.Store(int64(75 * time.Second))
-}
-
-func wsWriteDeadline() time.Time    { return time.Now().Add(time.Duration(wsWriteWait.Load())) }
-func wsPingInterval() time.Duration { return time.Duration(wsPingPeriod.Load()) }
-func wsPongTimeout() time.Duration  { return time.Duration(wsPongWait.Load()) }
-
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
 
 // oauthState tracks a pending GitHub authorization. device is set when the
 // flow was started from the CLI device-login page.
@@ -141,11 +113,6 @@ type Hub struct {
 	webOrigins     []string
 }
 
-type ipCounter struct {
-	count       int
-	windowStart time.Time
-}
-
 func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 	store, err := OpenStore(dataDir, databaseURL)
 	if err != nil {
@@ -174,16 +141,6 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 	}, nil
 }
 
-func splitCSV(s string) []string {
-	var out []string
-	for _, p := range strings.Split(s, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
 // apiOnly reports whether this vhost is an API-only host (e.g. api.riffpad.ai):
 // API and WebSocket routes keep working, but the web UI is not served here.
 func (h *Hub) apiOnly(r *http.Request) bool {
@@ -194,10 +151,6 @@ func (h *Hub) apiOnly(r *http.Request) bool {
 		}
 	}
 	return false
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(*http.Request) bool { return true },
 }
 
 func (h *Hub) Handler() http.Handler {
@@ -1467,51 +1420,6 @@ func (h *Hub) hostSend(host *hostConn, fr hostFrame) {
 	}
 }
 
-func (h *hostConn) writeLoop() {
-	ticker := time.NewTicker(wsPingInterval())
-	defer ticker.Stop()
-	for {
-		select {
-		case data := <-h.send:
-			_ = h.conn.SetWriteDeadline(wsWriteDeadline())
-			h.writeMu.Lock()
-			err := h.conn.WriteMessage(websocket.TextMessage, data)
-			h.writeMu.Unlock()
-			if err != nil {
-				return
-			}
-		case <-ticker.C:
-			if err := h.conn.WriteControl(websocket.PingMessage, nil, wsWriteDeadline()); err != nil {
-				return
-			}
-		case <-h.done:
-			return
-		}
-	}
-}
-
-func (v *viewerConn) writeLoop() {
-	ticker := time.NewTicker(wsPingInterval())
-	defer ticker.Stop()
-	for {
-		select {
-		case data := <-v.send:
-			_ = v.conn.SetWriteDeadline(wsWriteDeadline())
-			if err := v.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-				return
-			}
-		case <-ticker.C:
-			if err := v.conn.WriteControl(websocket.PingMessage, nil, wsWriteDeadline()); err != nil {
-				return
-			}
-		case <-v.done:
-			return
-		}
-	}
-}
-
-// ---------- helpers ----------
-
 func (h *Hub) authUser(r *http.Request) (*User, bool) {
 	token := bearerToken(r)
 	if token == "" {
@@ -1522,67 +1430,4 @@ func (h *Hub) authUser(r *http.Request) (*User, bool) {
 		return nil, false
 	}
 	return u, true
-}
-
-func bearerToken(r *http.Request) string {
-	h := r.Header.Get("Authorization")
-	if len(h) > 7 && strings.EqualFold(h[:7], "Bearer ") {
-		return strings.TrimSpace(h[7:])
-	}
-	return ""
-}
-
-func (h *Hub) allowRate(scope, ip string, limit int, window time.Duration) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	key := scope + "|" + ip
-	c, ok := h.rateLimits[key]
-	now := time.Now()
-	if !ok || now.Sub(c.windowStart) > window {
-		c = ipCounter{windowStart: now}
-	}
-	c.count++
-	if c.count > limit {
-		return false
-	}
-	h.rateLimits[key] = c
-	return true
-}
-
-func clientIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if i := strings.Index(ip, ","); i >= 0 {
-		ip = ip[:i]
-	}
-	if ip == "" {
-		ip = strings.SplitN(r.RemoteAddr, ":", 2)[0]
-	}
-	return strings.TrimSpace(ip)
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}
-
-// writeErrorCode is writeError plus a machine-readable code field so clients
-// can localize the message. Older clients only read "error", so adding the
-// field is backward compatible.
-func writeErrorCode(w http.ResponseWriter, status int, code, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg, "code": code})
-}
-
-func writeHTML(w http.ResponseWriter, status int, html string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = io.WriteString(w, html)
-}
-
-func methodNotAllowed(w http.ResponseWriter) {
-	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
