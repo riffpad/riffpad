@@ -246,11 +246,11 @@
 |---|---|---|---|---|
 | T1 | relay hub 拆分（`apps/relay/internal/hub/hub.go` 1588 行） | `[x]` | 已合并 #311 + #326：`hub.go` **1588 → 96**，只剩 version / Hub / New / Handler；拆出 `util.go`、`websocket.go`、`auth.go`、`oauth.go`、`hosts.go`、`devices.go`、`sessions.go`、`static.go`、`conn.go`、`ws_host.go`、`ws_viewer.go`，pairing 并入 `pairing.go`；`routes_test.go` 锁住 27 条路由 | #294 |
 | T2 | daemon server 拆分（`server.go` 1153 行） | `[x]` | 已合并 #318：`server.go` 1153 → 237（只剩 Server 结构体 / New 装配 / 路由表 / Start·Shutdown）；拆出 `devices.go` / `session.go` / `sweep.go` / `codex_cleanup.go` / `http.go`，relay 胶水并入 `relay.go` | #295 |
-| T3 | client-beta sessionSocket 分层（471 行） | `[ ]` | `lib/crypto.ts` 已抽出；剩余 socket 生命周期与协议分层，crypto 纯函数无 WS 依赖 | #296 |
+| T3 | client-beta sessionSocket 分层（471 行） | `[x]` | 已合并 #330：`lib/crypto.ts`（纯加解密）+ `lib/eventQueue.ts`（outbox / 去重 / SeqTracker，纯）；`sessionSocket.ts` 471 → 391，余下为 `openSessionSocket` 连接状态机（closure 结构，未拆，理由见 issue） | #296 |
 | T4 | relay store 按域拆分（`store.go` 478 行） | `[x]` | 已合并 #320：`store.go` 478 → 162，按域拆为 `store_user` / `store_host` / `store_pairing` / `store_device` / `store_session` / `store_waitlist`，均 < 120 行；schema 不变 | #297 |
 | T5 | CLI adapter 拆分 parser / runtime | `[x]` | 已合并 #319：codex 1044 → 434、kimi 817 → 336、claude 760 → 295，各自拆出 `*_rpc.go` / `*_events.go`（kimi 另有 `kimi_home.go`、claude 另有 `claude_hooks.go`）；顺带修掉 `claude.go` 的历史 gofmt 违规 | #298 |
 | T6 | daemon 次要模块拆分 | `[x]` | 已合并 #321：attach 642 → 157、relay 473 → 294、ws 360 → 213、kimi_hooks 322 → 242、commands/auth 394 → 267，全部 < 300 行 | #299 |
-| T7 | 前端大组件拆分 | `[ ]` | DeviceMockup 600 / SessionDetailView 532 / SessionListView 376 拆为子组件 | #300 |
+| T7 | 前端大组件拆分 | `[ ]` | DeviceMockup 600 / SessionDetailView 532 / SessionListView 376 拆为子组件（已有 `test:e2e:core` 浏览器回归网兜底） | #300 |
 
 **依赖与顺序**
 
