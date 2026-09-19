@@ -129,6 +129,12 @@ jobs:
           RIFFPAD_DAEMON: ${{ github.workspace }}/apps/daemon/bin/riffpad
         run: pnpm test:e2e
 
+      # The real user path in a real browser: CLI device login, web login,
+      # pairing, watching a session and approving from the UI (#314).
+      - name: Core-path browser test
+        working-directory: apps/client-beta
+        run: pnpm test:e2e:core
+
   deploy:
     name: Deploy relay (CD)
     needs: [frontend, go, e2e]

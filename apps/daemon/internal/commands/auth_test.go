@@ -5,11 +5,16 @@ package commands
 // characterization tests.
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/config"
 )
@@ -126,4 +131,44 @@ func TestLogoutCmdClearsToken(t *testing.T) {
 	if cfg.RelayToken != "" || cfg.RelayUser != "" {
 		t.Fatalf("token/user not cleared: %+v", cfg)
 	}
+}
+
+// TestOpenBrowserRespectsOptOut pins the opt-out with a real observation: a
+// fake xdg-open on PATH records that it ran. Without the guard the device
+// flow pops whatever browser the machine's owner is using — which is exactly
+// what the core-path browser test must not do.
+func TestOpenBrowserRespectsOptOut(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("openBrowser uses xdg-open on linux only")
+	}
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "opened")
+	fake := filepath.Join(dir, "xdg-open")
+	// No external commands: PATH is narrowed to the fake's directory.
+	script := "#!/bin/sh\n: > " + marker + "\n"
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("RIFFPAD_NO_BROWSER", "1")
+
+	openBrowser("http://127.0.0.1:1/first")
+	// Start is asynchronous: give a would-be process a moment to land.
+	time.Sleep(200 * time.Millisecond)
+	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("openBrowser launched a browser even though RIFFPAD_NO_BROWSER was set")
+	}
+
+	// Control: with the opt-out cleared it must actually run the helper, so
+	// the assertion above cannot be an artefact of a fake that never works.
+	t.Setenv("RIFFPAD_NO_BROWSER", "")
+	openBrowser("http://127.0.0.1:1/second")
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(marker); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("openBrowser did not run xdg-open when the opt-out was unset")
 }

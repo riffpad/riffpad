@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:core": "playwright test --config playwright.core.config.ts"
   },
   "dependencies": {
     "dompurify": "^3.4.13",

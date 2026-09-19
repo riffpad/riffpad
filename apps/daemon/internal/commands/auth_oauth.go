@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -125,7 +126,14 @@ func oauthDeviceLogin(httpURL, relayURL, dataDir string) error {
 	return fmt.Errorf("%s", t.T("login_oauth_timeout"))
 }
 
+// openBrowser hands a URL to the desktop. It is best-effort, and skipped
+// entirely when RIFFPAD_NO_BROWSER is set: on a headless box (or a test
+// harness driving its own browser) launching the user's default browser is
+// both useless and rude.
 func openBrowser(url string) {
+	if os.Getenv("RIFFPAD_NO_BROWSER") != "" {
+		return
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
