@@ -102,7 +102,3 @@ export function DeviceMockup() {
     </div>
   );
 }
-
-// The terminal palette follows the page theme (light terminal on the
-// light page, dark on dark), like a real terminal matching the OS theme.
-
