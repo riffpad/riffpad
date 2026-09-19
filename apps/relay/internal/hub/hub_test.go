@@ -120,6 +120,10 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 	}
 	resp.Body.Close()
 
+	// The host announce is processed on the host read loop: wait for the
+	// relay to register the session before dialling, or the handshake
+	// can race it and come back 404 "session offline".
+	waitForSessions(t, ts, token, "s1")
 	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	viewerConn, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
@@ -1051,6 +1055,18 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 	token := registerUser(t, ts, "hb-viewer")
 	hostID, hostSecret := registerHost(t, ts, token, "laptop")
 	hostConn := dialHostWS(t, ts, hostID, hostSecret)
+	// Keep the host alive: it is subject to the same shrunk heartbeat, and a Go
+	// websocket client only answers pings while it is reading. Without this
+	// drain the relay drops the host after wsPongTimeout, wipes its sessions
+	// (so the viewer dial below races a 404) and closes the viewer itself —
+	// which would make the silence assertion below pass for the wrong reason.
+	go func() {
+		for {
+			if _, _, err := hostConn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
 	fr, _ := json.Marshal(hostFrame{Kind: "sessions", Sessions: []SessionMeta{{ID: "s1", Name: "demo", CLI: "claude", Cwd: "/tmp", Status: "running"}}})
 	if err := hostConn.WriteMessage(websocket.TextMessage, fr); err != nil {
 		t.Fatal(err)
@@ -1080,6 +1096,10 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 	}
 	resp.Body.Close()
 
+	// The host announce is processed on the host read loop: wait for the
+	// relay to register the session before dialling, or the handshake
+	// can race it and come back 404 "session offline".
+	waitForSessions(t, ts, token, "s1")
 	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	vc, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
@@ -1091,9 +1111,16 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 
 	h.mu.Lock()
 	n := len(h.viewers)
+	hostLive := h.hosts[hostID] != nil
 	h.mu.Unlock()
 	if n != 0 {
 		t.Fatalf("silent viewer still registered: %d", n)
+	}
+	// The host must still be connected: removeHost tears down a host's viewers
+	// too, so a dead host would satisfy the check above without proving that a
+	// silent viewer is dropped on its own.
+	if !hostLive {
+		t.Fatal("host connection was dropped too; the viewer silence was not isolated")
 	}
 }
 
@@ -1558,6 +1585,10 @@ func connectViewer(t *testing.T, ts *httptest.Server, token, hostID string, host
 	}
 	resp.Body.Close()
 
+	// The host announce is processed on the host read loop: wait for the
+	// relay to register the session before dialling, or the handshake
+	// can race it and come back 404 "session offline".
+	waitForSessions(t, ts, token, "s1")
 	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	vc, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
