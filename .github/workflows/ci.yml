@@ -132,6 +132,14 @@ jobs:
   deploy:
     name: Deploy relay (CD)
     needs: [frontend, go, e2e]
+    # Serialise deploys: two pushes landing close together otherwise race over
+    # the same compose container name (#327). Queued runs wait rather than
+    # cancel, because cancelling mid `compose up` is likelier to leave
+    # production half-updated than the race itself. Deliberately not
+    # workflow-level, which would serialise unrelated PR runs too.
+    concurrency:
+      group: deploy-relay
+      cancel-in-progress: false
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
