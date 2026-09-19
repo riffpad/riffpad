@@ -120,6 +120,10 @@ func TestRelayRoutesViewerToHost(t *testing.T) {
 	}
 	resp.Body.Close()
 
+	// The host announce is processed on the host read loop: wait for the
+	// relay to register the session before dialling, or the handshake
+	// can race it and come back 404 "session offline".
+	waitForSessions(t, ts, token, "s1")
 	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	viewerConn, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
@@ -1080,6 +1084,10 @@ func TestViewerHeartbeatDropsSilentPeer(t *testing.T) {
 	}
 	resp.Body.Close()
 
+	// The host announce is processed on the host read loop: wait for the
+	// relay to register the session before dialling, or the handshake
+	// can race it and come back 404 "session offline".
+	waitForSessions(t, ts, token, "s1")
 	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	vc, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
@@ -1558,6 +1566,10 @@ func connectViewer(t *testing.T, ts *httptest.Server, token, hostID string, host
 	}
 	resp.Body.Close()
 
+	// The host announce is processed on the host read loop: wait for the
+	// relay to register the session before dialling, or the handshake
+	// can race it and come back 404 "session offline".
+	waitForSessions(t, ts, token, "s1")
 	viewerURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws?session=s1&device=" + pair.DeviceID + "&eph=EPH&token=" + token
 	vc, _, err := websocket.DefaultDialer.Dial(viewerURL, nil)
 	if err != nil {
