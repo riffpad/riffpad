@@ -244,7 +244,7 @@
 
 | # | 任务 | 状态 | 验收标准 | Issue |
 |---|---|---|---|---|
-| T1 | relay hub 拆分（`apps/relay/internal/hub/hub.go` 1588 行） | `[~]` | `hub.go` 收敛为路由表 + wiring；各关注点独立文件、独立可测；HTTP 路由不变。Phase 0–2 已合并（#311，1588 → 921：`util.go` / `websocket.go` / `auth.go` / `oauth.go`）；剩 Phase 3–5（REST 拆分、WS 拆分、路由表测试） | #294 |
+| T1 | relay hub 拆分（`apps/relay/internal/hub/hub.go` 1588 行） | `[x]` | 已合并 #311 + #326：`hub.go` **1588 → 96**，只剩 version / Hub / New / Handler；拆出 `util.go`、`websocket.go`、`auth.go`、`oauth.go`、`hosts.go`、`devices.go`、`sessions.go`、`static.go`、`conn.go`、`ws_host.go`、`ws_viewer.go`，pairing 并入 `pairing.go`；`routes_test.go` 锁住 27 条路由 | #294 |
 | T2 | daemon server 拆分（`server.go` 1153 行） | `[x]` | 已合并 #318：`server.go` 1153 → 237（只剩 Server 结构体 / New 装配 / 路由表 / Start·Shutdown）；拆出 `devices.go` / `session.go` / `sweep.go` / `codex_cleanup.go` / `http.go`，relay 胶水并入 `relay.go` | #295 |
 | T3 | client-beta sessionSocket 分层（471 行） | `[ ]` | `lib/crypto.ts` 已抽出；剩余 socket 生命周期与协议分层，crypto 纯函数无 WS 依赖 | #296 |
 | T4 | relay store 按域拆分（`store.go` 478 行） | `[x]` | 已合并 #320：`store.go` 478 → 162，按域拆为 `store_user` / `store_host` / `store_pairing` / `store_device` / `store_session` / `store_waitlist`，均 < 120 行；schema 不变 | #297 |
