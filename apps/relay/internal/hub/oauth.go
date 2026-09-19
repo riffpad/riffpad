@@ -46,7 +46,7 @@ func (h *Hub) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 	state := protocol.NewID() + "." + lang
 	h.oauthStates[state] = oauthState{expires: time.Now().Add(10 * time.Minute), device: device, opener: opener, lang: lang}
 	h.mu.Unlock()
-	redirect, _ := url.Parse("https://github.com/login/oauth/authorize")
+	redirect, _ := url.Parse(h.githubAuthorizeURL)
 	q := redirect.Query()
 	q.Set("client_id", h.githubID)
 	q.Set("redirect_uri", "https://api.riffpad.ai/api/auth/github/callback")

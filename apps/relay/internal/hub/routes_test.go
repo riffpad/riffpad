@@ -2,6 +2,7 @@ package hub
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -94,4 +95,41 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// TestGitHubEndpointsFromEnv pins the contract the core-path browser test
+// (#314) depends on: with the three GITHUB_*_URL variables set, the compiled
+// relay drives the entire OAuth flow against a stub instead of github.com.
+func TestGitHubEndpointsFromEnv(t *testing.T) {
+	t.Setenv("GITHUB_AUTHORIZE_URL", "http://127.0.0.1:1/authorize")
+	t.Setenv("GITHUB_TOKEN_URL", "http://127.0.0.1:2/token")
+	t.Setenv("GITHUB_USER_URL", "http://127.0.0.1:3/user")
+
+	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.githubAuthorizeURL != "http://127.0.0.1:1/authorize" {
+		t.Errorf("authorize URL = %q", h.githubAuthorizeURL)
+	}
+	if h.githubTokenURL != "http://127.0.0.1:2/token" {
+		t.Errorf("token URL = %q", h.githubTokenURL)
+	}
+	if h.githubUserURL != "http://127.0.0.1:3/user" {
+		t.Errorf("user URL = %q", h.githubUserURL)
+	}
+
+	// Defaults stay production GitHub when nothing is set.
+	t.Setenv("GITHUB_AUTHORIZE_URL", "")
+	t.Setenv("GITHUB_TOKEN_URL", "")
+	t.Setenv("GITHUB_USER_URL", "")
+	h2, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h2.githubAuthorizeURL != "https://github.com/login/oauth/authorize" ||
+		h2.githubTokenURL != "https://github.com/login/oauth/access_token" ||
+		h2.githubUserURL != "https://api.github.com/user" {
+		t.Errorf("defaults changed: %q %q %q", h2.githubAuthorizeURL, h2.githubTokenURL, h2.githubUserURL)
+	}
 }

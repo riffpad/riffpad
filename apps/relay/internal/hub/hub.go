@@ -16,23 +16,24 @@ type Hub struct {
 	dataDir string
 	store   *Store
 
-	mu             sync.Mutex
-	hosts          map[string]*hostConn
-	sessions       map[string]SessionMeta
-	sessionHosts   map[string]string
-	viewers        map[string]*viewerConn
-	rateLimits     map[string]ipCounter
-	oauthStates    map[string]oauthState
-	deviceLogins   map[string]*deviceLogin
-	githubID       string
-	githubSecret   string
-	githubTokenURL string
-	githubUserURL  string
-	appURL         string
-	apiHosts       []string
-	unsubSecret    string
-	adminKey       string
-	webOrigins     []string
+	mu                 sync.Mutex
+	hosts              map[string]*hostConn
+	sessions           map[string]SessionMeta
+	sessionHosts       map[string]string
+	viewers            map[string]*viewerConn
+	rateLimits         map[string]ipCounter
+	oauthStates        map[string]oauthState
+	deviceLogins       map[string]*deviceLogin
+	githubID           string
+	githubSecret       string
+	githubAuthorizeURL string
+	githubTokenURL     string
+	githubUserURL      string
+	appURL             string
+	apiHosts           []string
+	unsubSecret        string
+	adminKey           string
+	webOrigins         []string
 }
 
 func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
@@ -41,25 +42,29 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		return nil, err
 	}
 	return &Hub{
-		log:            logger,
-		dataDir:        dataDir,
-		store:          store,
-		hosts:          map[string]*hostConn{},
-		sessions:       map[string]SessionMeta{},
-		sessionHosts:   map[string]string{},
-		viewers:        map[string]*viewerConn{},
-		rateLimits:     map[string]ipCounter{},
-		oauthStates:    map[string]oauthState{},
-		deviceLogins:   map[string]*deviceLogin{},
-		githubID:       os.Getenv("GITHUB_CLIENT_ID"),
-		githubSecret:   os.Getenv("GITHUB_CLIENT_SECRET"),
-		githubTokenURL: "https://github.com/login/oauth/access_token",
-		githubUserURL:  "https://api.github.com/user",
-		appURL:         envOr("RIFFPAD_APP_URL", "https://app.riffpad.ai"),
-		apiHosts:       splitCSV(os.Getenv("RIFFPAD_API_HOSTS")),
-		unsubSecret:    os.Getenv("UNSUBSCRIBE_SECRET"),
-		adminKey:       os.Getenv("WAITLIST_ADMIN_KEY"),
-		webOrigins:     splitCSV(envOr("RIFFPAD_WEB_ORIGINS", "https://riffpad.ai,https://www.riffpad.ai")),
+		log:          logger,
+		dataDir:      dataDir,
+		store:        store,
+		hosts:        map[string]*hostConn{},
+		sessions:     map[string]SessionMeta{},
+		sessionHosts: map[string]string{},
+		viewers:      map[string]*viewerConn{},
+		rateLimits:   map[string]ipCounter{},
+		oauthStates:  map[string]oauthState{},
+		deviceLogins: map[string]*deviceLogin{},
+		githubID:     os.Getenv("GITHUB_CLIENT_ID"),
+		githubSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		// Overridable so the whole OAuth flow can be driven against a stub:
+		// the core-path browser test (#314) needs the popup, the token
+		// exchange and the user lookup to stay on the test machine.
+		githubAuthorizeURL: envOr("GITHUB_AUTHORIZE_URL", "https://github.com/login/oauth/authorize"),
+		githubTokenURL:     envOr("GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
+		githubUserURL:      envOr("GITHUB_USER_URL", "https://api.github.com/user"),
+		appURL:             envOr("RIFFPAD_APP_URL", "https://app.riffpad.ai"),
+		apiHosts:           splitCSV(os.Getenv("RIFFPAD_API_HOSTS")),
+		unsubSecret:        os.Getenv("UNSUBSCRIBE_SECRET"),
+		adminKey:           os.Getenv("WAITLIST_ADMIN_KEY"),
+		webOrigins:         splitCSV(envOr("RIFFPAD_WEB_ORIGINS", "https://riffpad.ai,https://www.riffpad.ai")),
 	}, nil
 }
 
