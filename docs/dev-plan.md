@@ -1,6 +1,6 @@
 # Riffpad 开发计划（Dev Plan）
 
-> 最后更新：2026-08-13（self-host relay：一行命令脚本 + ghcr 镜像 CI + docs 页）
+> 最后更新：2026-08-31（技术债批次 #294–#300 入表，T1 进行中）
 > 关联文档：[PRD](prd.md)（产品需求）、[TSD](tsd.md)（技术规格）、[无 tmux 注入调研](agent-injection-research.md)
 > 用途：追踪 M0 → M3 的开发进度；每个里程碑完成时更新状态。
 
@@ -234,3 +234,31 @@
 | 官方移动端竞争 | 聚焦跨 CLI + 本地桥接 + 国内体验 |
 | E2EE 实现错误 | 独立安全 review + 已知答案测试向量 |
 | 种子用户不足 | M1.16 已跳过；靠 waitlist 公告/Discord 自然转化，后续按留存数据重新评估 |
+
+---
+
+## 9. 技术债批次：代码拆分（#294–#300）
+
+一批纯结构重构，无行为变更。原则：**绞杀者模式**——每次只搬一个关注点，同包内拆文件优先于新建子包（子包需要为破环而造接口，等真的需要再画边界）；每个 commit 独立可编译、可测试。
+
+| # | 任务 | 状态 | 验收标准 | Issue |
+|---|---|---|---|---|
+| T1 | relay hub 拆分（`apps/relay/internal/hub/hub.go` 1588 行） | `[~]` | `hub.go` 收敛为路由表 + wiring；各关注点独立文件、独立可测；HTTP 路由不变。Phase 0–2 已落 PR #311（1588 → 921） | #294 |
+| T2 | daemon server 拆分（`server.go` 1115 行） | `[ ]` | `server.go` 变薄壳编排；api / session / pairing / relay / sweep 各成模块 | #295 |
+| T3 | client-beta sessionSocket 分层（471 行） | `[ ]` | `lib/crypto.ts` 已抽出；剩余 socket 生命周期与协议分层，crypto 纯函数无 WS 依赖 | #296 |
+| T4 | relay store 按域拆分（`store.go` 478 行） | `[ ]` | 每个 store 文件 < 300 行；schema 不变 | #297 |
+| T5 | CLI adapter 拆分 parser / runtime | `[ ]` | codex 1044 / kimi 817 / claude 760 → 每个 < 500 行；parser 可用 fixture 单测 | #298 |
+| T6 | daemon 次要模块拆分 | `[ ]` | attach 642 / relay 380 / ws 360 / kimi_hooks 322 / commands/auth 394 → 每个 < 300 行 | #299 |
+| T7 | 前端大组件拆分 | `[ ]` | DeviceMockup 600 / SessionDetailView 532 / SessionListView 376 拆为子组件 | #300 |
+
+**依赖与顺序**
+
+```
+T1 (#294) ──> T4 (#297)     同 apps/relay，hub.go 处处引用 Store，先后做少 rebase
+T2 (#295) ──> T6 (#299)     #299 正文要求等 server.go 定下包边界
+T5 (#298) ──> T6 (#299)     #299 第 5 步把 kimi_hooks.go 移入 adapters/kimi，依赖 #298 的包布局
+T3 (#296) 独立（与 T7 不同目录，可并行）
+T7 (#300) 独立
+```
+
+**波次**：Wave 1 = T1 → T4（relay）；Wave 2 = T2 → T5 → T6（daemon）；Wave 3 = T3 → T7（client-beta）。Wave 1 与 Wave 2 分属不同 app，可并行，但每个 PR 都是千行级纯搬迁 diff，建议串行以便 review。
