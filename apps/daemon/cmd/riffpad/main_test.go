@@ -3,16 +3,9 @@ package main
 import (
 	"strings"
 	"testing"
-
-	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
 )
 
 // withCliToken stubs the CLI's local token for the duration of a test.
-func withCliToken(t *testing.T, token string) {
-	t.Helper()
-	cliutil.SetToken(token)
-	t.Cleanup(func() { cliutil.SetToken("") })
-}
 
 // extractLangFlag tests: the global --lang/-lang extraction must work in any
 // argument position (it runs before subcommand dispatch).

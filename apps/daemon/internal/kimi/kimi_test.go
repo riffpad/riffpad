@@ -11,6 +11,10 @@ import (
 )
 
 func TestWriteSessionConfigRegistersAllHooks(t *testing.T) {
+	// Hermetic: writeSessionHome merges the user's own ~/.kimi config, so
+	// without a scratch HOME the hook count depends on the developer's
+	// machine and the test fails for anyone who actually uses kimi.
+	t.Setenv("HOME", t.TempDir())
 	k := New(adapter.CreateRequest{
 		ID:        "s1",
 		DataDir:   t.TempDir(),

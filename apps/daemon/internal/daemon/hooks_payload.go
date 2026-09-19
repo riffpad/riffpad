@@ -3,7 +3,6 @@ package daemon
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
 // hookPayload is the common shape of Claude Code hook input JSON.
@@ -105,16 +104,4 @@ func (p *hookPayload) summary() string {
 		return p.Message
 	}
 	return p.toolName()
-}
-
-// hookInputText extracts a displayable string from hook payload fields.
-func hookInputText(p hookPayload) string {
-	parts := []string{}
-	if p.Message != "" {
-		parts = append(parts, p.Message)
-	}
-	if p.Notification != nil && p.Notification.Message != "" {
-		parts = append(parts, p.Notification.Message)
-	}
-	return strings.Join(parts, " ")
 }
