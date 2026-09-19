@@ -49,13 +49,6 @@ func (sess *session) getAdapter() adapter.Session {
 	return sess.adapter
 }
 
-// state returns the session's status and ended flag in one atomic read.
-func (sess *session) state() (status string, ended bool) {
-	sess.mu.Lock()
-	defer sess.mu.Unlock()
-	return sess.status, sess.ended
-}
-
 func (sess *session) setState(status string, ended bool) {
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
