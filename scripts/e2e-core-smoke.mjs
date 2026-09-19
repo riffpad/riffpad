@@ -166,21 +166,46 @@ let localToken = "";
 let workDir = "";
 
 async function shutdown() {
-  for (const p of procs.reverse()) {
-    try {
-      if (!p.killed) p.kill("SIGKILL");
-    } catch {
-      // already gone
-    }
-  }
+  // Ask the daemon to stop first: it is an HTTP call, and after the SIGKILLs
+  // below it would be pointless. A clean exit also closes its SQLite handles.
   if (daemonBase) {
     await fetch(`${daemonBase}/api/shutdown`, {
       method: "POST",
       headers: { "X-Riffpad-Token": localToken },
     }).catch(() => {});
   }
-  if (!KEEP && workDir) rmSync(workDir, { recursive: true, force: true });
-  else if (workDir) console.log(`\nkept: ${workDir}`);
+  for (const p of procs) {
+    try {
+      if (!p.killed && p.exitCode === null) p.kill("SIGKILL");
+    } catch {
+      // already gone
+    }
+  }
+  // Wait for the children to actually exit before deleting their data: a
+  // killed process still finishes in-flight writes (SQLite WAL/journal), and
+  // removing the directory underneath it is what produced ENOTEMPTY (#322).
+  await Promise.all(
+    procs.map(
+      (p) =>
+        p.exitCode !== null
+          ? null
+          : new Promise((res) => {
+              p.once("exit", res);
+              setTimeout(res, 3000).unref();
+            }),
+    ),
+  );
+  if (!workDir) return;
+  if (KEEP) {
+    console.log(`\nkept: ${workDir}`);
+    return;
+  }
+  try {
+    rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch (e) {
+    // Cleanup is housekeeping: it must never turn a 13/13 run into a failure.
+    console.log(`\nwarning: could not remove ${workDir} (${e.code || e.message})`);
+  }
 }
 
 // Recursively collect every file under dir (used for the zero-trust check).
