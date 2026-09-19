@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -48,36 +47,6 @@ type relayFrame struct {
 	Pub       string         `json:"pub,omitempty"`
 	Eph       string         `json:"eph,omitempty"`
 	Data      string         `json:"data,omitempty"`
-}
-
-type relayViewer struct {
-	id   string
-	recv chan []byte
-}
-
-type relayViewerTransport struct {
-	c *relayClient
-	v *relayViewer
-}
-
-func (t *relayViewerTransport) Send(data []byte) error {
-	return t.c.sendViewer(t.v.id, data)
-}
-
-func (t *relayViewerTransport) Recv() ([]byte, error) {
-	data, ok := <-t.v.recv
-	if !ok {
-		return nil, io.EOF
-	}
-	return data, nil
-}
-
-func (t *relayViewerTransport) Close() error {
-	// Ask the relay to close the browser socket as well: otherwise the client
-	// would sit on a silent connection until its watchdog fires, unaware that
-	// the daemon dropped this viewer (e.g. a critical-event overflow, #173).
-	t.c.kickViewer(t.v.id)
-	return nil
 }
 
 type relayClient struct {
@@ -303,66 +272,11 @@ func relayHTTPURL(wsURL string) string {
 	return u
 }
 
-func (c *relayClient) viewerTransport(id string) viewerTransport {
-	c.mu.Lock()
-	v, ok := c.viewers[id]
-	if !ok {
-		v = &relayViewer{id: id, recv: make(chan []byte, 256)}
-		c.viewers[id] = v
-	}
-	c.mu.Unlock()
-	return &relayViewerTransport{c: c, v: v}
-}
-
-func (c *relayClient) deliver(id string, data []byte) {
-	c.mu.Lock()
-	v, ok := c.viewers[id]
-	c.mu.Unlock()
-	if !ok {
-		return
-	}
-	select {
-	case v.recv <- data:
-	default:
-		// The payload is E2EE, so the daemon cannot tell whether the dropped
-		// message was an approval_response: treat any overflow as potentially
-		// critical and force the viewer to reconnect and replay (#173).
-		c.log.Printf("relay viewer recv buffer full, dropping connection viewer=%s", id)
-		c.kickViewer(id)
-	}
-}
-
-// kickViewer drops a relay viewer locally and asks the relay to close the
-// browser connection too, so the client reconnects (and replays history)
-// instead of hanging on a dead channel.
-func (c *relayClient) kickViewer(id string) {
-	_ = c.sendFrame(relayFrame{Kind: protocol.RelayFrameKick, ViewerID: id})
-	c.closeViewer(id)
-}
-
-func (c *relayClient) closeViewer(id string) {
-	c.mu.Lock()
-	v, ok := c.viewers[id]
-	if ok {
-		delete(c.viewers, id)
-	}
-	c.mu.Unlock()
-	if ok {
-		close(v.recv)
-	}
-}
-
 func (c *relayClient) announce(sessions []RelaySession) {
 	c.mu.Lock()
 	c.lastSessions = append([]RelaySession(nil), sessions...)
 	c.mu.Unlock()
 	c.sendFrame(relayFrame{Kind: "sessions", Sessions: sessions})
-}
-
-func (c *relayClient) sendViewer(id string, data []byte) error {
-	return c.sendFrame(relayFrame{
-		Kind: "viewer", ViewerID: id, Data: base64.RawStdEncoding.EncodeToString(data),
-	})
 }
 
 func (c *relayClient) sendFrame(fr relayFrame) error {
@@ -377,97 +291,4 @@ func (c *relayClient) sendFrame(fr relayFrame) error {
 	}
 	_ = c.conn.SetWriteDeadline(wsWriteDeadline())
 	return c.conn.WriteMessage(websocket.TextMessage, data)
-}
-
-// handleKillswitch stops every agent session, clears all paired devices, and
-// asks the relay to revoke cloud devices / disconnect viewers.
-func (s *Server) handleKillswitch(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
-		return
-	}
-	s.mu.Lock()
-	sessions := make([]*session, 0, len(s.sessions))
-	for _, sess := range s.sessions {
-		sessions = append(sessions, sess)
-	}
-	s.devices = map[string]Device{}
-	s.mu.Unlock()
-	_ = s.saveDevices()
-	for _, sess := range sessions {
-		sess.mu.Lock()
-		for c := range sess.clients {
-			_ = c.transport.Close()
-		}
-		sess.mu.Unlock()
-		s.stopSession(sess.id)
-	}
-	if s.rc != nil {
-		_ = s.relayKillswitch()
-	}
-	s.log.Printf("killswitch: stopped %d sessions, revoked all devices", len(sessions))
-	writeJSON(w, http.StatusOK, map[string]any{"killed": true, "sessions": len(sessions)})
-}
-
-func (s *Server) relayKillswitch() error {
-	httpURL := s.cfg.RelayURL
-	httpURL = strings.ReplaceAll(httpURL, "wss://", "https://")
-	httpURL = strings.ReplaceAll(httpURL, "ws://", "http://")
-	body := strings.NewReader("{}")
-	req, err := http.NewRequest(http.MethodPost,
-		strings.TrimSuffix(httpURL, "/")+"/api/hosts/"+s.rc.hostID+"/killswitch", body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if s.cfg.RelayToken != "" {
-		req.Header.Set("Authorization", "Bearer "+s.cfg.RelayToken)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
-}
-
-func (s *Server) handleRelayJoin(ji RelayJoin) {
-	ephPub, err := protocol.DecodeKey(ji.Eph)
-	if err != nil {
-		s.log.Printf("relay join invalid eph session=%s", ji.SessionID)
-		return
-	}
-	devPub, err := protocol.DecodeKey(ji.Pub)
-	if err != nil {
-		s.log.Printf("relay join invalid pub session=%s", ji.SessionID)
-		return
-	}
-	tr := s.rc.viewerTransport(ji.ViewerID)
-	if err := s.attachViewer(tr, ji.DeviceID, ji.SessionID, ephPub, ji.Curve, devPub); err != nil {
-		s.log.Printf("relay join rejected session=%s device=%s: %v", ji.SessionID, ji.DeviceID, err)
-	}
-}
-
-func (s *Server) announceSessions() {
-	if s.rc == nil {
-		return
-	}
-	s.mu.Lock()
-	list := make([]RelaySession, 0, len(s.sessions))
-	for _, sess := range s.sessions {
-		sess.mu.Lock()
-		if sess.ended {
-			sess.mu.Unlock()
-			continue
-		}
-		lastSeen := sess.lastSeen
-		status := sess.status
-		sess.mu.Unlock()
-		list = append(list, RelaySession{
-			ID: sess.id, Name: sess.meta.Name, CLI: sess.meta.CLI,
-			Cwd: sess.meta.Cwd, Status: status, LastSeenAt: lastSeen,
-		})
-	}
-	s.mu.Unlock()
-	s.rc.announce(list)
 }
