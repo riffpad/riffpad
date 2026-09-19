@@ -96,10 +96,7 @@ func UpdateCmd(args []string, dataDir string) error {
 }
 
 func defaultDaemonBase() string {
-	if b := os.Getenv("RIFFPAD_URL"); b != "" {
-		return b
-	}
-	return "http://127.0.0.1:8787"
+	return cliutil.DaemonBase()
 }
 
 func latestReleaseTag() (string, error) {

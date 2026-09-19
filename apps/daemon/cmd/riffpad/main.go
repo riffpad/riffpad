@@ -41,10 +41,6 @@ func main() {
 	if os.Args[1] == "_daemon" {
 		os.Exit(commands.RunDaemon(os.Args[2:]))
 	}
-	base := os.Getenv("RIFFPAD_URL")
-	if base == "" {
-		base = "http://127.0.0.1:8787"
-	}
 	dataDir := os.Getenv("RIFFPAD_DIR")
 	if dataDir == "" {
 		d, err := config.DefaultDataDir()
@@ -55,6 +51,9 @@ func main() {
 		dataDir = d
 	}
 	cliutil.SetDataDir(dataDir)
+	// Resolved after SetDataDir: the base follows the daemon's configured
+	// port unless RIFFPAD_URL overrides it (#316).
+	base := cliutil.DaemonBase()
 
 	var err error
 	switch os.Args[1] {

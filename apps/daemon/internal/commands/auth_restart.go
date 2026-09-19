@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 
 	"github.com/riffpad/riffpad/apps/daemon/internal/cliutil"
@@ -13,10 +12,7 @@ import (
 // start` processes are stopped and started again. A daemon that is not
 // running is left alone.
 func RestartDaemonAfterLogin(dataDir string) {
-	base := os.Getenv("RIFFPAD_URL")
-	if base == "" {
-		base = "http://127.0.0.1:8787"
-	}
+	base := cliutil.DaemonBase()
 	if runtime.GOOS == "linux" {
 		if active, err := systemdActiveFn(); err == nil && active {
 			if err := systemdRestartFn(); err != nil {
