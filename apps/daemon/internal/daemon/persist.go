@@ -270,14 +270,19 @@ func (s *Server) persistEvent(sess *session, ev protocol.Event) {
 }
 
 func (s *Server) persistSession(sess *session) {
+	var connect map[string]string
 	if ci, ok := sess.getAdapter().(interface {
 		CurrentConnect() (socket string, threadID string)
 	}); ok {
 		if sock, tid := ci.CurrentConnect(); sock != "" && tid != "" {
-			sess.connect = map[string]string{"socket": sock, "threadId": tid}
+			connect = map[string]string{"socket": sock, "threadId": tid}
 		}
 	}
-	_ = persistSessionMeta(s.dataDir, &PersistedSession{
+	sess.mu.Lock()
+	if connect != nil {
+		sess.connect = connect
+	}
+	meta := PersistedSession{
 		ID:        sess.id,
 		Name:      sess.meta.Name,
 		CLI:       sess.meta.CLI,
@@ -287,7 +292,9 @@ func (s *Server) persistSession(sess *session) {
 		Connect:   sess.connect,
 		CreatedAt: sess.created,
 		UpdatedAt: time.Now(),
-	})
+	}
+	sess.mu.Unlock()
+	_ = persistSessionMeta(s.dataDir, &meta)
 }
 
 func (s *Server) sessionEncKey() ([]byte, error) {

@@ -9,7 +9,7 @@ Riffpad is a remote control for AI coding agents: a local daemon bridges the CLI
 1. **Read `docs/prd.md` and `docs/tsd.md` first** — they are the source of truth for product positioning and technical design; `docs/design.md` is a quick overview.
 2. **Minimal changes** — do only what is asked.
 3. **Security first** — the relay is zero-trust, transport is end-to-end encrypted, and the mobile client is read-only by default; treat any change involving credentials or keys with extra care.
-4. **Test and verify** — run the relevant tests and build after a change.
+4. **Test and verify** — run the relevant tests and build after a change, then push and wait for CI before calling it done: `gh pr checks <n> --watch` (or poll in a loop with a timeout). Never report a change as verified on local tests alone — CI runs `-race` and Playwright, which catch things local builds don't.
 5. **Keep the protocol in sync** — any event-protocol change must update both `packages/protocol` and `docs/design.md`.
 6. **Use the `gh` CLI** — manage issues, branches, and PRs through the GitHub workflow.
 7. **Keep the dev plan current** — `docs/dev-plan.md` is the progress tracker: record new tasks, check off completed ones, and note blockers there (follow its "Update rules" section).
