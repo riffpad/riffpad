@@ -106,7 +106,7 @@ func TestGitHubEndpointsFromEnv(t *testing.T) {
 	t.Setenv("GITHUB_USER_URL", "http://127.0.0.1:3/user")
 	t.Setenv("GITHUB_REDIRECT_URL", "http://127.0.0.1:4/api/auth/github/callback")
 
-	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
+	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestGitHubEndpointsFromEnv(t *testing.T) {
 	t.Setenv("GITHUB_AUTHORIZE_URL", "")
 	t.Setenv("GITHUB_TOKEN_URL", "")
 	t.Setenv("GITHUB_USER_URL", "")
-	h2, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
+	h2, err := New(log.New(io.Discard, "", 0), t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}

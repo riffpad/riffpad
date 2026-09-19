@@ -19,7 +19,7 @@ import (
 
 func newTestHub(t *testing.T) (*Hub, *httptest.Server) {
 	t.Helper()
-	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), "")
+	h, err := New(log.New(io.Discard, "", 0), t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -492,7 +492,7 @@ func TestPairingSurvivesRestart(t *testing.T) {
 	ts.Close()
 
 	// "Restart": a new Hub over the same data directory.
-	h2, err := New(log.New(io.Discard, "", 0), h.dataDir, "")
+	h2, err := New(log.New(io.Discard, "", 0), h.dataDir, testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +514,7 @@ func TestPersistenceAcrossRestart(t *testing.T) {
 	token := registerUser(t, ts, "carol")
 	hostID, hostSecret := registerHost(t, ts, token, "laptop")
 
-	h2, err := New(log.New(io.Discard, "", 0), h.dataDir, "")
+	h2, err := New(log.New(io.Discard, "", 0), h.dataDir, testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1646,7 +1646,7 @@ func TestKickFrameClosesViewer(t *testing.T) {
 // log it, instead of silently dropping the message.
 func TestViewerSendBufferFullDropsViewer(t *testing.T) {
 	var buf bytes.Buffer
-	h, err := New(log.New(&buf, "", 0), t.TempDir(), "")
+	h, err := New(log.New(&buf, "", 0), t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1682,7 +1682,7 @@ func TestViewerSendBufferFullDropsViewer(t *testing.T) {
 // and everything replays.
 func TestHostSendBufferFullClosesHost(t *testing.T) {
 	var buf bytes.Buffer
-	h, err := New(log.New(&buf, "", 0), t.TempDir(), "")
+	h, err := New(log.New(&buf, "", 0), t.TempDir(), testDatabaseURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
