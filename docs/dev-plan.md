@@ -250,7 +250,7 @@
 | T4 | relay store 按域拆分（`store.go` 478 行） | `[x]` | 已合并 #320：`store.go` 478 → 162，按域拆为 `store_user` / `store_host` / `store_pairing` / `store_device` / `store_session` / `store_waitlist`，均 < 120 行；schema 不变 | #297 |
 | T5 | CLI adapter 拆分 parser / runtime | `[x]` | 已合并 #319：codex 1044 → 434、kimi 817 → 336、claude 760 → 295，各自拆出 `*_rpc.go` / `*_events.go`（kimi 另有 `kimi_home.go`、claude 另有 `claude_hooks.go`）；顺带修掉 `claude.go` 的历史 gofmt 违规 | #298 |
 | T6 | daemon 次要模块拆分 | `[x]` | 已合并 #321：attach 642 → 157、relay 473 → 294、ws 360 → 213、kimi_hooks 322 → 242、commands/auth 394 → 267，全部 < 300 行 | #299 |
-| T7 | 前端大组件拆分 | `[ ]` | DeviceMockup 600 / SessionDetailView 532 / SessionListView 376 拆为子组件（已有 `test:e2e:core` 浏览器回归网兜底） | #300 |
+| T7 | 前端大组件拆分 | `[x]` | 已合并 #331 + #332：DeviceMockup 600 → 104（`mockups/` 四个文件）、SessionListView 376 → 313 + `SessionListItem`、SessionDetailView 532 → 456 + `PromptInput`/`toolLines`；余下详情页体积为 socket 状态机而非 markup | #300 |
 
 **依赖与顺序**
 
