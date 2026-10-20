@@ -70,7 +70,7 @@ const config: Config = {
         full: "9999px",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
+        card: "var(--shadow-card)",
         terminal: "0 18px 50px -12px rgba(0,0,0,0.28)",
         device: "0 24px 60px -20px rgba(0,0,0,0.45)",
       },
