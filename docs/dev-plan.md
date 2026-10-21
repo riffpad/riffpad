@@ -276,10 +276,10 @@ T7 (#300) 独立
 
 | 阶段 | 内容 | 状态 | Issue |
 |---|---|---|---|
-| A | `/ws` 关访问日志（nginx + Caddy）；nginx `limit_req_zone`（`$binary_remote_addr`）；relay 限速改为按身份/全局桶，删掉 `clientIP()`；login 指数退避；README 生产应用步骤 | `[~]` 代码已完成，等 PR 合并 | #349 |
+| A | `/ws` 关访问日志（nginx + Caddy）；nginx `limit_req_zone`（`$binary_remote_addr`）；relay 限速改为按身份分桶，删掉 `clientIP()`；login 预占 + 指数退避；README 生产应用步骤 | `[x]` #350 | #349 |
 | B | daemon 用 `Authorization: Bearer` 认证 `/ws/host`，query 兜底一段时间后删除 | `[ ]` | #349 |
 | C | 浏览器改用一次性 60s `/api/ws-ticket`，日志里的 ticket 无价值 | `[ ]` | #349 |
 | D | hostSecret 轮换 + 30 天 token 缩短 / refresh | `[ ]` | #349 |
 | E | CI 守卫：daemon/client 构造的 WS URL 不得含凭据；relay 侧日志脱敏 `token=` | `[ ]` | #349 |
 
-阶段 A 的分工：IP 维度洪峰交给反代（`limit_req`），relay 只按「能追究到的身份」限速——login 按归一化 username + 全局桶、pair 全局桶、poll/status 按 device code、pairings 按 user ID、waitlist 按 email + 全局桶；login 用指数退避（3 次免费 → 1s 起翻倍，封顶 60s），不做永久锁定，避免知道用户名就能锁死别人的账号。
+阶段 A 的分工：IP 维度洪峰交给反代（`limit_req`），relay 只按「能追究到的身份」限速——login 按归一化 username（预占 1 个 in-flight，指数退避：3 次免费 → 1s 起翻倍，封顶 60s，不做永久锁定）、pair 按 user ID 10/min + 3000/min 全局熔断、poll/status 按 device code、pairings 按 user ID、waitlist 按 email + 全局桶。`rateLimits` / `loginGuards` 两个 map 都有上限与摊销清扫，避免随机 key 洪水把内存打爆。生产反代配置需要手工合并进现有 vhost 并 reload，CI 不管这一步。
