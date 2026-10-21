@@ -20,10 +20,10 @@ that in one sentence: **a terminal console and a phone, fused**.
 
 - The page keeps a quiet terminal tone: `//` comment labels, status dots,
   and a console hero — without prompt-string chrome in the navigation.
-- The hero is a two-device scene: a macOS terminal running
-  Codex/Claude Code and the Riffpad phone app, syncing the same session.
-  The terminal waits for approval; the phone shows the approval card — the
-  product, not a metaphor.
+- The hero opens with one claim and one CTA; below it sits a two-pane
+  scene: an nvim TUI running a coding CLI and the Riffpad phone app, on the
+  same session. The TUI waits for approval; the phone shows the approval
+  card — the product, not a metaphor.
 - The brand accent is Catppuccin mauve (`#8839EF` on Latte, `#CBA6F7` on
   Mocha), used on marketing surfaces as the single accent against the
   neutral ramp. Green/peach/red/blue are reserved for status.
@@ -101,33 +101,25 @@ Rules:
 
 ### Mockup palette
 
-The device mockups are theme-aware: a Latte terminal on the light page, a
-Mocha terminal on the dark one. The phone frame and macOS traffic lights
-stay fixed realism colors.
-
-Mocha (dark):
+The hero scene is a screenshot of a real session, so it keeps one palette:
+**Catppuccin Mocha in both page themes**. The TUI pane and the phone next to
+it share the same fixed ramp; only the phone bezel and the page chrome follow
+the theme.
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--term-bg` | `#1E1E2E` | Terminal body (base) |
-| `--term-bar` | `#181825` | Terminal title bar (mantle) |
-| `--term-border` | `#45475A` | Terminal outer border (surface1) |
-| `--term-fg` | `#CDD6F4` | Terminal text |
-| `--term-mute` | `#9399B2` | Terminal secondary text |
-| `--term-green` | `#A6E3A1` | `✓` success lines |
-| `--term-blue` | `#89B4FA` | `▸` tool-call lines |
-| `--term-yellow` | `#F9E2AF` | `!` waiting lines |
-| `--term-orange` | `#FAB387` | Commands sent from phone |
-| `--term-cyan` | `#94E2D5` | Prompt path |
-
-Latte (light): `#EFF1F5` body, `#E6E9EF` bar, `rgba(76,79,105,0.18)` border,
-`#4C4F69` text, `#5C5F77` mute, `#40A02B` green, `#1E66F5` blue,
-`#DF8E1D` yellow, `#FE640B` orange, `#179299` cyan.
+| `tui-bg` | `#1E1E2E` | TUI body and phone screen (base) |
+| `tui-surface` | `#313244` | Statusline, selected option, hairline rules (surface0) |
+| `tui-fg` | `#CDD6F4` | TUI text (text) |
+| `tui-mute` | `#6C7086` | Gutter numbers, hints (overlay0) |
+| `tui-mauve` | `#CBA6F7` | `NORMAL` block, user prompt, running dots (mauve) |
+| `tui-green` | `#A6E3A1` | `●` tool rows, `✓` approved (green) |
+| `tui-blue` | `#89B4FA` | Approval panel border, `❯` selected option (blue) |
+| `tui-red` | `#F38BA8` | `✗` rejected (red) |
 
 | Token | Hex | Usage |
 |---|---|---|
 | `--device-frame` | `#181825` | Phone bezel (same in both themes) |
-| `--mac-red` / `--mac-yellow` / `--mac-green` | `#FF5F57` / `#FEBC2E` / `#28C840` | macOS traffic lights |
 
 ## 3. Typography
 
@@ -204,32 +196,43 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 ### Hero
 
-- Desktop: two columns. Left: `//` badge, display headline, description,
-  primary (mauve) + secondary (outline) CTAs, and a one-line trust note.
-  Right: console window.
+- One column, left-aligned: `// remote control for cli agents` label,
+  display headline, **one** line of supporting copy, then the CTA row.
+- The primary CTA is the loudest thing on the page: accent fill, `56px`
+  tall, `18px` label, full-width on mobile. `Read the docs` sits next to it
+  as a plain underlined text link — no second button.
+- Nothing else competes for the first screen: no install box, no mockup.
+  The scene and the `InstallCommand` card follow below the copy, inside the
+  same section.
 
-### Device scene (hero)
+### Device scene (hero) — nvim TUI + phone
 
-- Left: macOS-style terminal window (theme-aware `term-*` palette —
-  light terminal on the light page, dark on dark; square corners, 1px
-  hairline): traffic-light dots only (no title), an in-progress
-  user ↔ coding-CLI conversation in real-TUI style — full-width
-  highlighted user bar (`❯`), mute "Thought for 4s…" lines, tool calls
-  (`●` + `Edit(src/auth/middleware.ts)` with `└` sub-lines) — stuck at a
-  full-width permission panel (blue top border, `Bash command`,
-  `Do you want to proceed?`, highlighted `❯ 1. Yes`, key-hint footer),
-  plus a TUI-style input box at the bottom (`›` prompt, blinking cursor).
-- Right: Riffpad phone app (`surface`, square corners, hairline): status
-  bar, `riffpad` header with `● synced`, session card for the same
-  session, an approval card mirroring the terminal's pending approval
-  with Approve / Reject chips, message input, bottom tabs.
-- Between them: a two-lane sync connector — accent lane (events) and
-  info-blue lane (commands) with tiny packets travelling both ways,
-  `e2ee · 84ms` caption.
-- The scene is interactive: approving/rejecting on the phone resolves
-  the terminal's approval block; sending a preset message injects it
-  into the terminal conversation (`⏎ phone`) and the agent answers on
-  both sides.
+- The scene is one product story in two panes, top-aligned: the wide pane is
+  a Neovim session (TUI), the narrow one is the Riffpad phone. A single
+  dashed 1px hairline separates them — no animated connector, no caption.
+- The TUI pane is a screenshot, not a window: no traffic lights, no title
+  bar, no rounded corners, no drop shadow. 1px `tui-surface` border, `tui-bg`
+  body, square corners, mono type only.
+- It always renders Catppuccin **Mocha**, in both page themes.
+- Gutter: `relativenumber` style — the cursor line shows its absolute number
+  (`42`), every other row shows its distance from the cursor, in `tui-mute`.
+- Content: the user prompt (`❯`, mauve), a mute "thought 4s · read 3 files"
+  line, `●` tool calls with `└` sub-lines, then the agent's pending
+  `Bash(rm src/old.ts)` call.
+- While the approval is pending, a `tui-blue` bordered panel sits inside the
+  pane: `Bash command`, the command, `Do you want to proceed?`, the selected
+  row (`❯ 1. Yes`) filled with `tui-surface`, and the key-hint footer.
+- Statusline (single row, `tui-surface`): `NORMAL` mode block (mauve fill,
+  `tui-bg` text), the file path, then right-aligned `claude · utf-8 · 37%`.
+- The phone is the same Mocha ramp, stripped back: session bar with
+  `● synced`, two metadata chips, the finished tool rows, the pending
+  `$ rm src/old.ts` row, and the approval card (2px status-coloured left
+  border, `Approve` / `Reject`, 44px tall). No status bar, no composer, no
+  home indicator.
+- The scene is interactive: approving/rejecting on the phone drops the TUI
+  approval panel and appends `✓ approved from phone · rm src/old.ts` (green)
+  or `✗ rejected from phone · agent paused` (red) to the session; the phone
+  card collapses to an `Approved` / `Rejected` chip.
 
 ### Architecture diagram
 
@@ -302,7 +305,7 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 - Keep monospace as the single voice; let weight and size do hierarchy.
 - Use mauve as the brand accent on marketing surfaces; keep the rest of
   the Catppuccin ramp for status and consoles.
-- Show the product as console + phone; the approval card is the hero.
+- Show the product as an nvim TUI + phone; the approval card is the hero.
 - Use square cards with hairline borders: one soft shadow in Latte, flat
   panes in Mocha.
 - Use minimal `>` / `//` / `●` glyphs only where they aid scanning.
@@ -326,9 +329,9 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 | Breakpoint | Behavior |
 |---|---|
-| ≥1024px | Two-column hero, 3-step row with dashed connector, bento 7/5 spans |
-| 768–1023px | Hero stacks; bento keeps 7/5 spans |
-| <768px | Single column; hero display 28px; bento stacks 1×1; nav collapses |
+| ≥1024px | Hero scene splits 2fr/1fr (TUI + phone, top-aligned); 3-step row with dashed connector; bento 7/5 spans |
+| 768–1023px | Hero scene stacks (TUI, hairline, centred phone); bento keeps 7/5 spans |
+| <768px | Single column; hero display 28px; CTA full-width; bento stacks 1×1; nav collapses |
 
 Touch targets ≥ 44px; focus rings visible in accent color; no horizontal
 scroll. (The architecture diagram is the one exception: it keeps its 960px

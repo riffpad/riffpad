@@ -29,22 +29,17 @@ const config: Config = {
         "console-elevated": "var(--console-elevated)",
         "on-console": "var(--on-console)",
         "on-console-mute": "var(--on-console-mute)",
-        "term-bg": "var(--term-bg)",
-        "term-bar": "var(--term-bar)",
-        "term-border": "var(--term-border)",
-        "term-fg": "var(--term-fg)",
-        "term-mute": "var(--term-mute)",
-        "term-green": "var(--term-green)",
-        "term-blue": "var(--term-blue)",
-        "term-yellow": "var(--term-yellow)",
-        "term-orange": "var(--term-orange)",
-        "term-cyan": "var(--term-cyan)",
-        "term-elevate": "var(--term-elevate)",
-        "term-elevate-strong": "var(--term-elevate-strong)",
+        // Hero TUI pane — a real nvim session, always Catppuccin Mocha in
+        // both page themes, so these are fixed values, not theme vars.
+        "tui-bg": "#1e1e2e",
+        "tui-surface": "#313244",
+        "tui-fg": "#cdd6f4",
+        "tui-mute": "#6c7086",
+        "tui-mauve": "#cba6f7",
+        "tui-green": "#a6e3a1",
+        "tui-blue": "#89b4fa",
+        "tui-red": "#f38ba8",
         "device-frame": "var(--device-frame)",
-        "mac-red": "var(--mac-red)",
-        "mac-yellow": "var(--mac-yellow)",
-        "mac-green": "var(--mac-green)",
       },
       fontFamily: {
         mono: [
@@ -71,7 +66,6 @@ const config: Config = {
       },
       boxShadow: {
         card: "var(--shadow-card)",
-        terminal: "0 18px 50px -12px rgba(0,0,0,0.28)",
         device: "0 24px 60px -20px rgba(0,0,0,0.45)",
       },
       maxWidth: {
