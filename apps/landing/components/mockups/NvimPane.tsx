@@ -80,7 +80,7 @@ export function NvimPane({
   const cursor = 6;
 
   return (
-    <div className="flex w-full flex-col overflow-hidden border border-tui-border bg-tui-bg text-tui-fg">
+    <div className="flex w-full flex-col overflow-hidden border border-tui-border bg-tui-bg text-tui-fg lg:h-full">
       {/* tabline: the one piece of chrome a real nvim window has */}
       <div className="flex items-center bg-tui-surface text-[10px] sm:text-[11px]">
         <span className="border-r border-tui-border px-2 py-1 text-tui-fg">
@@ -91,7 +91,7 @@ export function NvimPane({
         </span>
       </div>
 
-      <div className="px-2 py-2 text-[11px] leading-[1.8] sm:text-[13px]">
+      <div className="flex-1 px-2 py-2 text-[11px] leading-[1.8] sm:text-[13px]">
         {lines.map((line, i) => (
           <div key={line.id} className="flex gap-2">
             <span

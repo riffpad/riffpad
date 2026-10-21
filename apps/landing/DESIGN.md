@@ -231,15 +231,16 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 - The phone is the same Mocha ramp and the same flat geometry: 12px radius
   at most, 1px `tui-border`, **no shadow in either theme**. It stretches to
   the pane's height so both bottom edges line up.
-- Phone content: session bar with `● synced`, the metadata chips, the
-  finished tool rows and the pending `$ rm src/old.ts` row, then an approval
+- Phone content: session bar with `● synced`, the metadata chips, six
+  finished tool rows (enough to fill the pane's height — never a blank band
+  under the header), the pending `$ rm src/old.ts` row, then an approval
   sheet pinned to the bottom edge — status dot, summary, `Approve` /
-  `Reject` (44px tall). The feed is bottom-aligned; empty space belongs above
-  the messages, never under the sheet.
+  `Reject` (44px tall).
 - The scene is interactive: approving/rejecting on the phone drops the TUI
-  approval panel and appends `✓ approved from phone · rm src/old.ts` (green)
-  or `✗ rejected from phone · agent paused` (red) to the session; the phone
-  sheet collapses to an `Approved` / `Rejected` chip.
+  approval panel and swaps the pane's `Waiting for approval…` line **in
+  place** for `✓ approved from phone · rm src/old.ts` (green) or `✗ rejected
+  from phone · agent paused` (red) — no stale waiting row above the result.
+  The phone sheet collapses to an `Approved` / `Rejected` chip.
 
 ### Architecture diagram
 

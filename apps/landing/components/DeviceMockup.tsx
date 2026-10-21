@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "./LanguageProvider";
 import { NvimPane } from "./mockups/NvimPane";
 import { PhoneApp } from "./mockups/PhoneApp";
@@ -9,45 +9,40 @@ import type { Approval, TermLine } from "./mockups/types";
 export function DeviceMockup() {
   const { t, lang } = useLanguage();
 
-  const idRef = useRef(100);
   const seed = () =>
     t.mockup.tui.lines.map((l, i) => ({ id: i + 1, tone: l.tone, text: l.text }));
+  // The script ends on the pending line; that is the row the answer replaces.
+  const pendingId = t.mockup.tui.lines.length;
 
   const [lines, setLines] = useState<TermLine[]>(seed);
   const [approval, setApproval] = useState<Approval>("pending");
 
-  const timers = useRef<number[]>([]);
-  const later = (fn: () => void, ms: number) => {
-    timers.current.push(window.setTimeout(fn, ms));
-  };
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
-
   // Re-seed the whole demo when the language changes.
   useEffect(() => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
     setLines(seed());
     setApproval("pending");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
-  // Only the phone resolves the approval; the pane just shows the outcome.
+  // Only the phone resolves the approval; the pane swaps its pending line for
+  // the outcome, in place — no "Waiting…" row left dangling above the result.
   const resolveApproval = (verdict: Exclude<Approval, "pending">) => {
     if (approval !== "pending") return;
     setApproval(verdict);
-    later(() => {
-      setLines((ls) => [
-        ...ls,
-        {
-          id: idRef.current++,
-          tone: verdict === "approved" ? "ok" : "warn",
-          text:
-            verdict === "approved"
-              ? t.mockup.tui.approvedLine
-              : t.mockup.tui.rejectedLine,
-        },
-      ]);
-    }, 450);
+    setLines((ls) =>
+      ls.map((line) =>
+        line.id === pendingId
+          ? {
+              ...line,
+              tone: verdict === "approved" ? "ok" : "warn",
+              text:
+                verdict === "approved"
+                  ? t.mockup.tui.approvedLine
+                  : t.mockup.tui.rejectedLine,
+            }
+          : line,
+      ),
+    );
   };
 
   return (
