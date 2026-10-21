@@ -35,25 +35,14 @@
   --on-console: #4c4f69;
   --on-console-mute: #5c5f77; /* subtext1 */
 
-  /* Terminal mockup — light terminal on the light page theme. */
-  --term-bg: #eff1f5;
-  --term-bar: #e6e9ef;
-  --term-border: rgba(76, 79, 105, 0.18);
-  --term-fg: #4c4f69;
-  --term-mute: #5c5f77;
-  --term-green: #40a02b;
-  --term-blue: #1e66f5;
-  --term-yellow: #df8e1d;
-  --term-orange: #fe640b;
-  --term-cyan: #179299;
-  --term-elevate: rgba(76, 79, 105, 0.04);
-  --term-elevate-strong: rgba(76, 79, 105, 0.08);
+  /* Hero TUI panes (nvim + phone screen). Light stays Mocha base; the dark
+     theme goes one step down to mantle so panes sit above the muted band. */
+  --tui-bg: #1e1e2e;
 
-  /* Device frame + macOS traffic lights — same in both themes. */
-  --device-frame: #181825;
-  --mac-red: #ff5f57;
-  --mac-yellow: #febc2e;
-  --mac-green: #28c840;
+  /* Panel frames are hairline-light in both themes (the panes are dark either
+     way), so hierarchy comes from the fill, not from a bright outline. */
+  --tui-hairline: rgba(205, 214, 244, 0.14);
+  --tui-divider: rgba(205, 214, 244, 0.1);
 
   /* Elevation: one soft card shadow in light, flat panes in dark. */
   --shadow-card: 0 1px 2px rgba(76, 79, 105, 0.06),
@@ -86,19 +75,7 @@
   --on-console: #cdd6f4;
   --on-console-mute: #9399b2; /* overlay2 */
 
-  /* Terminal mockup — dark terminal on the dark page theme. */
-  --term-bg: #1e1e2e;
-  --term-bar: #181825;
-  --term-border: #45475a; /* surface1 */
-  --term-fg: #cdd6f4;
-  --term-mute: #9399b2;
-  --term-green: #a6e3a1;
-  --term-blue: #89b4fa;
-  --term-yellow: #f9e2af;
-  --term-orange: #fab387;
-  --term-cyan: #94e2d5;
-  --term-elevate: rgba(205, 214, 244, 0.05);
-  --term-elevate-strong: rgba(205, 214, 244, 0.09);
+  --tui-bg: #181825;
 
   /* TUI panes are flat: hairline borders, no drop shadows. */
   --shadow-card: 0 0 0 0 transparent;
@@ -128,22 +105,11 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-bold leading-none transition-colors duration-200;
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-bold leading-none;
   }
 
   .btn-primary {
@@ -155,7 +121,7 @@
   }
 
   .btn-ghost {
-    @apply text-body transition-colors hover:text-ink;
+    @apply text-body hover:text-ink;
   }
 
   .card {
@@ -186,62 +152,6 @@
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
-  }
-
-  /* Bubble-like aperture behind the hero mockup: off-center, with a
-     defined round edge and a small highlight sheen. */
-  .hero-aperture {
-    position: absolute;
-    top: 5%;
-    right: -5%;
-    width: 80%;
-    height: 90%;
-    pointer-events: none;
-    background:
-      radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.06) 0%, transparent 14%),
-      radial-gradient(
-        circle at 55% 45%,
-        color-mix(in srgb, var(--accent) 12%, transparent) 0%,
-        color-mix(in srgb, var(--accent) 6%, transparent) 38%,
-        color-mix(in srgb, var(--accent) 2%, transparent) 58%,
-        transparent 72%
-      );
-    z-index: 0;
-  }
-}
-
-/* Dashed flow lines: loops seamlessly only when the dash pattern period
-   (dash + gap) equals the 12px dashoffset shift — keep dasharray at 6 6. */
-.flow-dash-line {
-  animation: dash-flow 1s linear infinite;
-}
-.flow-dash-line.flow-fast {
-  animation-duration: 0.45s;
-}
-@keyframes dash-flow {
-  to {
-    stroke-dashoffset: -12;
-  }
-}
-
-/* SMIL-animated packets can't be paused by the global reduced-motion rule,
-   so hide them outright when the user prefers reduced motion. */
-@media (prefers-reduced-motion: reduce) {
-  .arch-packet {
-    display: none;
-  }
-}
-
-/* Ciphertext marquee in the security diagram: duplicated content sliding
-   -50% loops seamlessly; the global reduced-motion rule stops it. */
-.cipher-stream {
-  animation-name: cipher-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-@keyframes cipher-scroll {
-  to {
-    transform: translateX(-50%);
   }
 }
 

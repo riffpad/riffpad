@@ -29,22 +29,22 @@ const config: Config = {
         "console-elevated": "var(--console-elevated)",
         "on-console": "var(--on-console)",
         "on-console-mute": "var(--on-console-mute)",
-        "term-bg": "var(--term-bg)",
-        "term-bar": "var(--term-bar)",
-        "term-border": "var(--term-border)",
-        "term-fg": "var(--term-fg)",
-        "term-mute": "var(--term-mute)",
-        "term-green": "var(--term-green)",
-        "term-blue": "var(--term-blue)",
-        "term-yellow": "var(--term-yellow)",
-        "term-orange": "var(--term-orange)",
-        "term-cyan": "var(--term-cyan)",
-        "term-elevate": "var(--term-elevate)",
-        "term-elevate-strong": "var(--term-elevate-strong)",
-        "device-frame": "var(--device-frame)",
-        "mac-red": "var(--mac-red)",
-        "mac-yellow": "var(--mac-yellow)",
-        "mac-green": "var(--mac-green)",
+        // Hero TUI pane — a real nvim session, always Catppuccin Mocha in
+        // both page themes. `tui-bg` is the only themed one: on the dark
+        // canvas it drops to mantle so the panes lift off the band.
+        "tui-bg": "var(--tui-bg)",
+        // #45475A is interaction-only (focus/hover emphasis) — never a static
+        // frame, where it reads as a focus ring on the dark surfaces.
+        "tui-border": "#45475a",
+        "tui-hairline": "var(--tui-hairline)",
+        "tui-divider": "var(--tui-divider)",
+        "tui-surface": "#313244",
+        "tui-fg": "#cdd6f4",
+        "tui-mute": "#6c7086",
+        "tui-mauve": "#cba6f7",
+        "tui-green": "#a6e3a1",
+        "tui-blue": "#89b4fa",
+        "tui-red": "#f38ba8",
       },
       fontFamily: {
         mono: [
@@ -71,8 +71,6 @@ const config: Config = {
       },
       boxShadow: {
         card: "var(--shadow-card)",
-        terminal: "0 18px 50px -12px rgba(0,0,0,0.28)",
-        device: "0 24px 60px -20px rgba(0,0,0,0.45)",
       },
       maxWidth: {
         content: "960px",

@@ -19,30 +19,25 @@ export function InstallCommand({ className = "" }: { className?: string }) {
     }
   };
 
+  // One full-width command line, on the same Mocha surface as the TUI panes.
   return (
-    <div className={`w-full max-w-[560px] ${className}`}>
-      <p className="mb-3 text-sm font-semibold text-ink">
-        {t.install.tagline}
-      </p>
-      <div className="border border-hairline bg-console text-on-console shadow-card transition-colors duration-200 hover:border-accent">
-        <div className="flex items-stretch border-b border-hairline">
-          <span className="flex h-10 items-center px-4 text-xs font-bold uppercase tracking-wide text-on-console-mute">
-            {t.install.label}
-          </span>
-          <button
-            type="button"
-            onClick={copy}
-            className="ml-auto h-10 cursor-pointer px-4 text-xs font-bold text-on-console-mute transition-colors hover:text-accent"
-          >
-            {copied ? t.install.copied : t.install.copy}
-          </button>
-        </div>
+    <div className={`w-full max-w-[760px] ${className}`}>
+      <div className="flex items-stretch border border-tui-hairline bg-tui-bg text-tui-fg">
+        <span
+          className="flex flex-none items-center px-3 text-tui-mauve"
+          aria-hidden="true"
+        >
+          ❯
+        </span>
+        <code className="flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap bg-tui-bg py-4 text-[10px] sm:text-[13px]">
+          {COMMAND}
+        </code>
         <button
           type="button"
           onClick={copy}
-          className="flex w-full cursor-pointer items-center justify-center px-4 py-4"
+          className="flex w-[88px] flex-none cursor-pointer items-center justify-center border-l border-tui-divider text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:text-[11px]"
         >
-          <code className="break-all text-[13px] sm:text-sm">{COMMAND}</code>
+          {copied ? t.install.copied : t.install.copy}
         </button>
       </div>
     </div>
