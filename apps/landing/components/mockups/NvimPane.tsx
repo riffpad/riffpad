@@ -108,19 +108,23 @@ export function NvimPane({
           </div>
         ))}
 
-        {approval === "pending" && (
-          <div className="mx-2 mt-2 border border-tui-blue/60 px-3 py-1.5">
-            <div className="font-bold text-tui-blue">{m.approvalTitle}</div>
-            <div className="font-bold">{m.approvalCmd}</div>
-            <div className="mt-1 bg-tui-surface px-1">
-              <span className="mr-1 text-tui-blue" aria-hidden="true">
-                ❯
-              </span>
-              {m.approvalYes}
+        {/* Approval slot: the box keeps its height whether it holds the panel
+            or nothing, so resolving never resizes the pane. */}
+        <div className="mx-2 mt-2 h-[96px] sm:h-[110px]">
+          {approval === "pending" && (
+            <div className="h-full border border-tui-blue/60 px-3 py-1.5">
+              <div className="font-bold text-tui-blue">{m.approvalTitle}</div>
+              <div className="font-bold">{m.approvalCmd}</div>
+              <div className="mt-1 bg-tui-surface px-1">
+                <span className="mr-1 text-tui-blue" aria-hidden="true">
+                  ❯
+                </span>
+                {m.approvalYes}
+              </div>
+              <div className="px-1 text-tui-fg/70">{m.approvalNo}</div>
             </div>
-            <div className="px-1 text-tui-fg/70">{m.approvalNo}</div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* statusline: mode block, file, then the right-hand segment */}

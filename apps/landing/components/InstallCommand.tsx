@@ -35,7 +35,7 @@ export function InstallCommand({ className = "" }: { className?: string }) {
         <button
           type="button"
           onClick={copy}
-          className="flex-none cursor-pointer border-l border-tui-divider px-4 text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:text-[11px]"
+          className="flex w-[88px] flex-none cursor-pointer items-center justify-center border-l border-tui-divider text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:text-[11px]"
         >
           {copied ? t.install.copied : t.install.copy}
         </button>

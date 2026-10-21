@@ -227,8 +227,9 @@ below the fold — the hero copy keeps the first screen to itself.
   as a small plain underlined text link — a full step below it in weight.
 - The install command is a single full-width line on the same Mocha surface
   as the TUI panes (`tui-bg` / `tui-hairline`, square, no shadow): `❯` in
-  mauve, the command in mono, `COPY` as a bordered cell on the right. No
-  label row, no card, no tagline.
+  mauve, the command in mono, `COPY` as a bordered cell of fixed width (88px)
+  on the right. No label row, no card, no tagline. The cell is wide enough for
+  `COPIED ✓`, so the label swap never moves the divider.
 - `// v0.2.6 · self-hosted · e2e` closes that row at the far right (static
   text, `xl` and up) — never a graphic.
 - The copy block owns the whole first screen: it is `100svh - 56px` tall
@@ -257,6 +258,10 @@ below the fold — the hero copy keeps the first screen to itself.
 - While the approval is pending, a four-line `tui-blue` bordered panel sits
   inside the pane: `Bash command`, the command itself, then `❯ 1. Yes`
   (selected, `tui-surface` fill) and `2. No`. No prose, no key-hint footer.
+- The panel lives in a **fixed-height slot** (96px, 110px from `sm`), so
+  resolving the approval leaves the pane, the band and everything below it at
+  exactly the same size — the result line takes the last transcript row and
+  the slot simply empties.
 - Statusline (single row, `tui-surface`): `NORMAL` mode block (mauve fill,
   `tui-bg` text), the file path, then right-aligned `claude · utf-8 · 37%`.
 - The phone is the same Mocha ramp and the same flat geometry: 12px radius
