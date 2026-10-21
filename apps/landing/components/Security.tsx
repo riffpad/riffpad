@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "./LanguageProvider";
+import { ScrollReveal } from "./ScrollReveal";
 import type { Messages } from "@/lib/i18n";
 
 // Deterministic PRNG so server and client render the same ciphertext.
@@ -56,6 +57,7 @@ function FlowGate({ label, locked }: { label: string; locked: boolean }) {
           stroke="var(--accent)"
           strokeWidth={2}
           strokeDasharray="6 6"
+          className="flow-dash-line"
         />
       </svg>
       <span className="text-accent">
@@ -99,7 +101,7 @@ function CipherFlow({ t }: { t: Messages }) {
 
       <FlowGate label={f.encryptLabel} locked />
 
-      {/* relay: nothing but ciphertext */}
+      {/* relay: nothing but ciphertext, endlessly streaming */}
       <div className="border border-dashed border-hairline-strong px-3 py-2.5">
         <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-mute">
           <span>{f.relayLabel}</span>
@@ -107,8 +109,17 @@ function CipherFlow({ t }: { t: Messages }) {
         </div>
         <div className="mt-2 space-y-1.5 overflow-hidden text-[11px] leading-5 text-mute">
           {CIPHER_LINES.map((line, i) => (
-            <div key={i} className="truncate">
-              {line}
+            <div key={i} className="whitespace-nowrap">
+              <div
+                className="cipher-stream inline-flex w-max"
+                style={{
+                  animationDuration: `${18 + i * 5}s`,
+                  animationDirection: i % 2 ? "reverse" : "normal",
+                }}
+              >
+                <span>{line}</span>
+                <span aria-hidden="true">{line}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -131,7 +142,7 @@ export function Security() {
     >
       <div className="w-full">
         <div className="grid items-start gap-10 lg:grid-cols-2">
-          <div className="min-w-0">
+          <ScrollReveal className="min-w-0">
             <span className="label">{`// ${t.security.label}`}</span>
             <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
               {t.security.title}
@@ -152,9 +163,11 @@ export function Security() {
                 </div>
               ))}
             </div>
-          </div>
+          </ScrollReveal>
 
-          <CipherFlow t={t} />
+          <ScrollReveal delay={150}>
+            <CipherFlow t={t} />
+          </ScrollReveal>
         </div>
       </div>
     </section>

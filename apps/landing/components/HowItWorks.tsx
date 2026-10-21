@@ -2,6 +2,7 @@
 
 import { useLanguage } from "./LanguageProvider";
 import { BRAND_ICONS } from "./brand-icons";
+import { ScrollReveal } from "./ScrollReveal";
 
 // Pseudo-QR pairing pattern: 1 = ink cell, 2 = accent finder block, 0 = empty.
 const QR_ROWS = [
@@ -84,11 +85,17 @@ export function HowItWorks() {
       className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
       <div className="w-full">
-        <span className="label">{`// ${t.how.label}`}</span>
-        <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
-          {t.how.title}
-        </h2>
-        <p className="mt-3 text-base text-body">{t.how.subtitle}</p>
+        <ScrollReveal>
+          <span className="label">{`// ${t.how.label}`}</span>
+        </ScrollReveal>
+        <ScrollReveal delay={75}>
+          <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
+            {t.how.title}
+          </h2>
+        </ScrollReveal>
+        <ScrollReveal delay={150}>
+          <p className="mt-3 text-base text-body">{t.how.subtitle}</p>
+        </ScrollReveal>
 
         <div className="relative mt-12">
           <div
@@ -99,10 +106,8 @@ export function HowItWorks() {
             {t.how.steps.map((step, index) => {
               const Visual = visuals[index % visuals.length];
               return (
-                <div
-                  key={index}
-                  className="card relative flex h-full flex-col p-6 sm:p-8"
-                >
+                <ScrollReveal key={index} delay={225 + index * 110}>
+                  <div className="card relative flex h-full flex-col p-6 sm:p-8">
                     <span className="text-3xl font-bold text-accent">
                       {String(index + 1).padStart(2, "0")}
                     </span>
@@ -115,7 +120,8 @@ export function HowItWorks() {
                     <div className="mt-auto pt-6">
                       <Visual />
                     </div>
-                </div>
+                  </div>
+                </ScrollReveal>
               );
             })}
           </div>

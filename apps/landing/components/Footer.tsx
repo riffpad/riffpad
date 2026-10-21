@@ -3,6 +3,7 @@
 import { BookIcon, DiscordIcon, GitHubIcon, MailIcon, XIcon } from "./icons";
 import { useLanguage } from "./LanguageProvider";
 import { useTheme } from "./ThemeProvider";
+import { ScrollReveal } from "./ScrollReveal";
 
 export function Footer() {
   const { t } = useLanguage();
@@ -11,7 +12,8 @@ export function Footer() {
   return (
     <footer className="border-t border-hairline bg-surface">
       <div className="mx-auto max-w-frame px-4 py-12 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <ScrollReveal>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="text-xs text-mute">{t.footer.copyright}</div>
             <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               <nav
@@ -101,6 +103,7 @@ export function Footer() {
               */}
             </div>
           </div>
+        </ScrollReveal>
       </div>
     </footer>
   );

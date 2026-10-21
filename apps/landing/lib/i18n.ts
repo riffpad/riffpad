@@ -21,6 +21,7 @@ const en = {
     betaError: "Couldn't sign you up — try again.",
   },
   install: {
+    promptLabel: "paste into your agent",
     copy: "copy",
     copied: "copied ✓",
   },
@@ -225,6 +226,7 @@ const zh: typeof en = {
     betaError: "提交失败，请重试。",
   },
   install: {
+    promptLabel: "粘贴给你的 agent",
     copy: "复制",
     copied: "已复制",
   },

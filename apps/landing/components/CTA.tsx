@@ -3,6 +3,7 @@
 import { useLanguage } from "./LanguageProvider";
 import { DiscordIcon } from "./icons";
 import { WaitlistForm } from "./WaitlistForm";
+import { ScrollReveal } from "./ScrollReveal";
 
 export function CTA() {
   const { t } = useLanguage();
@@ -10,7 +11,7 @@ export function CTA() {
   return (
     <section className="mx-auto max-w-frame px-4 py-12 sm:px-6 sm:py-16 lg:py-32">
       <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
-        <div className="min-w-0 text-left">
+        <ScrollReveal className="min-w-0 text-left">
           <h2 className="max-w-content text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
             {t.cta.title}
           </h2>
@@ -26,9 +27,9 @@ export function CTA() {
             {t.cta.button} <span aria-hidden="true">→</span>
           </a>
           <p className="mt-4 text-xs text-mute">{t.cta.note}</p>
-        </div>
+        </ScrollReveal>
 
-        <div className="min-w-0 text-left">
+        <ScrollReveal delay={150} className="min-w-0 text-left">
           <p className="text-sm text-body">
             {t.hero.betaPrefix}{" "}
             <span className="font-semibold text-ink">{t.hero.betaWaitlist}</span>
@@ -48,7 +49,7 @@ export function CTA() {
               </span>
             </a>
           </p>
-        </div>
+        </ScrollReveal>
       </div>
     </section>
   );
