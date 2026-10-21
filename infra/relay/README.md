@@ -130,6 +130,42 @@ The relay listens on all interfaces by default (`:9090`). With the computer and 
 
 > Note: this has no TLS — trusted-LAN testing only.
 
+## Credentials in WebSocket URLs (needs a manual proxy update)
+
+Both WebSocket connections carry a **long-lived credential in the URL query string**:
+
+| connection | URL today | credential | lifetime |
+|---|---|---|---|
+| daemon → relay | `/ws/host?hostId=…&token=<hostSecret>` | per-host secret | never expires |
+| browser → relay | `/ws?device=…&session=…&eph=…&token=<relayToken>` | account token | 30 days |
+
+Boot ordering, tab reloads and WebSocket upgrade failures are all written to the proxy's access log, so with a default config those tokens end up in `access.log`, in logrotate archives, in whatever ships the logs, and in backups. A leaked account token can list sessions, revoke paired devices and fire the kill switch (content stays end-to-end encrypted, so it is availability + metadata, not plaintext); a leaked `hostSecret` can impersonate the host and kick the real daemon.
+
+So the shipped proxy configs **disable request logging for `/ws` and nothing else** (issue #349):
+
+- `nginx-api-riffpad-ai.conf`: `location /ws { access_log off; … }`, plus `limit_req_zone` rules keyed on `$binary_remote_addr` (stricter for `/api/auth/`, looser for the rest of `/api/`).
+- `Caddyfile`: `log_skip /ws*` — Caddy keeps logging every other path; it has no built-in rate limiting, so per-IP limits come from nginx config or a plugin (see the comment in the file).
+
+**Apply it yourself — the deploy pipeline does not.** `deploy-relay` on the server only runs `git pull` + `docker compose up -d`; it never touches the host nginx/Caddy config. On the server:
+
+```bash
+# nginx
+sudo cp /path/to/riffpad/infra/relay/nginx-api-riffpad-ai.conf /etc/nginx/sites-available/api-riffpad-ai
+sudo nginx -t && sudo systemctl reload nginx
+
+# Caddy
+sudo cp /path/to/riffpad/infra/relay/Caddyfile /etc/caddy/Caddyfile   # keep your own domain first
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+```
+
+Then check that a stale log line never reveals a token:
+
+```bash
+grep -c 'token=' /var/log/nginx/access.log        # 0 for /ws lines, and none after the reload
+```
+
+Also note: the relay no longer trusts `X-Forwarded-For` at all (it was trusted before #349, which made every rate limit bypassable by sending a header). Rate limits are now keyed on usernames, emails, device codes, user IDs and a shared global bucket; per-source floods are the proxy's job. Removing the credential from the URL entirely (header auth for the daemon, short-lived tickets for browsers) is tracked separately in #349.
+
 ## Security notes
 
 - Passwords are bcrypt-hashed; login tokens expire after 30 days and are revoked on logout.
@@ -137,3 +173,4 @@ The relay listens on all interfaces by default (`:9090`). With the computer and 
 - The relay data directory (SQLite) must be persisted; mount a dedicated volume in production. SQLite is fine for early single-instance use; switch to Postgres (`DATABASE_URL`) when scaling to multiple instances or wanting managed backups.
 - The relay is zero-knowledge: it forwards encrypted envelopes and stores no content; metadata (devices/sessions) is visible, so for public deployments connect Postgres and add auditing early.
 - Multiple production instances need shared session routing (Redis pub/sub or sticky sessions); not needed at the single-instance stage.
+- WebSocket credentials live in the URL, so the bundled nginx/Caddy configs disable access logging for `/ws` — apply them by hand after upgrading (see the section above). Rate limits are keyed per identity, never per client IP header.
