@@ -10,9 +10,9 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="relative flex min-h-[calc(100svh-3.5rem)] scroll-mt-14 items-center px-4 sm:px-6"
+      className="relative flex min-h-[calc(100svh-3.5rem)] scroll-mt-14 items-center"
     >
-      <div className="relative z-10 mx-auto grid w-full max-w-frame items-center gap-8 py-10 sm:gap-10 sm:py-12 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] lg:gap-16">
+      <div className="relative z-10 mx-auto grid w-full max-w-frame items-center gap-8 px-4 py-10 sm:gap-10 sm:px-6 sm:py-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-12">
         <div className="text-left">
           <h1 className="text-balance text-[28px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[40px] lg:text-[52px]">
             {t.hero.title1}
@@ -36,7 +36,7 @@ export function Hero() {
         </div>
 
         <div className="relative flex min-w-0 items-center justify-center">
-          <div className="origin-center scale-[0.68] sm:scale-[0.8] lg:scale-[0.92]">
+          <div className="origin-center scale-[0.68] sm:scale-[0.8] lg:scale-[0.78] xl:scale-[0.92]">
             <DeviceMockup />
           </div>
         </div>
