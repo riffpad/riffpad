@@ -129,7 +129,7 @@ Catppuccin 的状态色是给「点 / 边框 / 填充」用的；在 Latte 当**
 | 填充用（不变） | 文字用（light / dark） |
 |---|---|
 | `--success` | `--success-text` `#2e6b1f` / `#a6e3a1` |
-| `--warning` | `--warning-text` `#8a5a00` / `#f9e2af` |
+| `--warning` | `--warning-text` `#855700` / `#f9e2af` |
 | `--info` | `--info-text` `#1c56d0` / `#89b4fa` |
 | `--chat-cyan` | `--cyan-text` `#0b6b6b` / `#94e2d5` |
 | `--danger` | `--danger-text` `#b3153b` / `#f38ba8` |
@@ -137,7 +137,7 @@ Catppuccin 的状态色是给「点 / 边框 / 填充」用的；在 Latte 当**
 
 `--accent-text` 只用于「accent 当文字/图标」的场合（链接、`//` 标记、tab 下划线文字）；按钮填充继续用 `--accent` + `--accent-ink`。`--chat-*` 系列作为文字时同样走对应的 `*-text`（`--chat-green`→`--success-text`、`--chat-yellow`→`--warning-text`、`--chat-blue`→`--info-text`、`--chat-cyan`→`--cyan-text`、`--chat-danger`→`--danger-text`），代码高亮（`.hljs*`）也在其中。
 
-实测对比度（canvas / surface）：light 全部 ≥ 4.87 / 5.24；dark 全部 ≥ 7.58。
+实测对比度（canvas / surface）：light 全部 ≥ 5.14 / 5.53；dark 全部 ≥ 7.58。代码块底色（`--chat-elevated`）上 light 也全部 ≥ 4.72。
 
 ### 代码 / 聊天面板
 

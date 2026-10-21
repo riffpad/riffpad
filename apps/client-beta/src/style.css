@@ -25,7 +25,7 @@
   /* Status colours used as TEXT need a darker step on Latte; the base values
      stay for dots, borders and fills. */
   --success-text: #2e6b1f;
-  --warning-text: #8a5a00;
+  --warning-text: #855700;
   --info-text: #1c56d0;
   --cyan-text: #0b6b6b;
   --danger-text: #b3153b;
