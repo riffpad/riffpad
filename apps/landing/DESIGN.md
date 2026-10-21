@@ -319,3 +319,9 @@ Touch targets ≥ 44px; focus rings visible in accent color; no horizontal
 scroll. (The architecture diagram is the one exception: it keeps its 960px
 canvas and scrolls horizontally *inside its own frame* below 768px — the page
 itself never scrolls sideways.)
+
+One container governs the whole page: top bar, hero, every section and the
+footer all use `mx-auto w-full max-w-frame px-4 sm:px-6` (frame = 1200px), so
+content edges line up from the logo down to the footer note. Narrower measures
+(`max-w-[NNN]`, the CTA heading) cap line length on individual elements only —
+never add a second page-width wrapper inside a section.

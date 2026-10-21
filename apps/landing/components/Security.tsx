@@ -140,7 +140,7 @@ export function Security() {
       id="security"
       className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
-      <div className="mx-auto max-w-content">
+      <div className="w-full">
         <div className="grid items-start gap-10 lg:grid-cols-2">
           <ScrollReveal className="min-w-0">
             <span className="label">{`// ${t.security.label}`}</span>
