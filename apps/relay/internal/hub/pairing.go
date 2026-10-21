@@ -51,7 +51,7 @@ func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	if !h.allowRate("pairings", clientIP(r), 30, time.Minute) {
+	if !h.allowRate("pairings", u.ID, limitPairings, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -114,7 +114,13 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	if !h.allowRate("pair", clientIP(r), 10, time.Minute) {
+	// Per user, not per code: keying on the guessed code would hand every
+	// guess a fresh bucket, which is the same as no limit at all. The global
+	// bucket is only a circuit breaker for a distributed flood — it must stay
+	// far above what one account can spend, or a single attacker could stop
+	// everyone else from pairing.
+	if !h.allowRate("pair", u.ID, limitPairUser, time.Minute) ||
+		!h.allowRate("pair-global", rateKeyGlobal, limitPairGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}

@@ -2,6 +2,7 @@ package hub
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,7 +36,7 @@ func (h *Hub) handleRegister(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if !h.allowRate("register", clientIP(r), 10, time.Minute) {
+	if !h.allowRate("register", rateKeyGlobal, limitRegisterGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -70,7 +71,7 @@ func (h *Hub) handleLogin(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if !h.allowRate("login", clientIP(r), 10, time.Minute) {
+	if !h.allowRate("login", rateKeyGlobal, limitLoginGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -82,11 +83,32 @@ func (h *Hub) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	// Slow down guessing for a single username; the global bucket above (and
+	// nginx limit_req) absorbs a flood spread over many usernames.
+	userKey := strings.ToLower(strings.TrimSpace(req.Username))
+	if userKey == "" {
+		userKey = "unknown"
+	}
+	// Reserve the slot before verifying: charging the attempt here is what
+	// stops a concurrent burst from all passing the backoff check.
+	if !h.beginLoginAttempt(userKey) {
+		writeError(w, http.StatusTooManyRequests, "too many login attempts, try again later")
+		return
+	}
+	outcome := loginAttemptRetry
+	defer func() { h.endLoginAttempt(userKey, outcome) }()
 	u, err := h.store.VerifyLogin(strings.TrimSpace(req.Username), req.Password)
 	if err != nil {
+		if !errors.Is(err, ErrInvalidCredentials) {
+			// Our fault (DB hiccup, etc.): no penalty, the user just retries.
+			writeError(w, http.StatusInternalServerError, "login failed")
+			return
+		}
+		outcome = loginAttemptDenied
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+	outcome = loginAttemptOK
 	token, err := h.store.CreateToken(u.ID, 30*24*time.Hour)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "token failed")
@@ -123,7 +145,7 @@ func (h *Hub) handleDeviceLogin(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if !h.allowRate("oauth-device", clientIP(r), 10, time.Minute) {
+	if !h.allowRate("oauth-device", rateKeyGlobal, limitDeviceGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -150,10 +172,6 @@ func (h *Hub) handleDeviceLoginPoll(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if !h.allowRate("oauth-device-poll", clientIP(r), 30, time.Minute) {
-		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
-		return
-	}
 	var req struct {
 		Code string `json:"code"`
 	}
@@ -162,6 +180,10 @@ func (h *Hub) handleDeviceLoginPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := strings.ToUpper(strings.TrimSpace(req.Code))
+	if !h.allowRate("oauth-device-poll", code, limitDevicePoll, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
 	h.mu.Lock()
 	d, ok := h.deviceLogins[code]
 	if ok {
@@ -199,11 +221,11 @@ func (h *Hub) handleDeviceLoginStatus(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if !h.allowRate("oauth-device-status", clientIP(r), 30, time.Minute) {
+	code := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("code")))
+	if !h.allowRate("oauth-device-status", code, limitDeviceStatus, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
-	code := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("code")))
 	h.mu.Lock()
 	d, ok := h.deviceLogins[code]
 	if ok && time.Now().After(d.ExpiresAt) {
