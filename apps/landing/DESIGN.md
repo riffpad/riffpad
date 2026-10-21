@@ -225,13 +225,18 @@ below the fold — the hero copy keeps the first screen to itself.
 - The primary CTA is the loudest thing on the page: accent fill, `64px`
   tall, `18px` label, full-width on mobile; `Read the docs` sits next to it
   as a small plain underlined text link — a full step below it in weight.
-- The install command is a single full-width line on the same Mocha surface
-  as the TUI panes (`tui-bg` / `tui-hairline`, square, no shadow): `❯` in
-  mauve, the command in mono, `COPY` as a bordered cell of fixed width (88px)
-  on the right. No label row, no card, no tagline. The cell is wide enough for
-  `COPIED ✓`, so the label swap never moves the divider.
-- `// v0.2.6 · self-hosted · e2e` closes that row at the far right (static
-  text, `xl` and up) — never a graphic.
+- The install prompt reads as a prompt, not a shell command: no `❯` glyph.
+  It sits on the same Mocha surface as the TUI panes (`tui-bg` /
+  `tui-hairline`, square, no shadow) with two cells — the whole prompt in
+  mono (`help me set up riffpad: curl -fsSL https://riffpad.ai/SKILL.md`)
+  and a single `COPY PROMPT` / `COPIED ✓` cell on the right, behind the
+  hairline divider. No label cell: the copy cell is the only interactive
+  element and the bar as a whole is not a button. The cell is a fixed 96px
+  from `sm` up — wide enough for the longest of `COPY PROMPT` /
+  `复制提示词` / `COPIED ✓` — so swapping labels never moves the divider; it
+  hints mauve on hover. One row from `sm` up; below `sm` the copy cell owns
+  the top row and the prompt takes its own full-width row underneath it,
+  wrapping to two lines — never clipped, never scrolled sideways.
 - The copy block owns the whole first screen: it is `100svh - 56px` tall
   (the header offset) and vertically centred, so nothing else may peek above
   the fold. The scene band (TUI + phone) starts on the next screen, as its
@@ -283,17 +288,22 @@ below the fold — the hero copy keeps the first screen to itself.
 
 - `// architecture` label, title, description — same section header pattern
   as every other section.
-- The diagram sits on a blueprint grid background (hairline grid lines,
-  radial fade at the edges) — no window chrome.
-- Static SVG of the system, straight lanes only: `client` (your phone) ⇄
+- The diagram sits on a blueprint grid background (24px hairline grid,
+  radial fade at the edges) — no window chrome. The panel is opaque
+  (`bg-surface`) so it masks the page's 40px body lattice underneath: only
+  the 24px blueprint grid shows inside the frame, in both themes — never a
+  grid inside a grid.
+- One SVG of the system, straight lanes only: `client` (your phone) ⇄
   `relay` (zero-knowledge) ⇄ `daemon` (your computer), the daemon fanning
   out to three icon-only CLI chips using the vendored brand icons
   (`components/brand-icons.ts`).
 - Two straight flow lanes per link: accent dashed lane for events
   (daemon → phone), info-blue dashed lane for approvals (phone → daemon).
-  The dashes are fixed (`strokeDasharray="6 6"`) — no scrolling dash and no
-  travelling packets.
-- Node accent dots are solid; the diagram scrolls horizontally below ~680px.
+  The dashes flow (`.flow-dash-line` over `strokeDasharray="6 6"`, 1s linear
+  loop; `.flow-fast` runs at 0.45s) and the same class drives the
+  daemon ↔ CLI chip links. A packet rides each lane on a 4s `animateMotion`
+  loop, fading in and out at both ends, and the node accent dots pulse.
+- The diagram scrolls horizontally below ~680px.
 
 ### How it works
 
@@ -337,14 +347,26 @@ below the fold — the hero copy keeps the first screen to itself.
 
 ## 7. Motion
 
-- **None.** The page is static: no scroll reveals, no marquees, no travelling
-  packets, no pulsing dots, no `transition-*` anywhere. `ScrollReveal` and
-  every `@keyframes` were removed, and there is no reduced-motion media query
-  left to write because nothing moves.
-- Hover and state changes are instantaneous: colour and border swap on the
-  same frame (primary CTA darkens one step, links go `mute` → `ink`).
-- Nothing animates in or out; a section is fully painted the moment it is
-  scrolled to.
+- No scroll reveals and no fade-in on scroll: every section, including the
+  FAQ list and the footer, is fully painted at opacity 1 the moment it is
+  rendered. There is no `ScrollReveal`, no observer and no
+  `transition-all` wrapper anywhere in the page tree.
+- The architecture lanes flow (`.flow-dash-line`, 1s linear, `.flow-fast` at
+  0.45s — keep the dasharray at 6 6 so the loop is seamless), packets travel
+  the event and approval lanes on 4s loops with an opacity fade at both ends,
+  and the node accent dots pulse.
+- The security `relay` band is a ciphertext marquee: `.cipher-stream` slides
+  duplicated rows `translateX(-50%)` at 18s + 5s per line, alternating
+  direction.
+- Buttons and links change colour over `transition-colors` (`200ms`) instead
+  of instantly: the primary CTA darkens one step, ghost and mute links go
+  `ink`.
+- Reduced motion is a hard contract. A global `prefers-reduced-motion:
+  reduce` override pins every animation to `0.01ms` / one iteration and every
+  transition to `0.01ms` (and `scroll-behavior: auto`), and `.arch-packet` is
+  `display: none` because SMIL ignores that override. Under reduced motion
+  the dashes, the marquee and the node dots settle instantly at their final
+  state — the page is fully visible and static.
 
 ## 8. Do / Don't
 

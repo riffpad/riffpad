@@ -21,7 +21,7 @@ const en = {
     betaError: "Couldn't sign you up — try again.",
   },
   install: {
-    copy: "copy",
+    copy: "copy prompt",
     copied: "copied ✓",
   },
   architecture: {
@@ -225,8 +225,8 @@ const zh: typeof en = {
     betaError: "提交失败，请重试。",
   },
   install: {
-    copy: "复制",
-    copied: "已复制",
+    copy: "复制提示词",
+    copied: "已复制 ✓",
   },
   architecture: {
     label: "系统架构",
