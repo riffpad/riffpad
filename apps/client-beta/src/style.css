@@ -6,110 +6,113 @@
 }
 
 :root {
-  --canvas: #fafaf7;
-  --surface: #ffffff;
-  --surface-muted: #f2f1ec;
-  --ink: #191917;
-  --body: #46463f;
-  --mute: #73736a;
-  --hairline: rgba(25, 25, 23, 0.1);
-  --hairline-strong: rgba(25, 25, 23, 0.42);
-  --accent: #1a7f37;
-  --accent-hover: #146c2e;
+  /* Catppuccin Latte — source of truth: apps/landing/app/globals.css. */
+  --canvas: #e6e9ef;
+  --surface: #eff1f5;
+  --surface-muted: #dce0e8;
+  --ink: #4c4f69;
+  --body: #5c5f77;
+  --mute: #5c5f77;
+  --hairline: rgba(76, 79, 105, 0.16);
+  --hairline-strong: rgba(76, 79, 105, 0.44);
+  --accent: #8839ef;
+  --accent-hover: #7287fd;
   --accent-ink: #ffffff;
-  --success: #16a34a;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --info: #2563eb;
+  --success: #40a02b;
+  --warning: #df8e1d;
+  --danger: #d20f39;
+  --info: #1e66f5;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
-  --code-bg: #f2f1ec;
-  --code-fg: #191917;
-  --code-mute: #73736a;
-  --chat-bg: #ffffff;
-  --chat-elevated: #f2f1ec;
-  --chat-fg: #191917;
-  --chat-mute: #73736a;
-  --chat-border: rgba(25, 25, 23, 0.12);
-  --chat-green: #1a7f37;
-  --chat-yellow: #b45309;
-  --chat-blue: #2563eb;
-  --chat-cyan: #0e7490;
-  --chat-danger: #dc2626;
-  /* Console stays dark in both themes, like a real terminal. */
-  --console: #121214;
-  --console-elevated: #1b1b19;
-  --on-console: #e8e6e3;
-  --on-console-mute: #7c7c82;
-  --term-green: #7ee787;
-  --term-blue: #58a6fb;
-  --term-yellow: #d29922;
-  --term-orange: #f0883e;
-  --term-cyan: #76e3ea;
+  --code-bg: #eff1f5;
+  --code-fg: #4c4f69;
+  --code-mute: #5c5f77;
+  --chat-bg: #eff1f5;
+  --chat-elevated: #dce0e8;
+  --chat-fg: #4c4f69;
+  --chat-mute: #5c5f77;
+  --chat-border: rgba(76, 79, 105, 0.16);
+  --chat-green: #40a02b;
+  --chat-yellow: #df8e1d;
+  --chat-blue: #1e66f5;
+  --chat-cyan: #179299;
+  --chat-danger: #d20f39;
+  /* Console / terminal panes stay Mocha-dark in both themes, like a real terminal. */
+  --console: #1e1e2e;
+  --console-elevated: #313244;
+  --on-console: #cdd6f4;
+  --on-console-mute: #a6adc8;
+  --term-green: #a6e3a1;
+  --term-blue: #89b4fa;
+  --term-yellow: #f9e2af;
+  --term-orange: #fab387;
+  --term-cyan: #94e2d5;
 }
 
 [data-theme="dark"] {
-  --canvas: #0b0b0c;
-  --surface: #121214;
-  --surface-muted: #1a1a1d;
-  --ink: #e8e6e3;
-  --body: #a8a8ad;
-  --mute: #7c7c82;
-  --hairline: rgba(255, 255, 255, 0.1);
-  --hairline-strong: rgba(255, 255, 255, 0.22);
-  --accent: #7ee787;
-  --accent-hover: #a4f0ba;
-  --accent-ink: #191917;
-  --success: #7ee787;
-  --warning: #d29922;
-  --danger: #f85149;
-  --info: #58a6fb;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --code-bg: #121214;
-  --code-fg: #e8e6e3;
-  --code-mute: #7c7c82;
-  --chat-bg: #121214;
-  --chat-elevated: #1b1b19;
-  --chat-fg: #e8e6e3;
-  --chat-mute: #7c7c82;
-  --chat-border: rgba(255, 255, 255, 0.12);
-  --chat-green: #7ee787;
-  --chat-yellow: #d29922;
-  --chat-blue: #58a6fb;
-  --chat-cyan: #76e3ea;
-  --chat-danger: #f85149;
+  /* Catppuccin Mocha — must stay identical to the prefers-color-scheme block below. */
+  --canvas: #11111b;
+  --surface: #181825;
+  --surface-muted: #1e1e2e;
+  --ink: #cdd6f4;
+  --body: #bac2de;
+  --mute: #a6adc8;
+  --hairline: rgba(205, 214, 244, 0.12);
+  --hairline-strong: rgba(205, 214, 244, 0.3);
+  --accent: #cba6f7;
+  --accent-hover: #b4befe;
+  --accent-ink: #1e1e2e;
+  --success: #a6e3a1;
+  --warning: #f9e2af;
+  --danger: #f38ba8;
+  --info: #89b4fa;
+  --shadow: none;
+  --code-bg: #181825;
+  --code-fg: #cdd6f4;
+  --code-mute: #a6adc8;
+  --chat-bg: #181825;
+  --chat-elevated: #313244;
+  --chat-fg: #cdd6f4;
+  --chat-mute: #a6adc8;
+  --chat-border: rgba(205, 214, 244, 0.12);
+  --chat-green: #a6e3a1;
+  --chat-yellow: #f9e2af;
+  --chat-blue: #89b4fa;
+  --chat-cyan: #94e2d5;
+  --chat-danger: #f38ba8;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --canvas: #0b0b0c;
-    --surface: #121214;
-    --surface-muted: #1a1a1d;
-    --ink: #e8e6e3;
-    --body: #a8a8ad;
-    --mute: #7c7c82;
-    --hairline: rgba(255, 255, 255, 0.1);
-    --hairline-strong: rgba(255, 255, 255, 0.22);
-    --accent: #7ee787;
-    --accent-hover: #a4f0ba;
-    --accent-ink: #191917;
-    --success: #7ee787;
-    --warning: #d29922;
-    --danger: #f85149;
-    --info: #58a6fb;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --code-bg: #121214;
-    --code-fg: #e8e6e3;
-    --code-mute: #7c7c82;
-    --chat-bg: #121214;
-    --chat-elevated: #1b1b19;
-    --chat-fg: #e8e6e3;
-    --chat-mute: #7c7c82;
-    --chat-border: rgba(255, 255, 255, 0.12);
-    --chat-green: #7ee787;
-    --chat-yellow: #d29922;
-    --chat-blue: #58a6fb;
-    --chat-cyan: #76e3ea;
-    --chat-danger: #f85149;
+    /* Catppuccin Mocha — same values as [data-theme="dark"]. */
+    --canvas: #11111b;
+    --surface: #181825;
+    --surface-muted: #1e1e2e;
+    --ink: #cdd6f4;
+    --body: #bac2de;
+    --mute: #a6adc8;
+    --hairline: rgba(205, 214, 244, 0.12);
+    --hairline-strong: rgba(205, 214, 244, 0.3);
+    --accent: #cba6f7;
+    --accent-hover: #b4befe;
+    --accent-ink: #1e1e2e;
+    --success: #a6e3a1;
+    --warning: #f9e2af;
+    --danger: #f38ba8;
+    --info: #89b4fa;
+    --shadow: none;
+    --code-bg: #181825;
+    --code-fg: #cdd6f4;
+    --code-mute: #a6adc8;
+    --chat-bg: #181825;
+    --chat-elevated: #313244;
+    --chat-fg: #cdd6f4;
+    --chat-mute: #a6adc8;
+    --chat-border: rgba(205, 214, 244, 0.12);
+    --chat-green: #a6e3a1;
+    --chat-yellow: #f9e2af;
+    --chat-blue: #89b4fa;
+    --chat-cyan: #94e2d5;
+    --chat-danger: #f38ba8;
   }
 }
 
@@ -1028,6 +1031,58 @@ button.github {
   padding: 1px 5px;
 }
 .md pre code { background: transparent; padding: 0; }
+
+/* Syntax highlighting: Catppuccin through the chat tokens, so code blocks
+   follow the theme instead of shipping a third-party (GitHub-dark) palette. */
+.hljs { color: var(--code-fg); background: transparent; }
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-mute);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-name,
+.hljs-strong {
+  color: var(--chat-blue);
+  font-weight: 700;
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--chat-green);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-link,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: var(--chat-yellow);
+}
+.hljs-title,
+.hljs-section,
+.hljs-built_in,
+.hljs-type {
+  color: var(--accent);
+}
+.hljs-attr,
+.hljs-property,
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-meta {
+  color: var(--chat-cyan);
+}
+.hljs-deletion {
+  color: var(--chat-danger);
+}
+.hljs-emphasis { font-style: italic; }
 .md a { color: var(--chat-blue); }
 .md blockquote {
   border-left: 2px solid var(--hairline-strong);
