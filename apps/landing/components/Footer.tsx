@@ -80,6 +80,8 @@ export function Footer() {
                   className="block h-8 w-auto opacity-80 transition-opacity hover:opacity-100"
                 />
               </a>
+              {/* Uneed badge hidden: uneed.best serves the badge image behind Cloudflare (403 + challenge page), so it renders as a broken image. Re-enable once a working asset URL / self-hosted copy is available. */}
+              {/*
               <a
                 href="https://www.uneed.best/tool/riffpad"
                 target="_blank"
@@ -98,6 +100,7 @@ export function Footer() {
                   className="block h-8 w-auto opacity-80 transition-opacity hover:opacity-100"
                 />
               </a>
+              */}
             </div>
           </div>
         </ScrollReveal>
