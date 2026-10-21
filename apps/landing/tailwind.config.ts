@@ -32,6 +32,7 @@ const config: Config = {
         // Hero TUI pane — a real nvim session, always Catppuccin Mocha in
         // both page themes, so these are fixed values, not theme vars.
         "tui-bg": "#1e1e2e",
+        "tui-border": "#45475a",
         "tui-surface": "#313244",
         "tui-fg": "#cdd6f4",
         "tui-mute": "#6c7086",

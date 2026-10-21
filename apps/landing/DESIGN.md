@@ -109,6 +109,7 @@ the theme.
 | Token | Hex | Usage |
 |---|---|---|
 | `tui-bg` | `#1E1E2E` | TUI body and phone screen (base) |
+| `tui-border` | `#45475A` | Pane outline — the edge that separates Mocha panes from the dark page (surface1) |
 | `tui-surface` | `#313244` | Statusline, selected option, hairline rules (surface0) |
 | `tui-fg` | `#CDD6F4` | TUI text (text) |
 | `tui-mute` | `#6C7086` | Gutter numbers, hints (overlay0) |
@@ -201,38 +202,44 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 - The primary CTA is the loudest thing on the page: accent fill, `56px`
   tall, `18px` label, full-width on mobile. `Read the docs` sits next to it
   as a plain underlined text link — no second button.
-- Nothing else competes for the first screen: no install box, no mockup.
-  The scene and the `InstallCommand` card follow below the copy, inside the
-  same section.
+- The copy block owns the whole first screen: it is `100svh - 56px` tall
+  (the header offset) and vertically centred, so nothing else may peek above
+  the fold. The scene and the `InstallCommand` card start on the next screen,
+  inside the same section.
 
 ### Device scene (hero) — nvim TUI + phone
 
-- The scene is one product story in two panes, top-aligned: the wide pane is
-  a Neovim session (TUI), the narrow one is the Riffpad phone. A single
-  dashed 1px hairline separates them — no animated connector, no caption.
-- The TUI pane is a screenshot, not a window: no traffic lights, no title
-  bar, no rounded corners, no drop shadow. 1px `tui-surface` border, `tui-bg`
-  body, square corners, mono type only.
-- It always renders Catppuccin **Mocha**, in both page themes.
-- Gutter: `relativenumber` style — the cursor line shows its absolute number
-  (`42`), every other row shows its distance from the cursor, in `tui-mute`.
+- Two panes, top-aligned and bottom-aligned: the wide pane is a Neovim
+  session (TUI, `2fr`), the narrow one is the Riffpad phone (`1fr`, capped at
+  320px). No connector, divider or caption between them — the gap carries the
+  relationship.
+- The TUI pane is a screenshot, not a window: no traffic lights, no window
+  title bar, no shadow. It is flat and square with a 1px `tui-border`
+  outline, and it always renders Catppuccin **Mocha**, in both page themes.
+- Chrome, top to bottom: a `tui-surface` tabline (file name tab + modified
+  `+`), the transcript, the statusline. Nothing else.
+- Gutter: plain absolute line numbers (`1…N`) in `tui-mute`; the cursor line
+  is `tui-fg`. No relative numbers.
 - Content: the user prompt (`❯`, mauve), a mute "thought 4s · read 3 files"
   line, `●` tool calls with `└` sub-lines, then the agent's pending
   `Bash(rm src/old.ts)` call.
-- While the approval is pending, a `tui-blue` bordered panel sits inside the
-  pane: `Bash command`, the command, `Do you want to proceed?`, the selected
-  row (`❯ 1. Yes`) filled with `tui-surface`, and the key-hint footer.
+- While the approval is pending, a four-line `tui-blue` bordered panel sits
+  inside the pane: `Bash command`, the command itself, then `❯ 1. Yes`
+  (selected, `tui-surface` fill) and `2. No`. No prose, no key-hint footer.
 - Statusline (single row, `tui-surface`): `NORMAL` mode block (mauve fill,
   `tui-bg` text), the file path, then right-aligned `claude · utf-8 · 37%`.
-- The phone is the same Mocha ramp, stripped back: session bar with
-  `● synced`, two metadata chips, the finished tool rows, the pending
-  `$ rm src/old.ts` row, and the approval card (2px status-coloured left
-  border, `Approve` / `Reject`, 44px tall). No status bar, no composer, no
-  home indicator.
+- The phone is the same Mocha ramp and the same flat geometry: 12px radius
+  at most, 1px `tui-border`, **no shadow in either theme**. It stretches to
+  the pane's height so both bottom edges line up.
+- Phone content: session bar with `● synced`, the metadata chips, the
+  finished tool rows and the pending `$ rm src/old.ts` row, then an approval
+  sheet pinned to the bottom edge — status dot, summary, `Approve` /
+  `Reject` (44px tall). The feed is bottom-aligned; empty space belongs above
+  the messages, never under the sheet.
 - The scene is interactive: approving/rejecting on the phone drops the TUI
   approval panel and appends `✓ approved from phone · rm src/old.ts` (green)
   or `✗ rejected from phone · agent paused` (red) to the session; the phone
-  card collapses to an `Approved` / `Rejected` chip.
+  sheet collapses to an `Approved` / `Rejected` chip.
 
 ### Architecture diagram
 
@@ -329,7 +336,7 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 | Breakpoint | Behavior |
 |---|---|
-| ≥1024px | Hero scene splits 2fr/1fr (TUI + phone, top-aligned); 3-step row with dashed connector; bento 7/5 spans |
+| ≥1024px | Hero copy fills the fold, scene splits 2fr/1fr (TUI + phone, equal heights); 3-step row with dashed connector; bento 7/5 spans |
 | 768–1023px | Hero scene stacks (TUI, hairline, centred phone); bento keeps 7/5 spans |
 | <768px | Single column; hero display 28px; CTA full-width; bento stacks 1×1; nav collapses |
 

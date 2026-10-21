@@ -67,14 +67,6 @@ export function TermLineView({ line }: { line: TermLine }) {
   );
 }
 
-/** `relativenumber` gutter: the cursor's own line is absolute, the rest are
- * distances from it — the way nvim actually renders. */
-function gutterLabel(index: number, cursor: number, cursorLineNo: number) {
-  return index === cursor
-    ? String(cursorLineNo)
-    : String(Math.abs(index - cursor));
-}
-
 export function NvimPane({
   t,
   lines,
@@ -86,10 +78,19 @@ export function NvimPane({
 }) {
   const m = t.mockup.tui;
   const cursor = 6;
-  const cursorLineNo = 42;
 
   return (
-    <div className="flex w-full flex-col overflow-hidden border border-tui-surface bg-tui-bg text-tui-fg">
+    <div className="flex w-full flex-col overflow-hidden border border-tui-border bg-tui-bg text-tui-fg">
+      {/* tabline: the one piece of chrome a real nvim window has */}
+      <div className="flex items-center bg-tui-surface text-[10px] sm:text-[11px]">
+        <span className="border-r border-tui-border px-2 py-1 text-tui-fg">
+          {m.file}
+        </span>
+        <span className="px-2 py-1 text-tui-mute" aria-hidden="true">
+          {m.modified}
+        </span>
+      </div>
+
       <div className="px-2 py-2 text-[11px] leading-[1.8] sm:text-[13px]">
         {lines.map((line, i) => (
           <div key={line.id} className="flex gap-2">
@@ -99,7 +100,7 @@ export function NvimPane({
               }`}
               aria-hidden="true"
             >
-              {gutterLabel(i, cursor, cursorLineNo)}
+              {i + 1}
             </span>
             <div className="min-w-0 flex-1 truncate">
               <TermLineView line={line} />
@@ -108,22 +109,16 @@ export function NvimPane({
         ))}
 
         {approval === "pending" && (
-          <div className="mx-2 mt-2 border border-tui-blue/60 px-3 py-2">
+          <div className="mx-2 mt-2 border border-tui-blue/60 px-3 py-1.5">
             <div className="font-bold text-tui-blue">{m.approvalTitle}</div>
-            <div className="mt-1 font-bold">{m.approvalCmd}</div>
-            <div className="text-tui-mute">{m.approvalDesc}</div>
-            <div className="mt-1.5">{m.approvalQuestion}</div>
+            <div className="font-bold">{m.approvalCmd}</div>
             <div className="mt-1 bg-tui-surface px-1">
               <span className="mr-1 text-tui-blue" aria-hidden="true">
                 ❯
               </span>
-              {m.approvalOpt1}
+              {m.approvalYes}
             </div>
-            <div className="px-1 text-tui-fg/70">{m.approvalOpt2}</div>
-            <div className="px-1 text-tui-fg/70">{m.approvalOpt3}</div>
-            <div className="mt-1.5 text-[10px] text-tui-mute sm:text-[11px]">
-              {m.approvalFooter}
-            </div>
+            <div className="px-1 text-tui-fg/70">{m.approvalNo}</div>
           </div>
         )}
       </div>

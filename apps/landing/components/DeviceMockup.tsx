@@ -51,15 +51,8 @@ export function DeviceMockup() {
   };
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_1px_minmax(0,1fr)] lg:gap-8">
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-stretch lg:gap-8">
       <NvimPane t={t} lines={lines} approval={approval} />
-
-      {/* the only link between the two: one dashed hairline */}
-      <div
-        className="h-px w-full self-stretch border-t border-dashed border-hairline-strong lg:h-full lg:w-px lg:border-l lg:border-t-0"
-        aria-hidden="true"
-      />
-
       <div className="flex justify-center">
         <PhoneApp t={t} approval={approval} onResolve={resolveApproval} />
       </div>
