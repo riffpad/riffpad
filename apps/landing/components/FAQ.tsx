@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useLanguage } from "./LanguageProvider";
-import { ScrollReveal } from "./ScrollReveal";
 
 export function FAQ() {
   const { t } = useLanguage();
@@ -14,17 +13,12 @@ export function FAQ() {
       className="mx-auto max-w-frame scroll-mt-20 px-4 py-12 sm:px-6 sm:py-16 lg:py-32"
     >
       <div className="w-full">
-        <ScrollReveal>
-          <span className="label">{`// ${t.faq.label}`}</span>
-        </ScrollReveal>
-        <ScrollReveal delay={75}>
-          <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
-            {t.faq.title}
-          </h2>
-        </ScrollReveal>
+        <span className="label">{`// ${t.faq.label}`}</span>
+        <h2 className="mt-6 text-balance text-2xl font-bold leading-[1.25] tracking-[-0.01em] sm:text-3xl">
+          {t.faq.title}
+        </h2>
 
-        <ScrollReveal delay={150}>
-          <div className="card mt-12 divide-y divide-hairline p-2 sm:p-4">
+        <div className="card mt-12 divide-y divide-hairline p-2 sm:p-4">
           {t.faq.items.map((item, index) => {
             const isOpen = open === index;
             return (
@@ -49,7 +43,6 @@ export function FAQ() {
             );
           })}
         </div>
-        </ScrollReveal>
       </div>
     </section>
   );

@@ -26,7 +26,7 @@ function GitHubLink({
       target="_blank"
       rel="noreferrer"
       aria-label="GitHub"
-      className={`flex cursor-pointer items-center justify-center gap-1.5 text-mute transition-colors hover:text-ink active:bg-surface-muted active:text-ink ${
+      className={`flex cursor-pointer items-center justify-center gap-1.5 text-mute hover:text-ink active:bg-surface-muted active:text-ink ${
         compact ? "h-9 w-9" : "h-9 px-2"
       } ${className}`}
     >
@@ -53,7 +53,7 @@ function DocsLink({
       target="_blank"
       rel="noreferrer"
       aria-label={t.header.docs}
-      className={`flex cursor-pointer items-center justify-center text-mute transition-colors hover:text-ink active:bg-surface-muted active:text-ink h-9 ${
+      className={`flex cursor-pointer items-center justify-center text-mute hover:text-ink active:bg-surface-muted active:text-ink h-9 ${
         compact ? "w-9" : "w-9"
       } ${className}`}
     >

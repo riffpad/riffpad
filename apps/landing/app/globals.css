@@ -100,22 +100,11 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-bold leading-none transition-colors duration-200;
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-bold leading-none;
   }
 
   .btn-primary {
@@ -127,7 +116,7 @@
   }
 
   .btn-ghost {
-    @apply text-body transition-colors hover:text-ink;
+    @apply text-body hover:text-ink;
   }
 
   .card {
@@ -158,41 +147,6 @@
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
-  }
-}
-
-/* Dashed flow lines: loops seamlessly only when the dash pattern period
-   (dash + gap) equals the 12px dashoffset shift — keep dasharray at 6 6. */
-.flow-dash-line {
-  animation: dash-flow 1s linear infinite;
-}
-.flow-dash-line.flow-fast {
-  animation-duration: 0.45s;
-}
-@keyframes dash-flow {
-  to {
-    stroke-dashoffset: -12;
-  }
-}
-
-/* SMIL-animated packets can't be paused by the global reduced-motion rule,
-   so hide them outright when the user prefers reduced motion. */
-@media (prefers-reduced-motion: reduce) {
-  .arch-packet {
-    display: none;
-  }
-}
-
-/* Ciphertext marquee in the security diagram: duplicated content sliding
-   -50% loops seamlessly; the global reduced-motion rule stops it. */
-.cipher-stream {
-  animation-name: cipher-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-@keyframes cipher-scroll {
-  to {
-    transform: translateX(-50%);
   }
 }
 

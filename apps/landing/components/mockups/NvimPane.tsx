@@ -149,15 +149,7 @@ export function ToolRow({
       {state === "done" ? (
         <span className="h-1.5 w-1.5 flex-none bg-tui-green" aria-hidden="true" />
       ) : (
-        <span className="flex flex-none items-center gap-[3px]" aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="h-1 w-1 animate-bounce bg-tui-mauve"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
-          ))}
-        </span>
+        <span className="h-1.5 w-1.5 flex-none bg-tui-mauve" aria-hidden="true" />
       )}
       <span className="flex-1 truncate">{text}</span>
       <span className="text-tui-mute" aria-hidden="true">

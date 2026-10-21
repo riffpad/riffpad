@@ -76,14 +76,14 @@ export function PhoneApp({
               <button
                 type="button"
                 onClick={() => onResolve("approved")}
-                className="inline-flex h-11 flex-1 items-center justify-center border border-tui-green/50 text-xs font-bold text-tui-green transition-colors hover:bg-tui-green/10"
+                className="inline-flex h-11 flex-1 items-center justify-center border border-tui-green/50 text-xs font-bold text-tui-green hover:bg-tui-green/10"
               >
                 {p.approve}
               </button>
               <button
                 type="button"
                 onClick={() => onResolve("rejected")}
-                className="inline-flex h-11 flex-1 items-center justify-center border border-tui-red/50 text-xs font-bold text-tui-red transition-colors hover:bg-tui-red/10"
+                className="inline-flex h-11 flex-1 items-center justify-center border border-tui-red/50 text-xs font-bold text-tui-red hover:bg-tui-red/10"
               >
                 {p.reject}
               </button>

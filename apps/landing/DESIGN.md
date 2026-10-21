@@ -126,7 +126,7 @@ One family everywhere: **Geist Mono** (variable, 100–900), self-hosted.
 
 | Token | Size | Weight | Line Height | Tracking | Use |
 |---|---|---|---|---|---|
-| `display-xl` | 40px (28px mobile) | 700 | 1.15 | -0.02em | Hero headline |
+| `display-xl` | `clamp(36px, 5.4vw, 84px)` (78px at 1440) | 700 | 1.04 | -0.03em | Hero headline |
 | `heading-lg` | 28px | 700 | 1.25 | -0.01em | Section titles |
 | `heading-sm` | 18px | 700 | 1.4 | 0 | Card titles |
 | `body-md` | 16px | 400 | 1.7 | 0 | Body copy |
@@ -193,7 +193,7 @@ transparent, so the 40px lattice shows through); even screens are flat
 | # | Block | Background |
 |---|---|---|
 | 1 | Hero copy | `canvas` |
-| 2 | Scene (TUI + phone + `InstallCommand`) | `surface-muted` band |
+| 2 | Scene (TUI + phone) | `surface-muted` band |
 | 3 | Architecture | `canvas` |
 | 4 | How it works | `surface-muted` band |
 | 5 | Security | `canvas` |
@@ -216,15 +216,23 @@ below the fold — the hero copy keeps the first screen to itself.
 
 ### Hero
 
-- One column, left-aligned: `// remote control for cli agents` label,
-  display headline, **one** line of supporting copy, then the CTA row.
-- The primary CTA is the loudest thing on the page: accent fill, `56px`
-  tall, `18px` label, full-width on mobile. `Read the docs` sits next to it
-  as a plain underlined text link — no second button.
+- One column, left-aligned: `// remote control for cli agents` label, then a
+  near-full-width display headline (`clamp(36px, 5.4vw, 84px)`, `1.04`
+  leading — ~10 of the 12 columns at 1440), **one** line of supporting copy,
+  the CTA row, and the install command line.
+- The primary CTA is the loudest thing on the page: accent fill, `64px`
+  tall, `18px` label, full-width on mobile; `Read the docs` sits next to it
+  as a small plain underlined text link — a full step below it in weight.
+- The install command is a single full-width line on the same Mocha surface
+  as the TUI panes (`tui-bg` / `tui-border`, square, no shadow): `❯` in
+  mauve, the command in mono, `COPY` as a bordered cell on the right. No
+  label row, no card, no tagline.
+- `// v0.2.6 · self-hosted · e2e` closes that row at the far right (static
+  text, `xl` and up) — never a graphic.
 - The copy block owns the whole first screen: it is `100svh - 56px` tall
   (the header offset) and vertically centred, so nothing else may peek above
-  the fold. The scene and the `InstallCommand` card start on the next screen,
-  inside the same section.
+  the fold. The scene band (TUI + phone) starts on the next screen, as its
+  own full-bleed block.
 
 ### Device scene (hero) — nvim TUI + phone
 
@@ -268,16 +276,15 @@ below the fold — the hero copy keeps the first screen to itself.
   as every other section.
 - The diagram sits on a blueprint grid background (hairline grid lines,
   radial fade at the edges) — no window chrome.
-- Animated SVG of the system, straight lanes only: `client` (your phone) ⇄
+- Static SVG of the system, straight lanes only: `client` (your phone) ⇄
   `relay` (zero-knowledge) ⇄ `daemon` (your computer), the daemon fanning
   out to three icon-only CLI chips using the vendored brand icons
   (`components/brand-icons.ts`).
 - Two straight flow lanes per link: accent dashed lane for events
   (daemon → phone), info-blue dashed lane for approvals (phone → daemon).
-  Dashes scroll via `.flow-dash-line`; encrypted-envelope packets travel
-  the lanes with SMIL `animateMotion` (hidden under
-  `prefers-reduced-motion`).
-- Node accent dots pulse; diagram scrolls horizontally below ~680px.
+  The dashes are fixed (`strokeDasharray="6 6"`) — no scrolling dash and no
+  travelling packets.
+- Node accent dots are solid; the diagram scrolls horizontally below ~680px.
 
 ### How it works
 
@@ -321,10 +328,14 @@ below the fold — the hero copy keeps the first screen to itself.
 
 ## 7. Motion
 
-- All interactive transitions: 150–300ms, ease-out.
-- Hover: card border shifts to `hairline-strong`; primary CTA darkens by
-  one step; no scale transforms that shift layout.
-- `prefers-reduced-motion: reduce` disables all transitions.
+- **None.** The page is static: no scroll reveals, no marquees, no travelling
+  packets, no pulsing dots, no `transition-*` anywhere. `ScrollReveal` and
+  every `@keyframes` were removed, and there is no reduced-motion media query
+  left to write because nothing moves.
+- Hover and state changes are instantaneous: colour and border swap on the
+  same frame (primary CTA darkens one step, links go `mute` → `ink`).
+- Nothing animates in or out; a section is fully painted the moment it is
+  scrolled to.
 
 ## 8. Do / Don't
 

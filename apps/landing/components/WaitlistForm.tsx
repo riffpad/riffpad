@@ -55,13 +55,13 @@ export function WaitlistForm({ className = "" }: { className?: string }) {
           required
           placeholder={t.hero.betaPlaceholder}
           disabled={status === "submitting"}
-          className="h-10 w-56 border border-hairline-strong bg-surface px-3 font-mono text-sm text-ink outline-none transition-colors placeholder:text-mute focus:border-accent disabled:opacity-60 sm:w-64"
+          className="h-10 w-56 border border-hairline-strong bg-surface px-3 font-mono text-sm text-ink outline-none placeholder:text-mute focus:border-accent disabled:opacity-60 sm:w-64"
         />
         <button
           type="submit"
           disabled={status === "submitting"}
           aria-label={t.hero.betaWaitlist}
-          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center bg-accent text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center bg-accent text-accent-ink hover:bg-accent-hover disabled:opacity-60"
         >
           {status === "submitting" ? "…" : "→"}
         </button>

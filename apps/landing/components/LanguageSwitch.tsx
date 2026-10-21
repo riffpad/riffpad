@@ -13,7 +13,7 @@ export function LanguageSwitch({ className = "" }: { className?: string }) {
     <button
       type="button"
       onClick={() => setLang(next)}
-      className={`relative flex h-9 w-9 cursor-pointer items-center justify-center text-mute transition-colors hover:text-ink active:bg-surface-muted active:text-ink ${className}`}
+      className={`relative flex h-9 w-9 cursor-pointer items-center justify-center text-mute hover:text-ink active:bg-surface-muted active:text-ink ${className}`}
       aria-label={lang === "en" ? "Switch to 中文" : "Switch to English"}
     >
       <GlobeIcon className="h-4 w-4" />

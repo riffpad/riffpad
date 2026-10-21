@@ -9,7 +9,7 @@ const en = {
     title1: "Your AI coding agents,",
     title2: "synced to your phone.",
     description:
-      "Approve, reject and steer your CLI coding agents from your phone.",
+      "Approve, reject and steer CLI agents.",
     ctaPrimary: "Get Started",
     ctaSecondary: "Read the docs",
     betaPrefix: "Riffpad is in beta —",
@@ -21,8 +21,6 @@ const en = {
     betaError: "Couldn't sign you up — try again.",
   },
   install: {
-    tagline: "Send this to your AI agent — the rest is automatic.",
-    label: "for your AI agent",
     copy: "copy",
     copied: "copied ✓",
   },
@@ -215,7 +213,7 @@ const zh: typeof en = {
     label: "cli agent 的遥控器",
     title1: "你的 AI 编程 Agent，",
     title2: "同步到手机。",
-    description: "在手机上审批和遥控你的 CLI 编程 agent。",
+    description: "审批、拒绝、遥控你的 CLI agent。",
     ctaPrimary: "开始使用",
     ctaSecondary: "阅读文档",
     betaPrefix: "Riffpad 正在 Beta 阶段 ——",
@@ -227,10 +225,8 @@ const zh: typeof en = {
     betaError: "提交失败，请重试。",
   },
   install: {
-    tagline: "把这个发给你的 AI agent —— 然后一切就都准备好了。",
-    label: "给 AI agent",
     copy: "复制",
-    copied: "已复制 ✓",
+    copied: "已复制",
   },
   architecture: {
     label: "系统架构",
