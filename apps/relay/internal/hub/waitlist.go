@@ -79,7 +79,7 @@ func (h *Hub) handleWaitlistUnsubscribe(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusServiceUnavailable, "waitlist unsubscribe not configured")
 		return
 	}
-	if !h.allowRate("waitlist-unsub", clientIP(r), 10, time.Minute) {
+	if !h.allowRate("waitlist-unsub", rateKeyGlobal, limitWaitlistGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -92,6 +92,10 @@ func (h *Hub) handleWaitlistUnsubscribe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	email := normalizeWaitlistEmail(req.Email)
+	if !h.allowRate("waitlist-unsub-email", email, limitWaitlistEmail, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
 	if !validWaitlistEmail(email) || req.Token == "" {
 		writeError(w, http.StatusBadRequest, "invalid email or token")
 		return
@@ -142,7 +146,7 @@ func (h *Hub) handleWaitlistSubscribe(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	if !h.allowRate("waitlist-subscribe", clientIP(r), 10, time.Minute) {
+	if !h.allowRate("waitlist-subscribe", rateKeyGlobal, limitWaitlistGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -154,6 +158,10 @@ func (h *Hub) handleWaitlistSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email := normalizeWaitlistEmail(req.Email)
+	if !h.allowRate("waitlist-subscribe-email", email, limitWaitlistEmail, time.Minute) {
+		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
 	if !validWaitlistEmail(email) {
 		writeError(w, http.StatusBadRequest, "invalid email")
 		return

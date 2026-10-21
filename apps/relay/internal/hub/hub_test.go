@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -928,8 +929,183 @@ func TestDevicesListAndRevoke(t *testing.T) {
 	}
 }
 
+// setLimit overrides a package-level rate limit / backoff knob for one test.
+func setLimit(t *testing.T, p *int, v int) {
+	t.Helper()
+	old := *p
+	*p = v
+	t.Cleanup(func() { *p = old })
+}
+
+func setDuration(t *testing.T, p *time.Duration, v time.Duration) {
+	t.Helper()
+	old := *p
+	*p = v
+	t.Cleanup(func() { *p = old })
+}
+
+// pairWithHeaders posts a bogus pairing attempt, optionally spoofing the
+// proxy headers an attacker would use to dodge an IP-based limit.
+func pairWithHeaders(t *testing.T, ts *httptest.Server, token, forwardedFor string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/api/pair",
+		strings.NewReader(`{"code":"WRONG","name":"x","curve":"p256","publicKey":"BBB"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	if forwardedFor != "" {
+		req.Header.Set("X-Forwarded-For", forwardedFor)
+		req.Header.Set("X-Real-IP", forwardedFor)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	return resp
+}
+
+// A forged X-Forwarded-For must not reset (or split) a rate-limit bucket: the
+// limits are keyed by identity / shared bucket, never by a client-supplied IP
+// (that header was trusted before #349, which made every limit bypassable).
+func TestRateLimitIgnoresForwardedFor(t *testing.T) {
+	_, ts := newTestHub(t)
+	setLimit(t, &limitPairGlobal, 3)
+	token := registerUser(t, ts, "dave")
+
+	for i := 0; i < 3; i++ {
+		if resp := pairWithHeaders(t, ts, token, fmt.Sprintf("10.0.0.%d", i+1)); resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: expected 401, got %d", i+1, resp.StatusCode)
+		}
+	}
+	// Same bucket, brand-new header value: still limited.
+	if resp := pairWithHeaders(t, ts, token, "192.0.2.99"); resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 despite a fresh X-Forwarded-For, got %d", resp.StatusCode)
+	}
+	// And without any header at all, the bucket is the same one.
+	if resp := pairWithHeaders(t, ts, token, ""); resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 without X-Forwarded-For, got %d", resp.StatusCode)
+	}
+}
+
+func postLogin(t *testing.T, ts *httptest.Server, username, password string) int {
+	t.Helper()
+	resp, err := http.Post(ts.URL+"/api/auth/login", "application/json",
+		strings.NewReader(`{"username":"`+username+`","password":"`+password+`"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	return resp.StatusCode
+}
+
+// Repeated login failures for one username back off, but a different username
+// stays usable and the account is never locked outright.
+func TestLoginBackoffPerUsername(t *testing.T) {
+	_, ts := newTestHub(t)
+	registerUser(t, ts, "alice")
+	registerUser(t, ts, "bob")
+	setLimit(t, &loginFreeAttempts, 2)
+	setDuration(t, &loginBackoffBase, time.Hour)
+	setDuration(t, &loginBackoffMax, time.Hour)
+
+	for i := 0; i < 3; i++ { // 2 free retries + the one that arms the backoff
+		if code := postLogin(t, ts, "alice", "wrong-password"); code != http.StatusUnauthorized {
+			t.Fatalf("failure %d: expected 401, got %d", i+1, code)
+		}
+	}
+	if code := postLogin(t, ts, "alice", "secret123"); code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 while backing off, got %d", code)
+	}
+	if code := postLogin(t, ts, "alice", "wrong-password"); code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 while backing off, got %d", code)
+	}
+	// Another account is untouched, even from the same client.
+	if code := postLogin(t, ts, "bob", "secret123"); code != http.StatusOK {
+		t.Fatalf("bob should still be able to log in, got %d", code)
+	}
+	// Username case/space variants share the bucket.
+	if code := postLogin(t, ts, "  ALICE ", "wrong-password"); code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 for a case variant of the same username, got %d", code)
+	}
+}
+
+// The backoff is exponential but capped, so it always expires instead of
+// locking the account forever.
+func TestLoginBackoffExpires(t *testing.T) {
+	_, ts := newTestHub(t)
+	registerUser(t, ts, "carol")
+	setLimit(t, &loginFreeAttempts, 1)
+	setDuration(t, &loginBackoffBase, 20*time.Millisecond)
+	setDuration(t, &loginBackoffMax, 40*time.Millisecond)
+
+	// Six more failures: each one waits out the previous backoff first.
+	for round := 0; round < 6; round++ {
+		for postLogin(t, ts, "carol", "wrong-password") == http.StatusTooManyRequests {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	// The wait stays capped at loginBackoffMax, so the account always recovers
+	// instead of being locked out for good.
+	deadline := time.Now().Add(2 * time.Second)
+	for postLogin(t, ts, "carol", "secret123") == http.StatusTooManyRequests {
+		if time.Now().After(deadline) {
+			t.Fatal("account never recovered from the login backoff")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if code := postLogin(t, ts, "carol", "secret123"); code != http.StatusOK {
+		t.Fatalf("expected a successful login once the backoff expired, got %d", code)
+	}
+}
+
+// Polling is limited per device code: one hot code cannot lock other logins
+// out, and a known code cannot be brute-forced from many sources.
+func TestDevicePollRateLimitByCode(t *testing.T) {
+	_, ts := newTestHub(t)
+	setLimit(t, &limitDevicePoll, 3)
+	start := func() string {
+		resp, err := http.Post(ts.URL+"/api/auth/oauth/device", "application/json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			UserCode string `json:"userCode"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out.UserCode
+	}
+	poll := func(code string) int {
+		resp, err := http.Post(ts.URL+"/api/auth/oauth/device/poll", "application/json",
+			strings.NewReader(`{"code":"`+code+`"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	hot, cold := start(), start()
+	for i := 0; i < 3; i++ {
+		if code := poll(hot); code != http.StatusOK {
+			t.Fatalf("poll %d: expected 200, got %d", i+1, code)
+		}
+	}
+	if code := poll(hot); code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 for the hot code, got %d", code)
+	}
+	if code := poll(cold); code != http.StatusOK {
+		t.Fatalf("polling a different code must stay allowed, got %d", code)
+	}
+}
+
 func TestPairingRateLimit(t *testing.T) {
 	_, ts := newTestHub(t)
+	setLimit(t, &limitPairGlobal, 10)
 	token := registerUser(t, ts, "dave")
 	var got429 bool
 	for i := 0; i < 11; i++ {

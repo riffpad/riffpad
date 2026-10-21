@@ -51,7 +51,7 @@ func (h *Hub) handleCreatePairing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	if !h.allowRate("pairings", clientIP(r), 30, time.Minute) {
+	if !h.allowRate("pairings", u.ID, limitPairings, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
@@ -114,7 +114,9 @@ func (h *Hub) handlePair(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	if !h.allowRate("pair", clientIP(r), 10, time.Minute) {
+	// Shared bucket, not per code: every guess would otherwise get a fresh
+	// bucket of its own, which is the same as no limit at all.
+	if !h.allowRate("pair", rateKeyGlobal, limitPairGlobal, time.Minute) {
 		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}

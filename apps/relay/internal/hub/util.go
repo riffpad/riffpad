@@ -34,37 +34,133 @@ func bearerToken(r *http.Request) string {
 	return ""
 }
 
-type ipCounter struct {
+// Rate limits are keyed by whatever the caller can actually be held to: a
+// username, an email, a device code, a user ID, or the shared "global" bucket.
+// Never by client IP: the relay runs behind a reverse proxy, so the client
+// controls any IP-shaped header (X-Forwarded-For was trusted here until #349,
+// which made every limit bypassable), and RemoteAddr is the proxy itself.
+// Per-source floods are the proxy's job (nginx limit_req); these buckets bound
+// how much a single identity — or the whole instance — can burn.
+const rateKeyGlobal = "global"
+
+// Per-minute limits. The global buckets are deliberately high: the point is to
+// cap a runaway instance, not to let one attacker lock everybody else out.
+var (
+	limitRegisterGlobal = 120
+	limitLoginGlobal    = 300
+	limitDeviceGlobal   = 120
+	limitDevicePoll     = 30 // per device code
+	limitDeviceStatus   = 30 // per device code
+	limitPairings       = 30 // per user
+	limitPairGlobal     = 300
+	limitWaitlistEmail  = 5 // per email
+	limitWaitlistGlobal = 120
+)
+
+// Login backoff: repeated failures for one username slow that username down
+// instead of locking it. A hard lock would let anyone take a known account
+// offline just by guessing wrong passwords.
+var (
+	loginFreeAttempts = 3
+	loginBackoffBase  = time.Second
+	loginBackoffMax   = time.Minute
+	loginMaxGuards    = 10000
+)
+
+type rateCounter struct {
 	count       int
 	windowStart time.Time
 }
 
-func (h *Hub) allowRate(scope, ip string, limit int, window time.Duration) bool {
+// allowRate is a fixed-window counter over scope|key.
+func (h *Hub) allowRate(scope, key string, limit int, window time.Duration) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	key := scope + "|" + ip
-	c, ok := h.rateLimits[key]
+	k := scope + "|" + key
+	c, ok := h.rateLimits[k]
 	now := time.Now()
 	if !ok || now.Sub(c.windowStart) > window {
-		c = ipCounter{windowStart: now}
+		c = rateCounter{windowStart: now}
 	}
 	c.count++
 	if c.count > limit {
 		return false
 	}
-	h.rateLimits[key] = c
+	h.rateLimits[k] = c
 	return true
 }
 
-func clientIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if i := strings.Index(ip, ","); i >= 0 {
-		ip = ip[:i]
+// loginGuard is the per-username failure state used by loginBackoffDelay.
+type loginGuard struct {
+	fails int
+	next  time.Time
+}
+
+// loginBackoffDelay returns how long the username must wait after fails
+// consecutive failures. The first few typos are free.
+func loginBackoffDelay(fails int) time.Duration {
+	if fails <= loginFreeAttempts {
+		return 0
 	}
-	if ip == "" {
-		ip = strings.SplitN(r.RemoteAddr, ":", 2)[0]
+	shift := fails - loginFreeAttempts - 1
+	if shift > 10 {
+		shift = 10
 	}
-	return strings.TrimSpace(ip)
+	d := loginBackoffBase << shift
+	if d > loginBackoffMax {
+		d = loginBackoffMax
+	}
+	return d
+}
+
+// loginReady reports whether username may try again now, and clears expired
+// state on the way through.
+func (h *Hub) loginReady(username string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	g, ok := h.loginGuards[username]
+	if !ok {
+		return true
+	}
+	if time.Now().Before(g.next) {
+		return false
+	}
+	if g.fails == 0 {
+		delete(h.loginGuards, username)
+	}
+	return true
+}
+
+func (h *Hub) loginFailed(username string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	g := h.loginGuards[username]
+	if g == nil {
+		g = &loginGuard{}
+	}
+	g.fails++
+	g.next = time.Now().Add(loginBackoffDelay(g.fails))
+	h.loginGuards[username] = g
+	if len(h.loginGuards) > loginMaxGuards {
+		h.pruneLoginGuardsLocked()
+	}
+}
+
+func (h *Hub) loginSucceeded(username string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.loginGuards, username)
+}
+
+// pruneLoginGuardsLocked drops guards whose backoff already elapsed, so the
+// map cannot grow without bound from throwaway usernames.
+func (h *Hub) pruneLoginGuardsLocked() {
+	now := time.Now()
+	for name, g := range h.loginGuards {
+		if !now.Before(g.next) {
+			delete(h.loginGuards, name)
+		}
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
