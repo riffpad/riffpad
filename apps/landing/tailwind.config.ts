@@ -33,7 +33,11 @@ const config: Config = {
         // both page themes. `tui-bg` is the only themed one: on the dark
         // canvas it drops to mantle so the panes lift off the band.
         "tui-bg": "var(--tui-bg)",
+        // #45475A is interaction-only (focus/hover emphasis) — never a static
+        // frame, where it reads as a focus ring on the dark surfaces.
         "tui-border": "#45475a",
+        "tui-hairline": "var(--tui-hairline)",
+        "tui-divider": "var(--tui-divider)",
         "tui-surface": "#313244",
         "tui-fg": "#cdd6f4",
         "tui-mute": "#6c7086",

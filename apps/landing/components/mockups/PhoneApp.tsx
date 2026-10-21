@@ -22,9 +22,9 @@ export function PhoneApp({
         : "bg-tui-red";
 
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-[12px] border border-tui-border bg-tui-bg text-tui-fg lg:h-full lg:max-w-[320px]">
+    <div className="flex w-full flex-col overflow-hidden rounded-[12px] border border-tui-hairline bg-tui-bg text-tui-fg lg:h-full lg:max-w-[320px]">
       {/* session bar */}
-      <div className="flex items-center justify-between gap-2 border-b border-tui-surface px-4 py-3">
+      <div className="flex items-center justify-between gap-2 border-b border-tui-divider px-4 py-3">
         <span className="truncate text-xs font-bold">{p.session}</span>
         <span className="flex flex-none items-center gap-1.5 text-[10px] text-tui-green">
           <span className="h-1.5 w-1.5 bg-current" aria-hidden="true" />
@@ -38,7 +38,7 @@ export function PhoneApp({
           {p.badges.map((badge) => (
             <span
               key={badge}
-              className="border border-tui-surface px-1.5 py-0.5 text-[10px] text-tui-mute"
+              className="border border-tui-divider px-1.5 py-0.5 text-[10px] text-tui-mute"
             >
               {badge}
             </span>
@@ -64,7 +64,7 @@ export function PhoneApp({
       </div>
 
       {/* approval sheet, pinned to the bottom — mirrors the TUI panel */}
-      <div className="border-t border-tui-surface px-3 py-3">
+      <div className="border-t border-tui-divider px-3 py-3">
         <div className="flex items-center gap-2 text-[10px] text-tui-mute">
           <span className={`h-1.5 w-1.5 ${accent}`} aria-hidden="true" />
           {p.approval}

@@ -39,6 +39,11 @@
      theme goes one step down to mantle so panes sit above the muted band. */
   --tui-bg: #1e1e2e;
 
+  /* Panel frames are hairline-light in both themes (the panes are dark either
+     way), so hierarchy comes from the fill, not from a bright outline. */
+  --tui-hairline: rgba(205, 214, 244, 0.14);
+  --tui-divider: rgba(205, 214, 244, 0.1);
+
   /* Elevation: one soft card shadow in light, flat panes in dark. */
   --shadow-card: 0 1px 2px rgba(76, 79, 105, 0.06),
     0 8px 24px rgba(76, 79, 105, 0.07);

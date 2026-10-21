@@ -111,7 +111,9 @@ the band instead of dissolving into it. Light keeps `base` and is unchanged.
 | Token | Hex | Usage |
 |---|---|---|
 | `tui-bg` | `#1E1E2E` light / `#181825` dark | TUI body and phone screen (base on Latte pages, mantle on Mocha pages) |
-| `tui-border` | `#45475A` | Pane outline — the edge that separates Mocha panes from the dark page (surface1) |
+| `tui-hairline` | `rgba(205,214,244,0.14)` | Panel outline (command bar, TUI, phone) — same in both themes |
+| `tui-divider` | `rgba(205,214,244,0.10)` | Inner separators: tabline edge, statusline top, sheet/card rules |
+| `tui-border` | `#45475A` | Interaction-only emphasis (hover/focus). Never a static frame — on the dark surfaces it reads as a selection ring |
 | `tui-surface` | `#313244` | Statusline, selected option, hairline rules (surface0) |
 | `tui-fg` | `#CDD6F4` | TUI text (text) |
 | `tui-mute` | `#6C7086` | Gutter numbers, hints (overlay0) |
@@ -224,7 +226,7 @@ below the fold — the hero copy keeps the first screen to itself.
   tall, `18px` label, full-width on mobile; `Read the docs` sits next to it
   as a small plain underlined text link — a full step below it in weight.
 - The install command is a single full-width line on the same Mocha surface
-  as the TUI panes (`tui-bg` / `tui-border`, square, no shadow): `❯` in
+  as the TUI panes (`tui-bg` / `tui-hairline`, square, no shadow): `❯` in
   mauve, the command in mono, `COPY` as a bordered cell on the right. No
   label row, no card, no tagline.
 - `// v0.2.6 · self-hosted · e2e` closes that row at the far right (static
@@ -241,8 +243,10 @@ below the fold — the hero copy keeps the first screen to itself.
   320px). No connector, divider or caption between them — the gap carries the
   relationship.
 - The TUI pane is a screenshot, not a window: no traffic lights, no window
-  title bar, no shadow. It is flat and square with a 1px `tui-border`
+  title bar, no shadow. It is flat and square with a 1px `tui-hairline`
   outline, and it always renders Catppuccin **Mocha**, in both page themes.
+  Panes sit above the band on fill alone (page `crust` < panes `mantle` <
+  band `base`) — the frame stays a hairline, never a bright ring.
 - Chrome, top to bottom: a `tui-surface` tabline (file name tab + modified
   `+`), the transcript, the statusline. Nothing else.
 - Gutter: plain absolute line numbers (`1…N`) in `tui-mute`; the cursor line
@@ -256,7 +260,7 @@ below the fold — the hero copy keeps the first screen to itself.
 - Statusline (single row, `tui-surface`): `NORMAL` mode block (mauve fill,
   `tui-bg` text), the file path, then right-aligned `claude · utf-8 · 37%`.
 - The phone is the same Mocha ramp and the same flat geometry: 12px radius
-  at most, 1px `tui-border`, **no shadow in either theme** (no bezel either —
+  at most, 1px `tui-hairline`, **no shadow in either theme** (no bezel either —
   the phone is a pane, not a device impression). It stretches to
   the pane's height so both bottom edges line up.
 - Phone content: session bar with `● synced`, the metadata chips, six

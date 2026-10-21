@@ -80,10 +80,10 @@ export function NvimPane({
   const cursor = 6;
 
   return (
-    <div className="flex w-full flex-col overflow-hidden border border-tui-border bg-tui-bg text-tui-fg lg:h-full">
+    <div className="flex w-full flex-col overflow-hidden border border-tui-hairline bg-tui-bg text-tui-fg lg:h-full">
       {/* tabline: the one piece of chrome a real nvim window has */}
       <div className="flex items-center bg-tui-surface text-[10px] sm:text-[11px]">
-        <span className="border-r border-tui-border px-2 py-1 text-tui-fg">
+        <span className="border-r border-tui-divider px-2 py-1 text-tui-fg">
           {m.file}
         </span>
         <span className="px-2 py-1 text-tui-mute" aria-hidden="true">
@@ -124,7 +124,7 @@ export function NvimPane({
       </div>
 
       {/* statusline: mode block, file, then the right-hand segment */}
-      <div className="flex items-center justify-between gap-2 bg-tui-surface text-[10px] font-bold sm:text-[11px]">
+      <div className="flex items-center justify-between gap-2 border-t border-tui-divider bg-tui-surface text-[10px] font-bold sm:text-[11px]">
         <div className="flex min-w-0 items-center">
           <span className="flex-none bg-tui-mauve px-2 py-1 text-tui-bg">
             {m.mode}
@@ -145,7 +145,7 @@ export function ToolRow({
   state: "done" | "running";
 }) {
   return (
-    <div className="flex items-center gap-2 border border-tui-surface px-2.5 py-1.5 text-[11px] text-tui-fg/70">
+    <div className="flex items-center gap-2 border border-tui-divider px-2.5 py-1.5 text-[11px] text-tui-fg/70">
       {state === "done" ? (
         <span className="h-1.5 w-1.5 flex-none bg-tui-green" aria-hidden="true" />
       ) : (

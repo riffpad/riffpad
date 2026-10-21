@@ -22,7 +22,7 @@ export function InstallCommand({ className = "" }: { className?: string }) {
   // One full-width command line, on the same Mocha surface as the TUI panes.
   return (
     <div className={`w-full max-w-[760px] ${className}`}>
-      <div className="flex items-stretch border border-tui-border bg-tui-bg text-tui-fg">
+      <div className="flex items-stretch border border-tui-hairline bg-tui-bg text-tui-fg">
         <span
           className="flex flex-none items-center px-3 text-tui-mauve"
           aria-hidden="true"
@@ -35,7 +35,7 @@ export function InstallCommand({ className = "" }: { className?: string }) {
         <button
           type="button"
           onClick={copy}
-          className="flex-none cursor-pointer border-l border-tui-border px-4 text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:text-[11px]"
+          className="flex-none cursor-pointer border-l border-tui-divider px-4 text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:text-[11px]"
         >
           {copied ? t.install.copied : t.install.copy}
         </button>
