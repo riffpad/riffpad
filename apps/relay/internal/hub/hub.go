@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 const version = "0.2.0"
@@ -22,7 +23,9 @@ type Hub struct {
 	sessionHosts       map[string]string
 	viewers            map[string]*viewerConn
 	rateLimits         map[string]rateCounter
+	lastRateSweep      time.Time
 	loginGuards        map[string]*loginGuard
+	lastLoginSweep     time.Time
 	oauthStates        map[string]oauthState
 	deviceLogins       map[string]*deviceLogin
 	githubID           string

@@ -9,8 +9,10 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -972,7 +974,7 @@ func pairWithHeaders(t *testing.T, ts *httptest.Server, token, forwardedFor stri
 // (that header was trusted before #349, which made every limit bypassable).
 func TestRateLimitIgnoresForwardedFor(t *testing.T) {
 	_, ts := newTestHub(t)
-	setLimit(t, &limitPairGlobal, 3)
+	setLimit(t, &limitPairUser, 3)
 	token := registerUser(t, ts, "dave")
 
 	for i := 0; i < 3; i++ {
@@ -1103,9 +1105,145 @@ func TestDevicePollRateLimitByCode(t *testing.T) {
 	}
 }
 
+// One account must not be able to break pairing for everybody else: the
+// per-user bucket is what limits guessing, the global one is only a breaker.
+func TestPairRateLimitIsPerUser(t *testing.T) {
+	_, ts := newTestHub(t)
+	setLimit(t, &limitPairUser, 3)
+	alice := registerUser(t, ts, "alice")
+	bob := registerUser(t, ts, "bob")
+
+	for i := 0; i < 3; i++ {
+		if resp := pairWithHeaders(t, ts, alice, ""); resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("alice attempt %d: expected 401, got %d", i+1, resp.StatusCode)
+		}
+	}
+	if resp := pairWithHeaders(t, ts, alice, ""); resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("alice should be limited, got %d", resp.StatusCode)
+	}
+	if resp := pairWithHeaders(t, ts, bob, ""); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("bob must be unaffected by alice's bucket, got %d", resp.StatusCode)
+	}
+}
+
+// Both bucket maps are keyed by attacker-chosen strings, so they must stay
+// bounded when somebody floods them with fresh keys.
+func TestRateLimitMapStaysBounded(t *testing.T) {
+	h, ts := newTestHub(t)
+	setLimit(t, &rateLimitsMax, 20)
+	for i := 0; i < 200; i++ {
+		resp, err := http.Get(ts.URL + "/api/auth/oauth/device/status?code=RANDOM" + strconv.Itoa(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	h.mu.Lock()
+	size := len(h.rateLimits)
+	h.mu.Unlock()
+	if size > 20 {
+		t.Fatalf("rate-limit map grew past its cap: %d entries", size)
+	}
+}
+
+// Expired buckets are swept even without the map being full, so it shrinks
+// back once an attack stops.
+func TestRateLimitMapSweepsExpired(t *testing.T) {
+	h, _ := newTestHub(t)
+	setDuration(t, &rateLimitsSweepInterval, 0)
+	for i := 0; i < 50; i++ {
+		if !h.allowRate("test", strconv.Itoa(i), 5, 10*time.Millisecond) {
+			t.Fatal("unexpected rate limit")
+		}
+	}
+	h.mu.Lock()
+	before := len(h.rateLimits)
+	h.mu.Unlock()
+	if before != 50 {
+		t.Fatalf("expected 50 buckets, got %d", before)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if !h.allowRate("test", "fresh", 5, time.Minute) {
+		t.Fatal("unexpected rate limit")
+	}
+	h.mu.Lock()
+	after := len(h.rateLimits)
+	h.mu.Unlock()
+	if after != 1 {
+		t.Fatalf("expired buckets were not swept: %d entries left", after)
+	}
+}
+
+// A concurrent burst must not slip past the backoff: only one attempt per
+// username is in flight, the rest are refused.
+func TestLoginBackoffBlocksConcurrentAttempts(t *testing.T) {
+	_, ts := newTestHub(t)
+	registerUser(t, ts, "dave")
+	setLimit(t, &loginFreeAttempts, 3)
+	setDuration(t, &loginBackoffBase, time.Hour)
+	setDuration(t, &loginBackoffMax, time.Hour)
+
+	const n = 10
+	var wg sync.WaitGroup
+	var limited, denied int64
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			switch postLogin(t, ts, "dave", "wrong-password") {
+			case http.StatusTooManyRequests:
+				atomic.AddInt64(&limited, 1)
+			case http.StatusUnauthorized:
+				atomic.AddInt64(&denied, 1)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	if limited == 0 {
+		t.Fatalf("a concurrent burst bypassed the login backoff (%d attempts all verified)", denied)
+	}
+	if denied > int64(loginFreeAttempts) {
+		t.Fatalf("too many concurrent attempts reached the password check: %d", denied)
+	}
+}
+
+// A storage failure is our problem, not the caller's: it must not be charged
+// to the login backoff.
+func TestLoginInternalErrorDoesNotBackOff(t *testing.T) {
+	h, ts := newTestHub(t)
+	registerUser(t, ts, "erin")
+	setLimit(t, &loginFreeAttempts, 0) // the very next failure would arm the backoff
+
+	sqlDB, err := h.store.db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlDB.Close(); err != nil { // every query now fails
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		code := postLogin(t, ts, "erin", "secret123")
+		if code == http.StatusTooManyRequests {
+			t.Fatalf("attempt %d: a DB error was charged to the login backoff", i+1)
+		}
+		if code != http.StatusInternalServerError {
+			t.Fatalf("attempt %d: expected 500 for a storage failure, got %d", i+1, code)
+		}
+	}
+	h.mu.Lock()
+	guard := h.loginGuards["erin"]
+	h.mu.Unlock()
+	if guard != nil && guard.fails != 0 {
+		t.Fatalf("DB errors counted as bad passwords: fails=%d", guard.fails)
+	}
+}
+
 func TestPairingRateLimit(t *testing.T) {
 	_, ts := newTestHub(t)
-	setLimit(t, &limitPairGlobal, 10)
+	setLimit(t, &limitPairUser, 10)
 	token := registerUser(t, ts, "dave")
 	var got429 bool
 	for i := 0; i < 11; i++ {

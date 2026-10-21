@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/riffpad/riffpad/packages/protocol"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -22,13 +23,21 @@ func (s *Store) CreateUser(username, password string) (*User, error) {
 	return u, nil
 }
 
+// ErrInvalidCredentials means the username/password pair is wrong. Anything
+// else returned by VerifyLogin is our own failure (DB unavailable, ...) and
+// must not be charged to the caller's login backoff.
+var ErrInvalidCredentials = errors.New("invalid credentials")
+
 func (s *Store) VerifyLogin(username, password string) (*User, error) {
 	var u User
 	if err := s.db.Where("username = ?", username).First(&u).Error; err != nil {
-		return nil, errors.New("invalid credentials")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidCredentials
+		}
+		return nil, err
 	}
 	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, ErrInvalidCredentials
 	}
 	return &u, nil
 }

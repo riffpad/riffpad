@@ -2,6 +2,7 @@ package hub
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -88,17 +89,26 @@ func (h *Hub) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if userKey == "" {
 		userKey = "unknown"
 	}
-	if !h.loginReady(userKey) {
-		writeError(w, http.StatusTooManyRequests, "too many failed attempts, try again later")
+	// Reserve the slot before verifying: charging the attempt here is what
+	// stops a concurrent burst from all passing the backoff check.
+	if !h.beginLoginAttempt(userKey) {
+		writeError(w, http.StatusTooManyRequests, "too many login attempts, try again later")
 		return
 	}
+	outcome := loginAttemptRetry
+	defer func() { h.endLoginAttempt(userKey, outcome) }()
 	u, err := h.store.VerifyLogin(strings.TrimSpace(req.Username), req.Password)
 	if err != nil {
-		h.loginFailed(userKey)
+		if !errors.Is(err, ErrInvalidCredentials) {
+			// Our fault (DB hiccup, etc.): no penalty, the user just retries.
+			writeError(w, http.StatusInternalServerError, "login failed")
+			return
+		}
+		outcome = loginAttemptDenied
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	h.loginSucceeded(userKey)
+	outcome = loginAttemptOK
 	token, err := h.store.CreateToken(u.ID, 30*24*time.Hour)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "token failed")

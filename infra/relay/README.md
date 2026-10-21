@@ -146,22 +146,80 @@ So the shipped proxy configs **disable request logging for `/ws` and nothing els
 - `nginx-api-riffpad-ai.conf`: `location /ws { access_log off; … }`, plus `limit_req_zone` rules keyed on `$binary_remote_addr` (stricter for `/api/auth/`, looser for the rest of `/api/`).
 - `Caddyfile`: `log_skip /ws*` — Caddy keeps logging every other path; it has no built-in rate limiting, so per-IP limits come from nginx config or a plugin (see the comment in the file).
 
-**Apply it yourself — the deploy pipeline does not.** `deploy-relay` on the server only runs `git pull` + `docker compose up -d`; it never touches the host nginx/Caddy config. On the server:
+**Apply it yourself — the deploy pipeline does not.** `deploy-relay` on the server only runs `git pull` + `docker compose up -d`; it never touches the host nginx/Caddy config.
+
+`nginx-api-riffpad-ai.conf` is a **template**: an existing `api.riffpad.ai` vhost has usually been rewritten by certbot (`listen 443 ssl`, `ssl_certificate`, HTTP→HTTPS redirect), so copying the template over it deletes HTTPS and takes the site down. **Merge the pieces instead.**
+
+1. Add the two zones **at `http` level** (`/etc/nginx/conf.d/riffpad-limits.conf` is the usual place; they are not allowed inside `server`):
+
+   ```nginx
+   limit_req_zone $binary_remote_addr zone=riffpad_auth:10m rate=1r/s;
+   limit_req_zone $binary_remote_addr zone=riffpad_api:10m rate=20r/s;
+   ```
+
+2. Inside the **existing** `server` block of the api vhost (the one with your certbot `ssl_certificate` lines), add:
+
+   ```nginx
+   limit_req_status 429;   # 429, not nginx's default 503
+
+   # credentials ride in the /ws query string (#349): never log them
+   location /ws {
+       access_log off;
+       proxy_pass http://127.0.0.1:9090;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+       proxy_read_timeout 3600s;
+       proxy_send_timeout 3600s;
+   }
+
+   location /api/auth/ {
+       limit_req zone=riffpad_auth burst=5 nodelay;
+       proxy_pass http://127.0.0.1:9090;
+       proxy_http_version 1.1;
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+
+   location /api/ {
+       limit_req zone=riffpad_api burst=40 nodelay;
+       proxy_pass http://127.0.0.1:9090;
+       proxy_http_version 1.1;
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+   ```
+
+   Keep your existing `location /` (or the catch-all proxy) as it is — only these three paths are new. On a fresh machine you can start from the template file wholesale.
+
+3. Validate and reload, then confirm the site still serves HTTPS:
+
+   ```bash
+   sudo nginx -t && sudo systemctl reload nginx
+   curl -sSI https://api.riffpad.ai/api/status | head -1
+   ```
+
+Caddy needs no merge if you own `/etc/caddy/Caddyfile`; just add the two lines to your site block:
+
+```caddyfile
+log
+log_skip /ws*
+```
 
 ```bash
-# nginx
-sudo cp /path/to/riffpad/infra/relay/nginx-api-riffpad-ai.conf /etc/nginx/sites-available/api-riffpad-ai
-sudo nginx -t && sudo systemctl reload nginx
-
-# Caddy
-sudo cp /path/to/riffpad/infra/relay/Caddyfile /etc/caddy/Caddyfile   # keep your own domain first
 sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
-Then check that a stale log line never reveals a token:
+Then check that the request line with the credential is no longer written:
 
 ```bash
-grep -c 'token=' /var/log/nginx/access.log        # 0 for /ws lines, and none after the reload
+grep -c 'token=' /var/log/nginx/access.log   # expect 0
+tail -n 5 /var/log/nginx/access.log          # /ws lines are absent entirely
 ```
 
 Also note: the relay no longer trusts `X-Forwarded-For` at all (it was trusted before #349, which made every rate limit bypassable by sending a header). Rate limits are now keyed on usernames, emails, device codes, user IDs and a shared global bucket; per-source floods are the proxy's job. Removing the credential from the URL entirely (header auth for the daemon, short-lived tickets for browsers) is tracked separately in #349.
