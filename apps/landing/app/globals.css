@@ -2,92 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Palette: Catppuccin — Latte for the light theme, Mocha for the dark theme.
+ * Token names are unchanged from the Console-Mobile spec, so every component
+ * picks the new colours up through the vars.
+ * https://catppuccin.com/palette
+ */
 :root {
-  --canvas: #fafaf7;
-  --surface: #ffffff;
-  --surface-muted: #f2f1ec;
+  /* Latte */
+  --canvas: #e6e9ef; /* mantle */
+  --surface: #eff1f5; /* base */
+  --surface-muted: #dce0e8; /* crust */
 
-  --ink: #191917;
-  --body: #46463f;
-  --mute: #73736a;
-  --hairline: rgba(25, 25, 23, 0.1);
-  --hairline-strong: rgba(25, 25, 23, 0.42);
+  --ink: #4c4f69; /* text */
+  --body: #5c5f77; /* subtext1 */
+  /* subtext0 on mantle is 4.1:1 — one step darker keeps metadata at AA. */
+  --mute: #5c5f77; /* subtext1 */
+  --hairline: rgba(76, 79, 105, 0.16);
+  --hairline-strong: rgba(76, 79, 105, 0.44);
 
-  --accent: #1a7f37;
-  --accent-hover: #146c2e;
+  --accent: #8839ef; /* mauve */
+  --accent-hover: #7287fd; /* lavender */
   --accent-ink: #ffffff;
 
-  --success: 22 163 74;
-  --warning: 217 119 6;
-  --danger: 220 38 38;
-  --info: 37 99 235;
+  --success: 64 160 43; /* green */
+  --warning: 223 142 29; /* yellow */
+  --danger: 210 15 57; /* red */
+  --info: 30 102 245; /* blue */
 
-  --console: #ffffff;
-  --console-elevated: #ecebe6;
-  --on-console: #2b2b26;
-  --on-console-mute: #8a887f;
+  --console: #eff1f5; /* base */
+  --console-elevated: #ccd0da; /* surface0 */
+  --on-console: #4c4f69;
+  --on-console-mute: #5c5f77; /* subtext1 */
 
   /* Terminal mockup — light terminal on the light page theme. */
-  --term-bg: #ffffff;
-  --term-bar: #f2f1ec;
-  --term-border: rgba(25, 25, 23, 0.14);
-  --term-fg: #2b2b26;
-  --term-mute: #73736a;
-  --term-green: #1a7f37;
-  --term-blue: #0969da;
-  --term-yellow: #9a6700;
-  --term-orange: #bc4c00;
-  --term-cyan: #0a7ea4;
-  --term-elevate: rgba(25, 25, 23, 0.04);
-  --term-elevate-strong: rgba(25, 25, 23, 0.08);
+  --term-bg: #eff1f5;
+  --term-bar: #e6e9ef;
+  --term-border: rgba(76, 79, 105, 0.18);
+  --term-fg: #4c4f69;
+  --term-mute: #5c5f77;
+  --term-green: #40a02b;
+  --term-blue: #1e66f5;
+  --term-yellow: #df8e1d;
+  --term-orange: #fe640b;
+  --term-cyan: #179299;
+  --term-elevate: rgba(76, 79, 105, 0.04);
+  --term-elevate-strong: rgba(76, 79, 105, 0.08);
 
   /* Device frame + macOS traffic lights — same in both themes. */
-  --device-frame: #1b1b19;
+  --device-frame: #181825;
   --mac-red: #ff5f57;
   --mac-yellow: #febc2e;
   --mac-green: #28c840;
+
+  /* Elevation: one soft card shadow in light, flat panes in dark. */
+  --shadow-card: 0 1px 2px rgba(76, 79, 105, 0.06),
+    0 8px 24px rgba(76, 79, 105, 0.07);
 }
 
 [data-theme="dark"] {
-  /* Dark Minimal Terminal — same palette as the author's site (projs/me).
-     Status colors use the GitHub dark scale to match the accent. */
-  --canvas: #0b0b0c;
-  --surface: #121214;
-  --surface-muted: #1a1a1d;
+  /* Mocha */
+  --canvas: #11111b; /* crust */
+  --surface: #181825; /* mantle */
+  --surface-muted: #1e1e2e; /* base */
 
-  --ink: #e8e6e3;
-  --body: #a8a8ad;
-  --mute: #7c7c82;
-  --hairline: rgba(255, 255, 255, 0.1);
-  --hairline-strong: rgba(255, 255, 255, 0.22);
+  --ink: #cdd6f4; /* text */
+  --body: #a6adc8; /* subtext0 */
+  --mute: #7f849c; /* overlay1 */
+  --hairline: rgba(205, 214, 244, 0.12);
+  --hairline-strong: rgba(205, 214, 244, 0.3);
 
-  --accent: #7ee787;
-  --accent-hover: #a4f0ba;
-  --accent-ink: #191917;
+  --accent: #cba6f7; /* mauve */
+  --accent-hover: #f5c2e7; /* pink */
+  --accent-ink: #11111b;
 
-  --success: 126 231 135;
-  --warning: 210 153 34;
-  --danger: 248 81 73;
-  --info: 88 166 251;
+  --success: 166 227 161; /* green */
+  --warning: 250 179 135; /* peach */
+  --danger: 243 139 168; /* red */
+  --info: 137 180 250; /* blue */
 
-  --console: #060607;
-  --console-elevated: #0b0b0c;
-  --on-console: #e8e6e3;
-  --on-console-mute: #7c7c82;
+  --console: #1e1e2e; /* base */
+  --console-elevated: #313244; /* surface0 */
+  --on-console: #cdd6f4;
+  --on-console-mute: #9399b2; /* overlay2 */
 
   /* Terminal mockup — dark terminal on the dark page theme. */
-  --term-bg: #121214;
-  --term-bar: #0b0b0c;
-  --term-border: #2a2a2e;
-  --term-fg: #e8e6e3;
-  --term-mute: #7c7c82;
-  --term-green: #7ee787;
-  --term-blue: #58a6fb;
-  --term-yellow: #d29922;
-  --term-orange: #f0883e;
-  --term-cyan: #76e3ea;
-  --term-elevate: rgba(255, 255, 255, 0.05);
-  --term-elevate-strong: rgba(255, 255, 255, 0.09);
+  --term-bg: #1e1e2e;
+  --term-bar: #181825;
+  --term-border: #45475a; /* surface1 */
+  --term-fg: #cdd6f4;
+  --term-mute: #9399b2;
+  --term-green: #a6e3a1;
+  --term-blue: #89b4fa;
+  --term-yellow: #f9e2af;
+  --term-orange: #fab387;
+  --term-cyan: #94e2d5;
+  --term-elevate: rgba(205, 214, 244, 0.05);
+  --term-elevate-strong: rgba(205, 214, 244, 0.09);
+
+  /* TUI panes are flat: hairline borders, no drop shadows. */
+  --shadow-card: 0 0 0 0 transparent;
 }
 
 @layer base {
@@ -98,11 +112,11 @@
   body {
     @apply bg-canvas font-mono text-ink antialiased;
     text-rendering: optimizeLegibility;
-    /* Subtle line grid that adds texture without competing with content. */
+    /* Faint terminal grid — same 40px lattice as the author's terminal pages. */
     background-image:
-      linear-gradient(to right, color-mix(in srgb, var(--hairline) 35%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in srgb, var(--hairline) 35%, transparent) 1px, transparent 1px);
-    background-size: 72px 72px;
+      linear-gradient(to right, color-mix(in srgb, var(--hairline) 30%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--hairline) 30%, transparent) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
 
   ::selection {
@@ -152,8 +166,15 @@
     @apply rounded-md border border-hairline bg-console text-on-console;
   }
 
+  /* Section label: `// architecture` with a small mauve block marker —
+     the TUI cursor, used as a bullet. */
   .label {
-    @apply text-xs font-bold uppercase tracking-[0.12em] text-mute;
+    @apply inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-mute;
+  }
+
+  .label::before {
+    content: "";
+    @apply h-3 w-1 bg-accent;
   }
 }
 
@@ -177,12 +198,12 @@
     height: 90%;
     pointer-events: none;
     background:
-      radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.08) 0%, transparent 14%),
+      radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.06) 0%, transparent 14%),
       radial-gradient(
         circle at 55% 45%,
-        color-mix(in srgb, var(--accent) 18%, transparent) 0%,
-        color-mix(in srgb, var(--accent) 8%, transparent) 38%,
-        color-mix(in srgb, var(--accent) 3%, transparent) 58%,
+        color-mix(in srgb, var(--accent) 12%, transparent) 0%,
+        color-mix(in srgb, var(--accent) 6%, transparent) 38%,
+        color-mix(in srgb, var(--accent) 2%, transparent) 58%,
         transparent 72%
       );
     z-index: 0;

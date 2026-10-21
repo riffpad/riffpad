@@ -3,12 +3,12 @@ version: "1.0"
 name: Riffpad-design-system
 description: |
   Riffpad's own "Console-Mobile" design language. A terminal console and a
-  mobile remote control fused into one system: monospace-first type, warm
-  paper / dark-minimal color pair, GitHub-green accents, square geometry,
-  minimal glyphs (>, //, ●) and a hero that shows the product as a live
-  session on your phone. Deliberately distinct from manpage-style terminal
-  marketing: no cream-only manpage canvas, no ASCII bracket bullets, no
-  prompt-string clutter in chrome, no 4px-only geometry.
+  mobile remote control fused into one system: monospace-first type,
+  Catppuccin Latte / Mocha surfaces, mauve accents, square geometry, flat
+  panes with hairline rules, minimal glyphs (>, //, ●) and a hero that shows
+  the product as a live session on your phone. Deliberately distinct from
+  manpage-style terminal marketing: no cream-only manpage canvas, no ASCII
+  bracket bullets, no prompt-string clutter in chrome, no 4px-only geometry.
 ---
 
 # Riffpad Design System — Console-Mobile
@@ -24,8 +24,9 @@ that in one sentence: **a terminal console and a phone, fused**.
   Codex/Claude Code and the Riffpad phone app, syncing the same session.
   The terminal waits for approval; the phone shows the approval card — the
   product, not a metaphor.
-- The brand color is GitHub green (`#1A7F37` light / `#7EE787` dark),
-  used on marketing surfaces as the single accent against neutral ink.
+- The brand accent is Catppuccin mauve (`#8839EF` on Latte, `#CBA6F7` on
+  Mocha), used on marketing surfaces as the single accent against the
+  neutral ramp. Green/peach/red/blue are reserved for status.
 - Geometry is square. Nothing floats; every card earns its place with a
   1px hairline and a very soft shadow.
 
@@ -37,87 +38,95 @@ flavor is kept through type, console surfaces, and a single product mockup
 
 ## 2. Colors
 
-### Light theme
+### Light theme — Catppuccin Latte
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--canvas` | `#FAFAF7` | Page background (warm paper) |
-| `--surface` | `#FFFFFF` | Cards, header, phone frame |
-| `--surface-muted` | `#F2F1EC` | Hover fills, secondary blocks |
-| `--ink` | `#191917` | Headlines, primary text |
-| `--body` | `#46463F` | Paragraph text |
-| `--mute` | `#73736A` | Metadata, captions |
-| `--hairline` | `rgba(25,25,23,0.12)` | 1px borders/dividers |
-| `--hairline-strong` | `#191917` | Focused/active borders |
-| `--accent` | `#1A7F37` | Brand CTA, highlights (GitHub light green; the bright `#7EE787` fails contrast on warm paper) |
+| `--canvas` | `#E6E9EF` | Page background (Latte mantle) |
+| `--surface` | `#EFF1F5` | Cards, header, phone frame (Latte base) |
+| `--surface-muted` | `#DCE0E8` | Hover fills, secondary blocks (Latte crust) |
+| `--ink` | `#4C4F69` | Headlines, primary text (Latte text) |
+| `--body` | `#5C5F77` | Paragraph text (Latte subtext1) |
+| `--mute` | `#5C5F77` | Metadata, captions (Latte subtext1 — one step darker than subtext0 so 12px labels stay ≥4.5:1 on the mantle canvas) |
+| `--hairline` | `rgba(76,79,105,0.16)` | 1px borders/dividers |
+| `--hairline-strong` | `rgba(76,79,105,0.44)` | Focused/active borders |
+| `--accent` | `#8839EF` | Brand CTA, highlights (Latte mauve) |
+| `--accent-hover` | `#7287FD` | CTA hover (Latte lavender) |
 | `--accent-ink` | `#FFFFFF` | Text on accent fills |
-| `--success` | `#16A34A` | Running / connected states |
-| `--warning` | `#D97706` | Approval request states |
-| `--danger` | `#DC2626` | Reject / destructive states |
-| `--info` | `#2563EB` | Informational states |
-| `--console` | `#111110` | Terminal/console surfaces |
-| `--console-elevated` | `#1B1B19` | Console inner cards |
-| `--on-console` | `#F5F4F0` | Text on console |
-| `--on-console-mute` | `#9C9A92` | Secondary text on console |
+| `--success` | `#40A02B` | Running / connected states (green) |
+| `--warning` | `#DF8E1D` | Approval request states (yellow) |
+| `--danger` | `#D20F39` | Reject / destructive states (red) |
+| `--info` | `#1E66F5` | Informational states (blue) |
+| `--console` | `#EFF1F5` | Terminal/console surfaces |
+| `--console-elevated` | `#CCD0DA` | Console inner cards |
+| `--on-console` | `#4C4F69` | Text on console |
+| `--on-console-mute` | `#5C5F77` | Secondary text on console |
 
-### Dark theme
+### Dark theme — Catppuccin Mocha
 
-The dark theme uses the "Dark Minimal Terminal" palette from the author's
-site (projs/me): neutral near-black surfaces plus GitHub green. Status
-colors come from the GitHub dark scale. The hero's terminal mockup uses
-the same neutral dark family, kept dark in both page themes (see "Mockup
-palette" below).
+The dark theme is Catppuccin Mocha, the same palette as the author's
+terminal pages (projs/me): crust canvas, mantle/base panes, mauve accent.
+Status colors come straight from the Mocha palette.
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--canvas` | `#0B0B0C` | Page background |
-| `--surface` | `#121214` | Cards, header |
-| `--surface-muted` | `#1A1A1D` | Hover fills |
-| `--ink` | `#E8E6E3` | Headlines, primary text |
-| `--body` | `#A8A8AD` | Paragraph text |
-| `--mute` | `#7C7C82` | Metadata, captions |
-| `--hairline` | `rgba(255,255,255,0.10)` | 1px borders/dividers |
-| `--hairline-strong` | `rgba(255,255,255,0.22)` | Focused/active borders |
-| `--accent` | `#7EE787` | Brand CTA, highlights (GitHub green, shared with the author's site) |
-| `--accent-ink` | `#191917` | Text on accent fills |
-| `--success` | `#7EE787` | Running / connected states |
-| `--warning` | `#D29922` | Approval request states |
-| `--danger` | `#F85149` | Reject / destructive states |
-| `--info` | `#58A6FB` | Informational states |
-| `--console` | `#060607` | Terminal/console surfaces |
-| `--console-elevated` | `#0B0B0C` | Console inner cards |
-| `--on-console` | `#E8E6E3` | Text on console |
-| `--on-console-mute` | `#7C7C82` | Secondary text on console |
+| `--canvas` | `#11111B` | Page background (crust) |
+| `--surface` | `#181825` | Cards, header (mantle) |
+| `--surface-muted` | `#1E1E2E` | Hover fills, secondary bands (base) |
+| `--ink` | `#CDD6F4` | Headlines, primary text (text) |
+| `--body` | `#A6ADC8` | Paragraph text (subtext0) |
+| `--mute` | `#7F849C` | Metadata, captions (overlay1) |
+| `--hairline` | `rgba(205,214,244,0.12)` | 1px borders/dividers |
+| `--hairline-strong` | `rgba(205,214,244,0.30)` | Focused/active borders |
+| `--accent` | `#CBA6F7` | Brand CTA, highlights (mauve) |
+| `--accent-hover` | `#F5C2E7` | CTA hover (pink) |
+| `--accent-ink` | `#11111B` | Text on accent fills (crust) |
+| `--success` | `#A6E3A1` | Running / connected states (green) |
+| `--warning` | `#FAB387` | Approval request states (peach) |
+| `--danger` | `#F38BA8` | Reject / destructive states (red) |
+| `--info` | `#89B4FA` | Informational states (blue) |
+| `--console` | `#1E1E2E` | Terminal/console surfaces (base) |
+| `--console-elevated` | `#313244` | Console inner cards (surface0) |
+| `--on-console` | `#CDD6F4` | Text on console |
+| `--on-console-mute` | `#9399B2` | Secondary text on console (overlay2) |
 
 Rules:
 
-- GitHub green is the only marketing accent: deep `#1A7F37` in light,
-  bright `#7EE787` in dark. Use it for the primary CTA, hero highlights,
-  focus rings, and status dots. Never tint whole sections.
+- Mauve is the only marketing accent: `#8839EF` on Latte, `#CBA6F7` on
+  Mocha. Use it for the primary CTA, diagram lanes, focus rings, and
+  highlight glyphs. Never tint whole sections.
 - Status colors (success/warning/danger/info) live inside console
   surfaces and approval UI, not on marketing chrome.
 - Both themes must keep text contrast ≥ 4.5:1 (WCAG AA).
 
-### Mockup palette (theme-invariant)
+### Mockup palette
 
-The device mockups keep their own colors in both page themes, like real
-devices on any desktop. The terminal uses the same neutral dark family as
-the page dark theme, with GitHub-scale accent colors; the phone frame and
-macOS traffic lights are fixed realism colors.
+The device mockups are theme-aware: a Latte terminal on the light page, a
+Mocha terminal on the dark one. The phone frame and macOS traffic lights
+stay fixed realism colors.
+
+Mocha (dark):
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--term-bg` | `#121214` | Terminal body |
-| `--term-bar` | `#0B0B0C` | Terminal title bar |
-| `--term-border` | `#2A2A2E` | Terminal outer border |
-| `--term-fg` | `#E8E6E3` | Terminal text |
-| `--term-mute` | `#7C7C82` | Terminal secondary text |
-| `--term-green` | `#7EE787` | `✓` success lines |
-| `--term-blue` | `#58A6FB` | `▸` tool-call lines |
-| `--term-yellow` | `#D29922` | `!` waiting lines |
-| `--term-orange` | `#F0883E` | Commands sent from phone |
-| `--term-cyan` | `#76E3EA` | Prompt path |
-| `--device-frame` | `#1B1B19` | Phone bezel |
+| `--term-bg` | `#1E1E2E` | Terminal body (base) |
+| `--term-bar` | `#181825` | Terminal title bar (mantle) |
+| `--term-border` | `#45475A` | Terminal outer border (surface1) |
+| `--term-fg` | `#CDD6F4` | Terminal text |
+| `--term-mute` | `#9399B2` | Terminal secondary text |
+| `--term-green` | `#A6E3A1` | `✓` success lines |
+| `--term-blue` | `#89B4FA` | `▸` tool-call lines |
+| `--term-yellow` | `#F9E2AF` | `!` waiting lines |
+| `--term-orange` | `#FAB387` | Commands sent from phone |
+| `--term-cyan` | `#94E2D5` | Prompt path |
+
+Latte (light): `#EFF1F5` body, `#E6E9EF` bar, `rgba(76,79,105,0.18)` border,
+`#4C4F69` text, `#5C5F77` mute, `#40A02B` green, `#1E66F5` blue,
+`#DF8E1D` yellow, `#FE640B` orange, `#179299` cyan.
+
+| Token | Hex | Usage |
+|---|---|---|
+| `--device-frame` | `#181825` | Phone bezel (same in both themes) |
 | `--mac-red` / `--mac-yellow` / `--mac-green` | `#FF5F57` / `#FEBC2E` / `#28C840` | macOS traffic lights |
 
 ## 3. Typography
@@ -157,9 +166,12 @@ Base unit 4px: `xs 4` · `sm 8` · `md 12` · `lg 16` · `xl 24` · `xxl 32` ·
 
 ### Elevation
 
-- Every card: 1px `hairline` border + `0 1px 2px rgba(0,0,0,0.04)` and
-  `0 8px 24px rgba(0,0,0,0.06)` in light; dark theme uses the hairline and
-  a faint amber glow on the primary CTA only.
+- Every card: 1px `hairline` border. Light theme adds one soft shadow
+  (`0 1px 2px rgba(76,79,105,0.06), 0 8px 24px rgba(76,79,105,0.07)`);
+  the dark TUI theme is **flat** — hairline only, `--shadow-card` is
+  transparent.
+- Page texture: a 40px hairline lattice behind everything, at ~30% of the
+  hairline colour, never above content.
 - No heavy shadows, no glassmorphism, no gradients on chrome. The console
   surface is the deepest layer on the page.
 
@@ -187,13 +199,13 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 - Left: Riffpad logo mark + `riffpad` wordmark.
 - Center: plain nav links: Architecture / How it works / Security / FAQ.
 - Right: text-only language toggle `EN / 中`, theme toggle `Dark / Light`,
-  amber CTA.
+  mauve CTA.
 - Mobile: nav collapses to a `menu` button; CTA stays visible.
 
 ### Hero
 
 - Desktop: two columns. Left: `//` badge, display headline, description,
-  primary (amber) + secondary (outline) CTAs, and a one-line trust note.
+  primary (mauve) + secondary (outline) CTAs, and a one-line trust note.
   Right: console window.
 
 ### Device scene (hero)
@@ -268,7 +280,7 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 ### CTA
 
 - Centered block on `canvas`.
-- Amber CTA button `Get early access →`, then a small note.
+- Mauve CTA button `Get early access →`, then a small note.
 
 ### Footer
 
@@ -288,9 +300,11 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 ### Do
 
 - Keep monospace as the single voice; let weight and size do hierarchy.
-- Use amber as the brand accent on marketing surfaces.
+- Use mauve as the brand accent on marketing surfaces; keep the rest of
+  the Catppuccin ramp for status and consoles.
 - Show the product as console + phone; the approval card is the hero.
-- Use rounded cards with hairline borders and soft shadows.
+- Use square cards with hairline borders: one soft shadow in Latte, flat
+  panes in Mocha.
 - Use minimal `>` / `//` / `●` glyphs only where they aid scanning.
 - Keep CJK text sans-serif.
 
@@ -301,9 +315,10 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 - Don't use prompt-string chrome (`:~$`, `~/`, `$`) in the header, footer,
   or CTA.
 - Don't wrap buttons or controls in brackets (`[button]`).
-- Don't use Apple semantic colors on marketing chrome.
-- Don't add gradients, glassmorphism, terminal grids, or decorative
-  imagery.
+- Don't use Apple semantic colors on marketing chrome — status color comes
+  from the Catppuccin palette.
+- Don't add gradients, glassmorphism, or decorative imagery. The 40px
+  lattice is the only background texture.
 - Don't let the console surface appear more than once per viewport.
 - Don't use emoji as icons.
 
