@@ -13,7 +13,6 @@ import diff from "highlight.js/lib/languages/diff";
 import xml from "highlight.js/lib/languages/xml";
 import plaintext from "highlight.js/lib/languages/plaintext";
 import DOMPurify from "dompurify";
-import "highlight.js/styles/github-dark.css";
 
 hljs.registerLanguage("javascript", javascript);
 hljs.registerLanguage("typescript", typescript);

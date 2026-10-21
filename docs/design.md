@@ -94,3 +94,76 @@ daemon ↔ relay 之间另有一组不加密的路由控制帧（`/ws/host` 连�
 - 不做云端沙箱 / 云端 IDE
 - 不做通用终端镜像的复杂键盘操作（读优先、控制精简）
 - 不做 H5 生成、文档、游戏等与遥控器无关的形态
+
+## 7. Client theme tokens (Catppuccin)
+
+`apps/client-beta` 与 landing 共用一套配色：**light = Catppuccin Latte，dark = Catppuccin Mocha**。唯一真源是 `apps/landing/app/globals.css`，客户端只改 `apps/client-beta/src/style.css` 里的 token 值，**token 名不变**，组件全部通过 `var(--…)` 取色。
+
+三处调色板（`:root`、`[data-theme="dark"]`、`@media (prefers-color-scheme: dark) { :root:not([data-theme]) }` 兜底）必须给出同一组值：前两块分别写 Latte / Mocha，兜底块与 `[data-theme="dark"]` 完全一致（没有显式 `data-theme` 时跟随系统）。
+
+### 基础 token
+
+| token | Latte (light) | Mocha (dark) |
+|---|---|---|
+| `--canvas` | `#e6e9ef` | `#11111b` |
+| `--surface` | `#eff1f5` | `#181825` |
+| `--surface-muted` | `#dce0e8` | `#1e1e2e` |
+| `--ink` | `#4c4f69` | `#cdd6f4` |
+| `--body` | `#5c5f77` | `#bac2de` |
+| `--mute` | `#5c5f77` | `#a6adc8` |
+| `--hairline` | `rgba(76,79,105,.16)` | `rgba(205,214,244,.12)` |
+| `--hairline-strong` | `rgba(76,79,105,.44)` | `rgba(205,214,244,.30)` |
+| `--accent` | `#8839ef` | `#cba6f7` |
+| `--accent-hover` | `#7287fd` | `#b4befe` |
+| `--accent-ink` | `#ffffff` | `#1e1e2e` |
+| `--success` | `#40a02b` | `#a6e3a1` |
+| `--warning` | `#df8e1d` | `#f9e2af` |
+| `--danger` | `#d20f39` | `#f38ba8` |
+| `--info` | `#1e66f5` | `#89b4fa` |
+| `--shadow` | 默认软阴影 | `none`（深色扁平，与 landing 一致） |
+
+### 状态色：填充 vs 文字
+
+Catppuccin 的状态色是给「点 / 边框 / 填充」用的；在 Latte 当**文字**用会掉到 4.5 以下（success 2.96、warning 2.31、info 4.34、cyan 3.31、danger 4.46、accent 4.45）。因此每个语义色都有一个 `*-text` 变体，`color:` 一律用变体，`background` / `border` / 圆点仍用原色：
+
+| 填充用（不变） | 文字用（light / dark） |
+|---|---|
+| `--success` | `--success-text` `#2e6b1f` / `#a6e3a1` |
+| `--warning` | `--warning-text` `#855700` / `#f9e2af` |
+| `--info` | `--info-text` `#1c56d0` / `#89b4fa` |
+| `--chat-cyan` | `--cyan-text` `#0b6b6b` / `#94e2d5` |
+| `--danger` | `--danger-text` `#b3153b` / `#f38ba8` |
+| `--accent` | `--accent-text` `#7f2fd8` / `#cba6f7` |
+
+`--accent-text` 只用于「accent 当文字/图标」的场合（链接、`//` 标记、tab 下划线文字）；按钮填充继续用 `--accent` + `--accent-ink`。`--chat-*` 系列作为文字时同样走对应的 `*-text`（`--chat-green`→`--success-text`、`--chat-yellow`→`--warning-text`、`--chat-blue`→`--info-text`、`--chat-cyan`→`--cyan-text`、`--chat-danger`→`--danger-text`），代码高亮（`.hljs*`）也在其中。
+
+实测对比度（canvas / surface）：light 全部 ≥ 5.14 / 5.53；dark 全部 ≥ 7.58。代码块底色（`--chat-elevated`）上 light 也全部 ≥ 4.72。
+
+### 代码 / 聊天面板
+
+| token | Latte | Mocha |
+|---|---|---|
+| `--code-bg` / `--chat-bg` | `#eff1f5` | `#181825` |
+| `--code-fg` / `--chat-fg` | `#4c4f69` | `#cdd6f4` |
+| `--code-mute` / `--chat-mute` | `#5c5f77` | `#a6adc8` |
+| `--chat-elevated` | `#dce0e8` | `#313244` |
+| `--chat-border` | `rgba(76,79,105,.16)` | `rgba(205,214,244,.12)` |
+| `--chat-green` / `--chat-yellow` / `--chat-blue` / `--chat-cyan` / `--chat-danger` | `#40a02b` / `#df8e1d` / `#1e66f5` / `#179299` / `#d20f39` | `#a6e3a1` / `#f9e2af` / `#89b4fa` / `#94e2d5` / `#f38ba8` |
+
+### Console / 终端面板
+
+终端面板模拟真实终端，**两套主题下都保持 Mocha 深色**（只在 `:root` 定义一次，dark 块不覆盖）：
+
+| token | 值 |
+|---|---|
+| `--console` | `#1e1e2e` |
+| `--console-elevated` | `#313244` |
+| `--on-console` | `#cdd6f4` |
+| `--on-console-mute` | `#a6adc8` |
+| `--term-green` / `--term-blue` / `--term-yellow` / `--term-orange` / `--term-cyan` | `#a6e3a1` / `#89b4fa` / `#f9e2af` / `#fab387` / `#94e2d5` |
+
+其他约定：
+
+- 浏览器地址栏色：`index.html` 的 `<meta name="theme-color">` = `#11111b`（Mocha crust）。
+- 组件级样式不得写死颜色（遮罩用的 `rgba(0,0,0,…)` 除外），需要随主题变化的一律走 token——例如 `.auth-github` 的深色态就是用 `var(--console)` / `var(--accent)` 表达的。
+- 对比度基线：`--ink` / `--body` / `--mute` 在 `--canvas` 与 `--surface` 上、以及 `--accent-ink` 在 `--accent` 上，实测均 ≥ 4.5:1（12px 小字同样适用）。
