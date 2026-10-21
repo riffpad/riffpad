@@ -122,6 +122,23 @@ daemon ↔ relay 之间另有一组不加密的路由控制帧（`/ws/host` 连�
 | `--info` | `#1e66f5` | `#89b4fa` |
 | `--shadow` | 默认软阴影 | `none`（深色扁平，与 landing 一致） |
 
+### 状态色：填充 vs 文字
+
+Catppuccin 的状态色是给「点 / 边框 / 填充」用的；在 Latte 当**文字**用会掉到 4.5 以下（success 2.96、warning 2.31、info 4.34、cyan 3.31、danger 4.46、accent 4.45）。因此每个语义色都有一个 `*-text` 变体，`color:` 一律用变体，`background` / `border` / 圆点仍用原色：
+
+| 填充用（不变） | 文字用（light / dark） |
+|---|---|
+| `--success` | `--success-text` `#2e6b1f` / `#a6e3a1` |
+| `--warning` | `--warning-text` `#8a5a00` / `#f9e2af` |
+| `--info` | `--info-text` `#1c56d0` / `#89b4fa` |
+| `--chat-cyan` | `--cyan-text` `#0b6b6b` / `#94e2d5` |
+| `--danger` | `--danger-text` `#b3153b` / `#f38ba8` |
+| `--accent` | `--accent-text` `#7f2fd8` / `#cba6f7` |
+
+`--accent-text` 只用于「accent 当文字/图标」的场合（链接、`//` 标记、tab 下划线文字）；按钮填充继续用 `--accent` + `--accent-ink`。`--chat-*` 系列作为文字时同样走对应的 `*-text`（`--chat-green`→`--success-text`、`--chat-yellow`→`--warning-text`、`--chat-blue`→`--info-text`、`--chat-cyan`→`--cyan-text`、`--chat-danger`→`--danger-text`），代码高亮（`.hljs*`）也在其中。
+
+实测对比度（canvas / surface）：light 全部 ≥ 4.87 / 5.24；dark 全部 ≥ 7.58。
+
 ### 代码 / 聊天面板
 
 | token | Latte | Mocha |
