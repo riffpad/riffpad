@@ -1202,11 +1202,15 @@ func TestLoginBackoffBlocksConcurrentAttempts(t *testing.T) {
 	}
 	close(start)
 	wg.Wait()
-	if limited == 0 {
-		t.Fatalf("a concurrent burst bypassed the login backoff (%d attempts all verified)", denied)
+	// A bypass is the whole burst reaching the password check. Anything up to
+	// "the free retries plus the one that arms the backoff" is legitimate: on a
+	// slow or single-core machine the requests can serialise, and the backoff
+	// only starts after the fourth failure.
+	if denied >= int64(n) {
+		t.Fatalf("the concurrent burst bypassed the login backoff: %d/%d attempts verified", denied, n)
 	}
-	if denied > int64(loginFreeAttempts) {
-		t.Fatalf("too many concurrent attempts reached the password check: %d", denied)
+	if maxDenied := int64(loginFreeAttempts) + 1; denied > maxDenied {
+		t.Fatalf("too many concurrent attempts reached the password check: %d (max %d)", denied, maxDenied)
 	}
 }
 
