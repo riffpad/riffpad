@@ -186,6 +186,27 @@ bracket-wrapped controls (`[button]`) anywhere. If an SVG is truly needed
 
 ## 6. Components
 
+### Section rhythm
+
+Backgrounds alternate screen by screen. Odd screens sit on `canvas` (left
+transparent, so the 40px lattice shows through); even screens are flat
+`surface-muted` full-bleed bands whose content still fits the 1200 container:
+
+| # | Block | Background |
+|---|---|---|
+| 1 | Hero copy | `canvas` |
+| 2 | Scene (TUI + phone + `InstallCommand`) | `surface-muted` band |
+| 3 | Architecture | `canvas` |
+| 4 | How it works | `surface-muted` band |
+| 5 | Security | `canvas` |
+| 6 | FAQ | `surface-muted` band |
+| 7 | CTA | `canvas` |
+| 8 | Footer | `surface` + 1px `hairline` top rule |
+
+Bands carry their own vertical breathing room (`py-16`, `py-24` from `sm`
+up) so panes never touch the band edge, and their top edge always starts
+below the fold — the hero copy keeps the first screen to itself.
+
 ### Top bar
 
 - Height 56px, `surface` background, 1px `hairline` bottom rule.

@@ -1,8 +1,6 @@
 "use client";
 
 import { useLanguage } from "./LanguageProvider";
-import { DeviceMockup } from "./DeviceMockup";
-import { InstallCommand } from "./InstallCommand";
 
 export function Hero() {
   const { t } = useLanguage();
@@ -10,7 +8,7 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="mx-auto w-full max-w-frame scroll-mt-14 px-4 pb-16 sm:px-6 sm:pb-24"
+      className="mx-auto w-full max-w-frame scroll-mt-14 px-4 pb-10 sm:px-6 sm:pb-12"
     >
       {/* The copy owns the first screen: nothing else may peek above the fold. */}
       <div className="flex min-h-[calc(100svh-3.5rem)] flex-col justify-center py-10">
@@ -40,12 +38,6 @@ export function Hero() {
           </a>
         </div>
       </div>
-
-      <div className="pt-4 sm:pt-8">
-        <DeviceMockup />
-      </div>
-
-      <InstallCommand className="mt-10 sm:mt-12" />
     </section>
   );
 }
