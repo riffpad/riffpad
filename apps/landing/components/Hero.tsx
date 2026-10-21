@@ -38,12 +38,7 @@ export function Hero() {
             {t.hero.ctaSecondary}
           </a>
         </div>
-        <div className="mt-8 flex flex-wrap items-end justify-between gap-4 sm:mt-10">
-          <InstallCommand className="max-w-[760px]" />
-          <span className="hidden pb-1 text-xs text-mute xl:block">
-            {`// v0.2.6 · self-hosted · e2e`}
-          </span>
-        </div>
+        <InstallCommand className="mt-8 sm:mt-10" />
       </div>
     </section>
   );

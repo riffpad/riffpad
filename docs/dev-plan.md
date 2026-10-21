@@ -283,3 +283,16 @@ T7 (#300) 独立
 | E | CI 守卫：daemon/client 构造的 WS URL 不得含凭据；relay 侧日志脱敏 `token=` | `[ ]` | #349 |
 
 阶段 A 的分工：IP 维度洪峰交给反代（`limit_req`），relay 只按「能追究到的身份」限速——login 按归一化 username（预占 1 个 in-flight，指数退避：3 次免费 → 1s 起翻倍，封顶 60s，不做永久锁定）、pair 按 user ID 10/min + 3000/min 全局熔断、poll/status 按 device code、pairings 按 user ID、waitlist 按 email + 全局桶。`rateLimits` / `loginGuards` 两个 map 都有上限与摊销清扫，避免随机 key 洪水把内存打爆。生产反代配置需要手工合并进现有 vhost 并 reload，CI 不管这一步。
+
+## 11. Landing 修整：安装提示词、单层网格、动效取舍（#351 / #353）
+
+用户反馈三处：首屏那条 `curl -fsSL …/SKILL.md` 读起来像安装命令、第三屏 architecture 出现「网格套网格」、`3e65c68` 一次性删掉的动效需要恢复。随后追加两条判断：安装条的标签与复制按钮合并为一个操作；渐入（scroll reveal）反而不要，其余动效保留；同时去掉 `// v0.2.6 · self-hosted · e2e`。
+
+| # | 任务 | 状态 | 验收标准 | Issue |
+|---|---|---|---|---|
+| L1 | 安装条改为 prompt 语义 | `[x]` | 文案 `help me set up riffpad: curl -fsSL https://riffpad.ai/SKILL.md`，去掉 `❯`；只保留一个可点单元格 `COPY PROMPT` / `复制提示词`（点击 `COPIED ✓` / `已复制 ✓`），复制整条 prompt；360px 下 prompt 两行不裁切（`scrollWidth == clientWidth`），1440px 单行且首屏安全 | #351 |
+| L2 | architecture 单层网格 | `[x]` | 面板加不透明 `bg-surface` 遮住页面 40px lattice，框内只有 24px `.arch-grid`；浅/深两主题均只一层，无边框接缝 | #351 |
+| L3 | 动效按需恢复 | `[x]` | 恢复虚线流动、数据包运行、节点脉冲、Security 密文跑马灯、按钮 `transition-colors`；不恢复 scroll reveal（首屏即终态，无元素停在 `opacity: 0`）；`prefers-reduced-motion` 下数据包隐藏、其余冻结 | #351 |
+| L4 | 首屏尾部版本号 | `[x]` | 删除 `// v0.2.6 · self-hosted · e2e` 整行及其 `justify-between` 行，安装条保持自身宽度，首屏不被顶出 | #351 |
+
+**备注**：`ScrollReveal` 组件恢复后又按 L3 删除，`HowItWorks` / `FAQ` / `CTA` / `Footer` 与 `3bdd9bc` 零差异；`apps/landing/DESIGN.md` 的 §7 Motion 与 hero 段已同步。PR #352 因 force-push 后 GitHub 未触发 `synchronize` 被关闭，合入件为 PR #353。README / docs quickstart 里同样的「bash 代码块伪装成提示词」也已在同一 PR 修正。

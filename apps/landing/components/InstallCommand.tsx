@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-const COMMAND = "curl -fsSL https://riffpad.ai/SKILL.md";
+// This is a prompt you paste into your own agent, not a shell command.
+const PROMPT = "help me set up riffpad: curl -fsSL https://riffpad.ai/SKILL.md";
 
 export function InstallCommand({ className = "" }: { className?: string }) {
   const { t } = useLanguage();
@@ -11,7 +12,7 @@ export function InstallCommand({ className = "" }: { className?: string }) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(COMMAND);
+      await navigator.clipboard.writeText(PROMPT);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -19,26 +20,22 @@ export function InstallCommand({ className = "" }: { className?: string }) {
     }
   };
 
-  // One full-width command line, on the same Mocha surface as the TUI panes.
+  // Prompt + one copy cell, on the same Mocha surface as the TUI panes. On
+  // phones the copy cell owns the top row so the prompt gets the full width
+  // on the row below and never clips; from `sm` up it is a single row.
   return (
     <div className={`w-full max-w-[760px] ${className}`}>
-      <div className="flex items-stretch border border-tui-hairline bg-tui-bg text-tui-fg">
-        <span
-          className="flex flex-none items-center px-3 text-tui-mauve"
-          aria-hidden="true"
-        >
-          ❯
-        </span>
-        <code className="flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap bg-tui-bg py-4 text-[10px] sm:text-[13px]">
-          {COMMAND}
-        </code>
+      <div className="flex flex-wrap items-stretch border border-tui-hairline bg-tui-bg text-tui-fg">
         <button
           type="button"
           onClick={copy}
-          className="flex w-[88px] flex-none cursor-pointer items-center justify-center border-l border-tui-divider text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:text-[11px]"
+          className="order-1 flex w-full flex-none cursor-pointer items-center justify-center whitespace-nowrap border-b border-tui-divider py-2 text-[10px] font-bold uppercase tracking-wide text-tui-mute hover:text-tui-mauve sm:order-2 sm:w-[96px] sm:border-b-0 sm:border-l sm:py-0 sm:text-[11px]"
         >
           {copied ? t.install.copied : t.install.copy}
         </button>
+        <code className="order-2 min-w-0 basis-full break-words px-3 pb-3 pt-1 text-[11px] leading-[1.7] sm:order-1 sm:flex-1 sm:basis-0 sm:py-4 sm:text-[13px] sm:leading-normal">
+          {PROMPT}
+        </code>
       </div>
     </div>
   );
