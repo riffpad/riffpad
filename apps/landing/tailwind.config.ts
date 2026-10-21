@@ -30,8 +30,9 @@ const config: Config = {
         "on-console": "var(--on-console)",
         "on-console-mute": "var(--on-console-mute)",
         // Hero TUI pane — a real nvim session, always Catppuccin Mocha in
-        // both page themes, so these are fixed values, not theme vars.
-        "tui-bg": "#1e1e2e",
+        // both page themes. `tui-bg` is the only themed one: on the dark
+        // canvas it drops to mantle so the panes lift off the band.
+        "tui-bg": "var(--tui-bg)",
         "tui-border": "#45475a",
         "tui-surface": "#313244",
         "tui-fg": "#cdd6f4",
@@ -40,7 +41,6 @@ const config: Config = {
         "tui-green": "#a6e3a1",
         "tui-blue": "#89b4fa",
         "tui-red": "#f38ba8",
-        "device-frame": "var(--device-frame)",
       },
       fontFamily: {
         mono: [
@@ -67,7 +67,6 @@ const config: Config = {
       },
       boxShadow: {
         card: "var(--shadow-card)",
-        device: "0 24px 60px -20px rgba(0,0,0,0.45)",
       },
       maxWidth: {
         content: "960px",

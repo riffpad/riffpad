@@ -35,8 +35,9 @@
   --on-console: #4c4f69;
   --on-console-mute: #5c5f77; /* subtext1 */
 
-  /* Device frame — same in both themes. */
-  --device-frame: #181825;
+  /* Hero TUI panes (nvim + phone screen). Light stays Mocha base; the dark
+     theme goes one step down to mantle so panes sit above the muted band. */
+  --tui-bg: #1e1e2e;
 
   /* Elevation: one soft card shadow in light, flat panes in dark. */
   --shadow-card: 0 1px 2px rgba(76, 79, 105, 0.06),
@@ -68,6 +69,8 @@
   --console-elevated: #313244; /* surface0 */
   --on-console: #cdd6f4;
   --on-console-mute: #9399b2; /* overlay2 */
+
+  --tui-bg: #181825;
 
   /* TUI panes are flat: hairline borders, no drop shadows. */
   --shadow-card: 0 0 0 0 transparent;

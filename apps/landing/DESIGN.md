@@ -103,12 +103,14 @@ Rules:
 
 The hero scene is a screenshot of a real session, so it keeps one palette:
 **Catppuccin Mocha in both page themes**. The TUI pane and the phone next to
-it share the same fixed ramp; only the phone bezel and the page chrome follow
-the theme.
+it share the same fixed ramp; only `tui-bg` follows the theme, because the
+dark page needs a three-step stack — page `crust` (`#11111B`) < panes
+`mantle` (`#181825`) < muted band `base` (`#1E1E2E`) — so the panes lift off
+the band instead of dissolving into it. Light keeps `base` and is unchanged.
 
 | Token | Hex | Usage |
 |---|---|---|
-| `tui-bg` | `#1E1E2E` | TUI body and phone screen (base) |
+| `tui-bg` | `#1E1E2E` light / `#181825` dark | TUI body and phone screen (base on Latte pages, mantle on Mocha pages) |
 | `tui-border` | `#45475A` | Pane outline — the edge that separates Mocha panes from the dark page (surface1) |
 | `tui-surface` | `#313244` | Statusline, selected option, hairline rules (surface0) |
 | `tui-fg` | `#CDD6F4` | TUI text (text) |
@@ -117,10 +119,6 @@ the theme.
 | `tui-green` | `#A6E3A1` | `●` tool rows, `✓` approved (green) |
 | `tui-blue` | `#89B4FA` | Approval panel border, `❯` selected option (blue) |
 | `tui-red` | `#F38BA8` | `✗` rejected (red) |
-
-| Token | Hex | Usage |
-|---|---|---|
-| `--device-frame` | `#181825` | Phone bezel (same in both themes) |
 
 ## 3. Typography
 
@@ -250,7 +248,8 @@ below the fold — the hero copy keeps the first screen to itself.
 - Statusline (single row, `tui-surface`): `NORMAL` mode block (mauve fill,
   `tui-bg` text), the file path, then right-aligned `claude · utf-8 · 37%`.
 - The phone is the same Mocha ramp and the same flat geometry: 12px radius
-  at most, 1px `tui-border`, **no shadow in either theme**. It stretches to
+  at most, 1px `tui-border`, **no shadow in either theme** (no bezel either —
+  the phone is a pane, not a device impression). It stretches to
   the pane's height so both bottom edges line up.
 - Phone content: session bar with `● synced`, the metadata chips, six
   finished tool rows (enough to fill the pane's height — never a blank band
