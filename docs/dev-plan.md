@@ -1,6 +1,6 @@
 # Riffpad 开发计划（Dev Plan）
 
-> 最后更新：2026-08-31（技术债批次 #294–#300 入表，T1 进行中）
+> 最后更新：2026-10-21（#349 阶段 A 安全加固入表）
 > 关联文档：[PRD](prd.md)（产品需求）、[TSD](tsd.md)（技术规格）、[无 tmux 注入调研](agent-injection-research.md)
 > 用途：追踪 M0 → M3 的开发进度；每个里程碑完成时更新状态。
 
@@ -268,7 +268,23 @@ T7 (#300) 独立
 
 **回归网现状**：`scripts/e2e-core-smoke.mjs`（二进制级链路，13 检查）+ `test:e2e:core`（真浏览器走完 login→pair→run→审批）+ relay 套件同时跑 SQLite 与 **Postgres**（`RIFFPAD_TEST_DATABASE_URL`）。覆盖率：relay 74.9% / daemon 65.3% / commands 48.9% / codex 40.2% / claude 39.0% / kimi 15.4%。
 
-## 10. Landing 修整：安装提示词、单层网格、动效取舍（#351 / #353）
+---
+
+## 10. 安全加固：WebSocket 凭据与限速（#349）
+
+问题：`/ws/host`（hostSecret，永不过期）和 `/ws`（relay token，30 天）把长寿命凭据放在 URL query 里，而生产反代默认把请求行写进 access log；同时 relay 的 `clientIP()` 无条件信任 `X-Forwarded-For` 最左值，所有按 IP 的限速都能靠伪造头绕过。
+
+| 阶段 | 内容 | 状态 | Issue |
+|---|---|---|---|
+| A | `/ws` 关访问日志（nginx + Caddy）；nginx `limit_req_zone`（`$binary_remote_addr`）；relay 限速改为按身份分桶，删掉 `clientIP()`；login 预占 + 指数退避；README 生产应用步骤 | `[x]` #350 | #349 |
+| B | daemon 用 `Authorization: Bearer` 认证 `/ws/host`，query 兜底一段时间后删除 | `[ ]` | #349 |
+| C | 浏览器改用一次性 60s `/api/ws-ticket`，日志里的 ticket 无价值 | `[ ]` | #349 |
+| D | hostSecret 轮换 + 30 天 token 缩短 / refresh | `[ ]` | #349 |
+| E | CI 守卫：daemon/client 构造的 WS URL 不得含凭据；relay 侧日志脱敏 `token=` | `[ ]` | #349 |
+
+阶段 A 的分工：IP 维度洪峰交给反代（`limit_req`），relay 只按「能追究到的身份」限速——login 按归一化 username（预占 1 个 in-flight，指数退避：3 次免费 → 1s 起翻倍，封顶 60s，不做永久锁定）、pair 按 user ID 10/min + 3000/min 全局熔断、poll/status 按 device code、pairings 按 user ID、waitlist 按 email + 全局桶。`rateLimits` / `loginGuards` 两个 map 都有上限与摊销清扫，避免随机 key 洪水把内存打爆。生产反代配置需要手工合并进现有 vhost 并 reload，CI 不管这一步。
+
+## 11. Landing 修整：安装提示词、单层网格、动效取舍（#351 / #353）
 
 用户反馈三处：首屏那条 `curl -fsSL …/SKILL.md` 读起来像安装命令、第三屏 architecture 出现「网格套网格」、`3e65c68` 一次性删掉的动效需要恢复。随后追加两条判断：安装条的标签与复制按钮合并为一个操作；渐入（scroll reveal）反而不要，其余动效保留；同时去掉 `// v0.2.6 · self-hosted · e2e`。
 

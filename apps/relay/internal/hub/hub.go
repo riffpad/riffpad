@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 const version = "0.2.0"
@@ -21,7 +22,10 @@ type Hub struct {
 	sessions           map[string]SessionMeta
 	sessionHosts       map[string]string
 	viewers            map[string]*viewerConn
-	rateLimits         map[string]ipCounter
+	rateLimits         map[string]rateCounter
+	lastRateSweep      time.Time
+	loginGuards        map[string]*loginGuard
+	lastLoginSweep     time.Time
 	oauthStates        map[string]oauthState
 	deviceLogins       map[string]*deviceLogin
 	githubID           string
@@ -50,7 +54,8 @@ func New(logger *log.Logger, dataDir, databaseURL string) (*Hub, error) {
 		sessions:     map[string]SessionMeta{},
 		sessionHosts: map[string]string{},
 		viewers:      map[string]*viewerConn{},
-		rateLimits:   map[string]ipCounter{},
+		rateLimits:   map[string]rateCounter{},
+		loginGuards:  map[string]*loginGuard{},
 		oauthStates:  map[string]oauthState{},
 		deviceLogins: map[string]*deviceLogin{},
 		githubID:     os.Getenv("GITHUB_CLIENT_ID"),

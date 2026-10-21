@@ -1,8 +1,23 @@
 # 示例：VPS + Caddy 自动 HTTPS
 # 把 relay.example.com 换成你的域名，然后：
 #   caddy adapt --config Caddyfile   # 校验
-#   systemctl restart caddy
+#   systemctl reload caddy
+#
+# 两条与安全相关的说明（见 #349）：
+#   1. /ws 的 URL query 里带着长寿命凭据（daemon 的 hostSecret 永不过期、
+#      浏览器的 30 天 token），这一条请求行绝不能进访问日志，否则凭据会落进
+#      access log、logrotate 归档和日志备份里。下面的 log_skip 只跳过 /ws*，
+#      其它路径照常记录。
+#   2. Caddy 没有内建 rate limit。relay 进程内已按 username / email /
+#      device code / 用户 ID + 全局桶限速，但「按来源 IP」的限制只存在于 nginx
+#      配置（nginx-api-riffpad-ai.conf 的 limit_req_zone）。用 Caddy 自托管时，
+#      要么在前面套一层限速（Cloudflare / Fly.io 的 WAF），要么装
+#      caddy-ratelimit 插件（github.com/mholt/caddy-ratelimit）给 /api/* 加 limit。
 relay.example.com {
 	encode gzip
+
+	log
+	log_skip /ws*
+
 	reverse_proxy 127.0.0.1:9090
 }
